@@ -17,7 +17,7 @@ class SelfIssueSecuritiesFlow(val amount: Amount<Security>) : FlowLogic<Security
             val me = serviceHub.myInfo.legalIdentity
 
             val secIssueTxn = subFlow(SecuritiesIssueFlow(amount, issueRef, me, notary))
-
+            println(secIssueTxn.tx.outputs.single().data.toString())
             return secIssueTxn.tx.outputs.single().data as SecurityClaim.State
 
         }

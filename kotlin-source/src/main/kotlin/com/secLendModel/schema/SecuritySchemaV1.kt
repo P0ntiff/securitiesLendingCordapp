@@ -1,4 +1,4 @@
-package com.secLendModel
+package com.secLendModel.schema
 
 import net.corda.core.schemas.MappedSchema
 import net.corda.core.schemas.PersistentState
@@ -7,12 +7,12 @@ import javax.persistence.Entity
 import javax.persistence.Table
 
 /**
- * An object used to fully qualify the [CashSchema] family name (i.e. independent of version).
+ * An object used to fully qualify the [SecuritySchema] family name (i.e. independent of version).
  */
 object SecuritySchema
 
 /**
- * First version of a cash contract ORM schema that maps all fields of the [Cash] contract state as it stood
+ * First version of a cash contract ORM schema that maps all fields of the [SecurityClaim] contract state as it stood
  * at the time of writing.
  */
 object SecuritySchemaV1 : MappedSchema(schemaFamily = SecuritySchema.javaClass, version = 1, mappedTypes = listOf(PersistentSecurityState::class.java)) {

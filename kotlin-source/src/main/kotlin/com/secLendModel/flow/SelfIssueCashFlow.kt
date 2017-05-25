@@ -16,7 +16,7 @@ class SelfIssueCashFlow(val amount: Amount<Currency>) : FlowLogic<Cash.State>() 
         val me = serviceHub.myInfo.legalIdentity
 
         val cashIssueTxn = subFlow(CashIssueFlow(amount, issueRef, me, notary))
-
+        println(cashIssueTxn.tx.outputs.single().data.toString())
         return cashIssueTxn.tx.outputs.single().data as Cash.State
 
     }

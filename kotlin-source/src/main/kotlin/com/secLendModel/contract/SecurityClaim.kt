@@ -1,6 +1,6 @@
 package com.secLendModel.contract
 
-import com.secLendModel.SecuritySchemaV1
+import com.secLendModel.schema.SecuritySchemaV1
 import net.corda.contracts.asset.OnLedgerAsset
 import net.corda.contracts.clause.AbstractConserveAmount
 import net.corda.contracts.clause.AbstractIssue
