@@ -11,7 +11,8 @@ data class Security(val code: String,
         private val registry = mapOf(
                 Pair("RIO", Security("RIO", "Rio Tinto Ltd")),
                 Pair("GBT", Security("GBT", "GBST Holdings Ltd")),
-                Pair("CBA", Security("CBA", "Commonwealth Bank of Australia"))
+                Pair("CBA", Security("CBA", "Commonwealth Bank of Australia")),
+                Pair("BP", Security("BP", "British Petroleum"))
         )
 
         fun getInstance(code: String) : Security?

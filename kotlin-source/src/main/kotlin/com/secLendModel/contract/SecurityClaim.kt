@@ -86,7 +86,7 @@ class SecurityClaim : OnLedgerAsset<Security, SecurityClaim.Commands, SecurityCl
         override fun move(newAmount: Amount<Issued<Security>>, newOwner: PublicKey): FungibleAsset<Security>
                 = copy(amount = amount.copy(newAmount.quantity), owner = newOwner)
 
-        override fun toString() = "${amount.quantity} shares in ${amount.token.product.code} owned by $owner)"
+        override fun toString() = "${amount.quantity} shares in ${amount.token.product.code} issued by ${amount.token.issuer})"
 
         override fun withNewOwner(newOwner: PublicKey) = Pair(Commands.Move(), copy(owner = newOwner))
 
