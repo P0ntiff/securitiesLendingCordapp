@@ -1,7 +1,7 @@
 package com.secLendModel.client
 
 import com.google.common.net.HostAndPort
-import com.secLendModel.state.Security
+import com.secLendModel.contract.Security
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.utilities.loggerFor
 import net.corda.client.rpc.CordaRPCClient
@@ -27,8 +27,7 @@ private class ClientRPC {
         val client = CordaRPCClient(nodeAddress)
 
         // Can be amended in the com.secLendModel.MainKt file.
-        client.start("user1", "test")
-        val proxy = client.proxy()
+        val proxy = client.start("user1", "test").proxy
 
         // Grab all signed transactions and all future signed transactions.
         val (transactions: List<SignedTransaction>, futureTransactions: Observable<SignedTransaction>) =

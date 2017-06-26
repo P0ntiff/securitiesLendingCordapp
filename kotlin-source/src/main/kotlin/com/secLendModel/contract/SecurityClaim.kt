@@ -19,32 +19,27 @@ import net.corda.core.transactions.TransactionBuilder
 import java.math.BigInteger
 import java.security.PublicKey
 import java.util.*
-import com.secLendModel.state.Security
+import net.corda.core.identity.AbstractParty
+import net.corda.core.identity.Party
+import org.bouncycastle.asn1.x500.X500Name
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
 // SecurityClaim
 //
 
-// Just a fake program identifier for now. In a real system it could be, for instance, the hash of the program bytecode.
+// Just a fake program identifier for now
 val SECURITY_PROGRAM_ID = SecurityClaim()
 
 /**
- * A SecurityClaim transaction may split and merge money represented by a set of (issuer, depositRef) pairs, across multiple
+ * A SecurityClaim transaction may split and merge stock represented by a set of (issuer, depositRef) pairs, across multiple
  * input and output states. Imagine a Bitcoin transaction but in which all UTXOs had a colour
  * (a blend of issuer+depositRef) and you couldn't merge outputs of two colours together, but you COULD put them in
  * the same transaction.
- *
- * The goal of this design is to ensure that money can be withdrawn from the ledger easily: if you receive some money
- * via this contract, you always know where to go in order to extract it from the R3 ledger, no matter how many hands
- * it has passed through in the intervening time.
- *
- * At the same time, other contracts that just want money and don't care much who is currently holding it in their
- * vaults can ignore the issuer/depositRefs and just examine the amount fields.
  */
-class SecurityClaim : OnLedgerAsset<Security, SecurityClaim.Commands, SecurityClaim.State>() {
 
-    override val legalContractReference: SecureHash = SecureHash.sha256("https://www.big-book-of-banking-law.gov/SecurityClaim-claims.html")
+class SecurityClaim : OnLedgerAsset<Security, SecurityClaim.Commands, SecurityClaim.State>() {
+    override val legalContractReference: SecureHash = SecureHash.sha256("https://www.big-book-of-banking-law.gov/SecurityClaim.html")
     override fun extractCommands(commands: Collection<AuthenticatedObject<CommandData>>): List<AuthenticatedObject<SecurityClaim.Commands>>
             = commands.select<SecurityClaim.Commands>()
 
@@ -71,30 +66,30 @@ class SecurityClaim : OnLedgerAsset<Security, SecurityClaim.Commands, SecurityCl
         class ConserveAmount : AbstractConserveAmount<State, Commands, Security>()
     }
 
-    /** A state representing a Security claim against some party */
+    /** A state representing a security claim against some party */
     data class State(
             override val amount: Amount<Issued<Security>>,
-            override val owner: PublicKey
+            override val owner: AbstractParty
     ) : FungibleAsset<Security>, QueryableState {
-        constructor(deposit: PartyAndReference, amount: Amount<Security>, owner: PublicKey)
+        constructor(deposit: PartyAndReference, amount: Amount<Security>, owner: AbstractParty)
                 : this(Amount(amount.quantity, Issued(deposit, amount.token)), owner)
 
-        override val exitKeys = setOf(owner, amount.token.issuer.party.owningKey)
+        override val exitKeys = setOf(owner.owningKey, amount.token.issuer.party.owningKey)
         override val contract = SECURITY_PROGRAM_ID
         override val participants = listOf(owner)
 
-        override fun move(newAmount: Amount<Issued<Security>>, newOwner: PublicKey): FungibleAsset<Security>
+        override fun move(newAmount: Amount<Issued<Security>>, newOwner: AbstractParty): FungibleAsset<Security>
                 = copy(amount = amount.copy(newAmount.quantity), owner = newOwner)
 
         override fun toString() = "${amount.quantity} shares in ${amount.token.product.code} issued by ${amount.token.issuer})"
 
-        override fun withNewOwner(newOwner: PublicKey) = Pair(Commands.Move(), copy(owner = newOwner))
+        override fun withNewOwner(newOwner: AbstractParty) = Pair(Commands.Move(), copy(owner = newOwner))
 
         /** Object Relational Mapping support. */
         override fun generateMappedObject(schema: MappedSchema): PersistentState {
             return when (schema) {
                 is SecuritySchemaV1 -> SecuritySchemaV1.PersistentSecurityState(
-                        owner = this.owner.toBase58String(),
+                        owner = this.owner.owningKey.toBase58String(),
                         companyName = this.amount.token.product.displayName,
                         code = this.amount.token.product.code,
                         issuerParty = this.amount.token.issuer.party.owningKey.toBase58String(),
@@ -135,16 +130,16 @@ class SecurityClaim : OnLedgerAsset<Security, SecurityClaim.Commands, SecurityCl
     /**
      * Puts together an issuance transaction from the given template, that starts out being owned by the given pubkey.
      */
-    fun generateIssue(tx: TransactionBuilder, tokenDef: Issued<Security>, pennies: Long, owner: PublicKey, notary: Party)
+    fun generateIssue(tx: TransactionBuilder, tokenDef: Issued<Security>, pennies: Long, owner: AbstractParty, notary: Party)
             = generateIssue(tx, Amount(pennies, tokenDef), owner, notary)
 
     /**
      * Puts together an issuance transaction for the specified amount that starts out being owned by the given pubkey.
      */
-    fun generateIssue(tx: TransactionBuilder, amount: Amount<Issued<Security>>, owner: PublicKey, notary: Party)
+    fun generateIssue(tx: TransactionBuilder, amount: Amount<Issued<Security>>, owner: AbstractParty, notary: Party)
             = generateIssue(tx, TransactionState(State(amount, owner), notary), generateIssueCommand())
 
-    override fun deriveState(txState: TransactionState<State>, amount: Amount<Issued<Security>>, owner: PublicKey)
+    override fun deriveState(txState: TransactionState<State>, amount: Amount<Issued<Security>>, owner: AbstractParty)
             = txState.copy(data = txState.data.copy(amount = amount, owner = owner))
 
     override fun generateExitCommand(amount: Amount<Issued<Security>>) = Commands.Exit(amount)
@@ -178,12 +173,12 @@ fun Iterable<ContractState>.sumSecurityClaimOrZero(Security: Issued<Security>): 
     return filterIsInstance<SecurityClaim.State>().map { it.amount }.sumOrZero(Security)
 }
 
-fun SecurityClaim.State.ownedBy(owner: PublicKey) = copy(owner = owner)
-fun SecurityClaim.State.issuedBy(party: AbstractParty) = copy(amount = Amount(amount.quantity, amount.token.copy(issuer = amount.token.issuer.copy(party = party.toAnonymous()))))
+fun SecurityClaim.State.ownedBy(owner: AbstractParty) = copy(owner = owner)
+fun SecurityClaim.State.issuedBy(party: AbstractParty) = copy(amount = Amount(amount.quantity, amount.token.copy(issuer = amount.token.issuer.copy(party = party))))
 fun SecurityClaim.State.issuedBy(deposit: PartyAndReference) = copy(amount = Amount(amount.quantity, amount.token.copy(issuer = deposit)))
 fun SecurityClaim.State.withDeposit(deposit: PartyAndReference): SecurityClaim.State = copy(amount = amount.copy(token = amount.token.copy(issuer = deposit)))
 
-infix fun SecurityClaim.State.`owned by`(owner: PublicKey) = ownedBy(owner)
+infix fun SecurityClaim.State.`owned by`(owner: AbstractParty) = ownedBy(owner)
 infix fun SecurityClaim.State.`issued by`(party: AbstractParty) = issuedBy(party)
 infix fun SecurityClaim.State.`issued by`(deposit: PartyAndReference) = issuedBy(deposit)
 infix fun SecurityClaim.State.`with deposit`(deposit: PartyAndReference): SecurityClaim.State = withDeposit(deposit)
@@ -193,8 +188,8 @@ infix fun SecurityClaim.State.`with deposit`(deposit: PartyAndReference): Securi
 /** A randomly generated key. */
 val DUMMY_SECURITYCLAIM_ISSUER_KEY by lazy { entropyToKeyPair(BigInteger.valueOf(10)) }
 /** A dummy, randomly generated issuer party by the name of "Snake Oil Issuer" */
-val DUMMY_SECURITYCLAIM_ISSUER by lazy { Party("CN=Snake Oil Issuer,O=R3,OU=corda,L=London,C=UK", DUMMY_SECURITYCLAIM_ISSUER_KEY.public).ref(1) }
-///** An extension property that lets you write 100.DOLLARS.SecurityClaim */
+val DUMMY_SECURITYCLAIM_ISSUER by lazy { Party(X500Name("CN=Snake Oil Issuer,O=R3,OU=corda,L=London,C=UK"), DUMMY_SECURITYCLAIM_ISSUER_KEY.public).ref(1) }
+///** An extension property that lets you write 100.SHARES.SecurityClaim */
 //val Amount<Security>.SecurityClaim: SecurityClaim.State get() = SecurityClaim.State(Amount(quantity, Issued(DUMMY_SECURITYCLAIM_ISSUER, token)), NullPublicKey)
 ///** An extension property that lets you get a SecurityClaim state from an issued token, under the [NullPublicKey] */
 //val Amount<Issued<Security>>.STATE: SecurityClaim.State get() = SecurityClaim.State(this, NullPublicKey)

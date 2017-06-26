@@ -1,8 +1,12 @@
-package com.secLendModel.state
+package com.secLendModel.contract
 
+import net.corda.core.flows.FlowException
 import net.corda.core.serialization.CordaSerializable
 
 @CordaSerializable
+
+
+//Simple class for storing the name of a stock/equity (treated as a fungible asset)
 data class Security(val code: String,
                     val displayName: String,
                     val defaultFractionDigits: Int = 0) {
@@ -19,4 +23,7 @@ data class Security(val code: String,
             = registry[code]
     }
 }
+
+
+class SecurityException(message: String, cause: Throwable) : FlowException(message, cause)
 

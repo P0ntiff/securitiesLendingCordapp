@@ -2,13 +2,16 @@ package com.secLendModel.flow
 
 import co.paralleluniverse.fibers.Suspendable
 import com.secLendModel.contract.SecurityClaim
-import com.secLendModel.state.Security
+import com.secLendModel.contract.Security
 import net.corda.core.contracts.Amount
 import net.corda.core.flows.FlowLogic
+import net.corda.core.flows.InitiatingFlow
+import net.corda.core.flows.StartableByRPC
 import net.corda.core.serialization.CordaSerializable
 import net.corda.core.serialization.OpaqueBytes
 
-@CordaSerializable
+@StartableByRPC
+@InitiatingFlow
 class SelfIssueSecuritiesFlow(val amount: Amount<Security>) : FlowLogic<SecurityClaim.State>() {
         @Suspendable
         override fun call(): SecurityClaim.State {
