@@ -16,6 +16,7 @@ import net.corda.contracts.asset.OnLedgerAsset
 import net.corda.core.contracts.*
 import net.corda.core.identity.AbstractParty
 import net.corda.core.node.services.Vault
+import net.corda.core.node.services.unconsumedStates
 import net.corda.flows.NotaryException
 import java.util.*
 
@@ -40,17 +41,7 @@ open class OwnershipTransferFlow(val amount : Amount<Security>, val newOwner: Pa
         progressTracker.currentStep = PREPARING
         val tx : TransactionBuilder = TransactionType.General.Builder(null as Party?)
         //Gather states from vault
-        /**Old Method
-        * val (vault, vaultUpdates) = serviceHub.vaultService.track()
-        * val states = vault.states.filterStatesOfType<SecurityClaim.State>().toList()
-        */
-        val states = serviceHub.vaultService.states(setOf(SecurityClaim.State::class.java), EnumSet.of(Vault.StateStatus.UNCONSUMED)).toMutableList()
-        val desiredStates : ArrayList<StateAndRef<SecurityClaim.State>> = arrayListOf()
-        for (state in states) {
-            if (state.state.data.amount.token.product.code == amount.token.code) {
-                desiredStates.add(state)
-            }
-        }
+        val desiredStates = getStates()
         val (spendTX, keysForSigning) = try {
             OnLedgerAsset.generateSpend(
                     tx,
@@ -73,6 +64,21 @@ open class OwnershipTransferFlow(val amount : Amount<Security>, val newOwner: Pa
         }
 
         return stx
+    }
+
+    private fun getStates(): List<StateAndRef<SecurityClaim.State>> {
+        /**Old Method
+         * val (vault, vaultUpdates) = serviceHub.vaultService.track()
+         * val states = vault.states.filterStatesOfType<SecurityClaim.State>().toList()
+         */
+        val states = serviceHub.vaultService.unconsumedStates<SecurityClaim.State>()
+        val desiredStates : ArrayList<StateAndRef<SecurityClaim.State>> = arrayListOf()
+        for (state in states) {
+            if (state.state.data.amount.token.product.code == amount.token.code) {
+                desiredStates.add(state)
+            }
+        }
+        return desiredStates
     }
 
     @Suspendable
