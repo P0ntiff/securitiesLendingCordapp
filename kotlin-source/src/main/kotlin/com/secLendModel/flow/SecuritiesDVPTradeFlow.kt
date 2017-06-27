@@ -38,7 +38,7 @@ object SecuritiesDVPTradeFlow {
     data class TradeInfo(
             val code: String,
             val stockPrice: Amount<Currency>,
-            val quantity: Int,
+            val quantity: Long,
             val sellerKey: PublicKey
     )
 
@@ -52,8 +52,10 @@ object SecuritiesDVPTradeFlow {
     class Seller(val otherParty: Party,
                  val code: String,
                  val stockPrice: Amount<Currency>,
-                 val quantityToSell: Int,
+                 val quantityToSell: Long,
                  override val progressTracker: ProgressTracker = Seller.tracker()) : FlowLogic<SignedTransaction>() {
+        constructor(otherParty: Party, code: String, stockPrice: Amount<Currency>, quantityToSell: Long) :
+                this(otherParty, code, stockPrice, quantityToSell, tracker())
 
         companion object {
             object PREPARING : ProgressTracker.Step("Gathering equity states")
