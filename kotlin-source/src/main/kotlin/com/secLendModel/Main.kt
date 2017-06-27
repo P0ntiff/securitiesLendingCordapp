@@ -48,10 +48,16 @@ val BARRY = X500Name("CN=Bob Plc,O=Bob Plc,L=Rome,C=IT")
 val MARKET = setOf(ServiceInfo(ServiceType.corda.getSubType("issuer.RIO")),
         ServiceInfo(ServiceType.corda.getSubType("issuer.GBT")),
         ServiceInfo(ServiceType.corda.getSubType("issuer.CBA")))
+val CODES = arrayListOf("GBT", "CBA", "RIO", "BP")
+val STOCKS = arrayListOf("GBST Holdings Ltd", "Commonwealth Bank of Australia", "Rio Tinto Ltd", "British Petroleum")
+
 //Currencies to be on issue by central bank
 val CURRENCIES = setOf(ServiceInfo(ServiceType.corda.getSubType("issuer.GBP")),
         ServiceInfo(ServiceType.corda.getSubType("issuer.USD")),
         ServiceInfo(ServiceType.corda.getSubType("cash")))
+//Current currency in use
+val CURRENCY = GBP
+
 
 fun main(args: Array<String>) {
     val portAllocation = PortAllocation.Incremental(20000)
@@ -111,7 +117,11 @@ fun main(args: Array<String>) {
 
         moveCash(aRPC, bRPC)
         moveEquity(aRPC, bRPC)
-        
+        moveEquity(bRPC, aRPC)
+        moveEquity(aRPC, bRPC)
+        moveEquity(bRPC, aRPC)
+
+
         println("Txns passed")
         //NEW Can now change startFlow() to startTrackedFlow() to get progress tracking
 
@@ -121,11 +131,10 @@ fun main(args: Array<String>) {
 
 fun issueCash(centralBankRPC : CordaRPCOps, recipientRPC : CordaRPCOps, notaryNode : Party) : Boolean {
     val rand = Random()
-    val currency = GBP
     val figure = rand.nextInt(150 + 1 - 50) + 50
-    val amount = Amount((figure * 1000).toLong(), currency)
+    val amount = Amount((figure * 1000).toLong(), CURRENCY)
 
-    val tx = centralBankRPC.startFlow(::CashIssueFlow, amount, OpaqueBytes.of(1), recipientRPC.nodeIdentity().legalIdentity, notaryNode)
+    centralBankRPC.startFlow(::CashIssueFlow, amount, OpaqueBytes.of(1), recipientRPC.nodeIdentity().legalIdentity, notaryNode)
 
     println("Cash (${amount}) issued to ${recipientRPC.nodeIdentity().legalIdentity}")
 
@@ -134,54 +143,38 @@ fun issueCash(centralBankRPC : CordaRPCOps, recipientRPC : CordaRPCOps, notaryNo
 
 fun issueEquity(exchange : CordaRPCOps, recipientRPC : CordaRPCOps, notaryNode : Party) : Boolean {
     val rand = Random()
-    val codes = arrayListOf("GBT", "CBA", "RIO", "BP")
-    val stocks = arrayListOf("GBST Holdings Ltd", "Commonwealth Bank of Australia", "Rio Tinto Ltd", "British Petroleum")
-
-    for (code in codes) {
+    for (code in CODES) {
         val figure = rand.nextInt(150 + 1 - 50) + 50
-        val amount = Amount((figure * 100).toLong(), Security(code, stocks[codes.indexOf(code)]))
+        val amount = Amount((figure * 100).toLong(), Security(code, STOCKS[CODES.indexOf(code)]))
 
-        val tx = exchange.startTrackedFlow(::SecuritiesIssueFlow, amount, OpaqueBytes.of(1), recipientRPC.nodeIdentity().legalIdentity, notaryNode).returnValue.getOrThrow()
-        println("${amount.quantity} shares in ${code} (${stocks[codes.indexOf(code)]}) issued to ${recipientRPC.nodeIdentity().legalIdentity}")
+        exchange.startTrackedFlow(::SecuritiesIssueFlow, amount, OpaqueBytes.of(1), recipientRPC.nodeIdentity().legalIdentity, notaryNode).returnValue.getOrThrow()
+        println("${amount.quantity} shares in ${code} (${STOCKS[CODES.indexOf(code)]}) issued to ${recipientRPC.nodeIdentity().legalIdentity}")
     }
 
     return true
 }
 
 fun moveCash(sender : CordaRPCOps, recipient : CordaRPCOps) : Boolean {
-    val currency = GBP
     val rand = Random()
     val figure = rand.nextInt(150 + 1 - 50) + 50
-    val txn = sender.startFlow(::CashPaymentFlow, Amount(figure.toLong(), currency), recipient.nodeIdentity().legalIdentity)
+    val amount = Amount(figure.toLong(), CURRENCY)
 
-    println("${figure} units of ${currency} sent to ${recipient.nodeIdentity().legalIdentity} from ${sender.nodeIdentity().legalIdentity}")
+    sender.startFlow(::CashPaymentFlow, amount, recipient.nodeIdentity().legalIdentity)
+
+    println("${figure} units of ${CURRENCY} sent to ${recipient.nodeIdentity().legalIdentity} from ${sender.nodeIdentity().legalIdentity}")
 
     return true
 }
 
 fun moveEquity(sender : CordaRPCOps, recipient : CordaRPCOps) : Boolean {
     val rand = Random()
-    val codes = arrayListOf("GBT", "CBA", "RIO", "BP")
-    val stocks = arrayListOf("GBST Holdings Ltd", "Commonwealth Bank of Australia", "Rio Tinto Ltd", "British Petroleum")
-    val stockIndex = rand.nextInt(codes.size - 0) + 0
-
+    val stockIndex = rand.nextInt(CODES.size - 0) + 0
     val figure = rand.nextInt(150 + 1 - 50) + 50
-    val amount = Amount((figure * 1).toLong(), Security(codes[stockIndex], stocks[stockIndex]))
+    val amount = Amount((figure * 1).toLong(), Security(CODES[stockIndex], STOCKS[stockIndex]))
 
-    //get a list of holdings
-    val (vault, vaultUpdates) = sender.vaultAndUpdates()
-    vaultUpdates.notUsed()
-    val states = vault.filterStatesOfType<SecurityClaim.State>()
-    val desiredStates : ArrayList<StateAndRef<SecurityClaim.State>> = arrayListOf()
-    for (state in states) {
-        if (state.state.data.amount.token.product.code == codes[stockIndex]) {
-            desiredStates.add(state)
-        }
-    }
-    val txn = sender.startFlow(::OwnershipTransferFlow, amount, desiredStates, recipient.nodeIdentity().legalIdentity)
+    sender.startFlow(::OwnershipTransferFlow, amount, recipient.nodeIdentity().legalIdentity)
 
     println("${amount.quantity} shares in ${amount.token.code} transferred to ${recipient.nodeIdentity().legalIdentity} from ${sender.nodeIdentity().legalIdentity}")
-
 
     return true
 }

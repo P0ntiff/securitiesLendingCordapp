@@ -15,12 +15,13 @@ import net.corda.flows.FinalityFlow
 import net.corda.contracts.asset.OnLedgerAsset
 import net.corda.core.contracts.*
 import net.corda.core.identity.AbstractParty
+import net.corda.core.node.services.Vault
 import net.corda.flows.NotaryException
-import java.util.ArrayList
+import java.util.*
 
 // A flow for transferring ownership of a securityClaim to another owner (recipient)
-@StartableByRPC
-open class OwnershipTransferFlow(val amount : Amount<Security>, val states: ArrayList<StateAndRef<SecurityClaim.State>>, val newOwner: Party): FlowLogic<SignedTransaction>() {
+@StartableByRPC                                                 //val states: ArrayList<StateAndRef<SecurityClaim.State>>
+open class OwnershipTransferFlow(val amount : Amount<Security>, val newOwner: Party): FlowLogic<SignedTransaction>() {
     override val progressTracker: ProgressTracker = OwnershipTransferFlow.tracker()
     companion object {
         object PREPARING : ProgressTracker.Step("Obtaining claim from vault and building transaction.")
@@ -39,14 +40,23 @@ open class OwnershipTransferFlow(val amount : Amount<Security>, val states: Arra
         progressTracker.currentStep = PREPARING
         val tx : TransactionBuilder = TransactionType.General.Builder(null as Party?)
         //Gather states from vault
-//        val (vault, vaultUpdates) = serviceHub.vaultService.track()
-//        val states = vault.states.filterStatesOfType<SecurityClaim.State>().toList()
+        /**Old Method
+        * val (vault, vaultUpdates) = serviceHub.vaultService.track()
+        * val states = vault.states.filterStatesOfType<SecurityClaim.State>().toList()
+        */
+        val states = serviceHub.vaultService.states(setOf(SecurityClaim.State::class.java), EnumSet.of(Vault.StateStatus.UNCONSUMED)).toMutableList()
+        val desiredStates : ArrayList<StateAndRef<SecurityClaim.State>> = arrayListOf()
+        for (state in states) {
+            if (state.state.data.amount.token.product.code == amount.token.code) {
+                desiredStates.add(state)
+            }
+        }
         val (spendTX, keysForSigning) = try {
             OnLedgerAsset.generateSpend(
                     tx,
                     amount,
                     newOwner,
-                    states,
+                    desiredStates,
                     { state, amount, owner -> deriveState(state, amount, owner) },
                     { SecurityClaim().generateMoveCommand() }
             )

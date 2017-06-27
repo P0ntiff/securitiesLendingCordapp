@@ -1,0 +1,74 @@
+        private fun getCell(contractState: StateAndRef<ContractState>): Node {
+            return {
+                gridpane {
+                    padding = Insets(0.0, 5.0, 10.0, 10.0)
+                    vgap = 10.0
+                    hgap = 10.0
+                    row {
+                        label("${contractState.contract().javaClass.simpleName} (${contractState.ref.toString().substring(0, 16)}...)[${contractState.ref.index}]") {
+                            graphic = identicon(contractState.ref.txhash, 30.0)
+                            tooltip = identiconToolTip(contractState.ref.txhash)
+                            gridpaneConstraints { columnSpan = 2 }
+                        }
+                    }
+                    val data = contractState.state.data
+                    when (data) {
+                        is Cash.State -> {
+                            row {
+                                label("Amount :") { gridpaneConstraints { hAlignment = HPos.RIGHT } }
+                                label(AmountFormatter.boring.format(data.amount.withoutIssuer()))
+                            }
+                            row {
+                                label("Issuer :") { gridpaneConstraints { hAlignment = HPos.RIGHT } }
+                                val anonymousIssuer: AbstractParty = data.amount.token.issuer.party
+                                val issuer: AbstractParty = anonymousIssuer.resolveIssuer().value ?: anonymousIssuer
+                                // TODO: Anonymous should probably be italicised or similar
+                                label(issuer.nameOrNull()?.let { PartyNameFormatter.short.format(it) } ?: "Anonymous") {
+                                    tooltip(anonymousIssuer.owningKey.toBase58String())
+                                }
+                            }
+                            row {
+                                label("Owner :") { gridpaneConstraints { hAlignment = HPos.RIGHT } }
+                                val owner = data.owner
+                                val nodeInfo = getModel<NetworkIdentityModel>().lookup(owner.owningKey)
+                                label(nodeInfo.map { it?.legalIdentity?.let { PartyNameFormatter.short.format(it.name) } ?: "???" }) {
+                                    tooltip(data.owner.owningKey.toBase58String())
+                                }
+                            }
+                        }
+                    // TODO : Generic view using reflection?
+                        else -> {
+                            val ownData = data as FungibleAsset<*>
+                            row {
+                                label("Amount :") { gridpaneConstraints { hAlignment = HPos.RIGHT } }
+                                label(ownData.amount.quantity.toString())
+                            }
+                            row {
+                                label("LSE Info :") { gridpaneConstraints { hAlignment = HPos.RIGHT } }
+                                label(ownData.amount.token.product.toString())
+                            }
+                            row {
+                                label("Issuer :") { gridpaneConstraints { hAlignment = HPos.RIGHT } }
+                                val anonymousIssuer: AbstractParty = ownData.amount.token.issuer.party
+                                val issuer: AbstractParty = anonymousIssuer.resolveIssuer().value ?: anonymousIssuer
+                                // TODO: Anonymous should probably be italicised or similar
+                                label(issuer.nameOrNull()?.let { PartyNameFormatter.short.format(it) } ?: "Anonymous") {
+                                    tooltip(anonymousIssuer.owningKey.toBase58String())
+                                }
+                            }
+                            row {
+                                label("Owner :") { gridpaneConstraints { hAlignment = HPos.RIGHT } }
+                                val owner = ownData.owner
+                                val nodeInfo = getModel<NetworkIdentityModel>().lookup(owner.owningKey)
+                                label(nodeInfo.map { it?.legalIdentity?.let { PartyNameFormatter.short.format(it.name) } ?: "???" }) {
+                                    tooltip(ownData.owner.owningKey.toBase58String())
+                                }
+                            }
+                            row {
+                                label { ownData.toString() }
+                            }
+                        }
+                    }
+                }
+            }()
+        }
