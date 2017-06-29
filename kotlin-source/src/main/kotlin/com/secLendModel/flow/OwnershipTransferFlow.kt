@@ -19,9 +19,14 @@ import net.corda.core.node.services.Vault
 import net.corda.flows.NotaryException
 import java.util.*
 
-// A flow for transferring ownership of a securityClaim to another owner (recipient)
-@StartableByRPC                                                 //val states: ArrayList<StateAndRef<SecurityClaim.State>>
-open class OwnershipTransferFlow(val amount : Amount<Security>, val newOwner: Party): FlowLogic<SignedTransaction>() {
+/** A flow for transferring ownership of a securityClaim to another owner (recipient)
+ *
+ * @param stock = An Amount<Security> which is a data class containing the quantity of shares (amount.quantitiy) to be
+ * moved, and the code/title of the share to be moved (amount.token.code)
+ * @param newOwner = the party that is becoming the new owner of the states being sent
+ */
+@StartableByRPC
+open class OwnershipTransferFlow(val stock : Amount<Security>, val newOwner: Party): FlowLogic<SignedTransaction>() {
     override val progressTracker: ProgressTracker = OwnershipTransferFlow.tracker()
     companion object {
         object PREPARING : ProgressTracker.Step("Obtaining claim from vault and building transaction.")
@@ -40,21 +45,12 @@ open class OwnershipTransferFlow(val amount : Amount<Security>, val newOwner: Pa
         progressTracker.currentStep = PREPARING
         val tx : TransactionBuilder = TransactionType.General.Builder(null as Party?)
         //Gather states from vault
-        /**Old Method
-        * val (vault, vaultUpdates) = serviceHub.vaultService.track()
-        * val states = vault.states.filterStatesOfType<SecurityClaim.State>().toList()
-        */
-        val states = serviceHub.vaultService.states(setOf(SecurityClaim.State::class.java), EnumSet.of(Vault.StateStatus.UNCONSUMED)).toMutableList()
-        val desiredStates : ArrayList<StateAndRef<SecurityClaim.State>> = arrayListOf()
-        for (state in states) {
-            if (state.state.data.amount.token.product.code == amount.token.code) {
-                desiredStates.add(state)
-            }
-        }
+        val desiredStates = getStates()
+        //Input states from vault into transaction and create outputs with newOwner as new owner of states
         val (spendTX, keysForSigning) = try {
             OnLedgerAsset.generateSpend(
                     tx,
-                    amount,
+                    stock,
                     newOwner,
                     desiredStates,
                     { state, amount, owner -> deriveState(state, amount, owner) },
@@ -63,20 +59,41 @@ open class OwnershipTransferFlow(val amount : Amount<Security>, val newOwner: Pa
         } catch (e: InsufficientBalanceException) {
             throw SecurityException("Insufficient holding: ${e.message}", e)
         }
+        progressTracker.currentStep = SIGNING
         val stx = serviceHub.signInitialTransaction(spendTX, keysForSigning)
-
         progressTracker.currentStep = COLLECTING
         try {
             subFlow(FinalityFlow(stx, setOf(newOwner)))
         } catch (e: NotaryException) {
+            println("NOTARY ERROR DETECTED!")
             throw SecurityException("Unable to notarise spend", e)
         }
-
         return stx
+    }
+
+    @Suspendable
+    private fun getStates() : List<StateAndRef<SecurityClaim.State>> {
+        /**Old Method
+         * val (vault, vaultUpdates) = serviceHub.vaultService.track()
+         * val states = vault.states.filterStatesOfType<SecurityClaim.State>().toList()
+         */
+        /**Less Old Method
+         *val states = serviceHub.vaultService.states(setOf(SecurityClaim.State::class.java), EnumSet.of(Vault.StateStatus.UNCONSUMED)).toMutableList()
+         *val desiredStates : ArrayList<StateAndRef<SecurityClaim.State>> = arrayListOf()
+         *for (state in states) {
+         *    if (state.state.data.amount.token.product.code == amount.token.code) {
+         *        desiredStates.add(state)
+         *    }
+         *}
+         */
+        //New Method
+        val stockStates = serviceHub.vaultService.states(setOf(SecurityClaim.State::class.java),
+                EnumSet.of(Vault.StateStatus.UNCONSUMED))
+        val desiredStates = stockStates.filter { (it.state.data.amount.token.product.code == stock.token.code) }
+        return desiredStates
     }
 
     @Suspendable
     private fun deriveState(txState: TransactionState<SecurityClaim.State>, amount: Amount<Issued<Security>>, owner: AbstractParty)
         = txState.copy(data = txState.data.copy(amount = amount, owner = owner))
-
 }
