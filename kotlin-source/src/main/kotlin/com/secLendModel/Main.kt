@@ -4,14 +4,15 @@ import com.secLendModel.flow.OwnershipTransferFlow
 import com.secLendModel.flow.SecuritiesIssueFlow
 import com.secLendModel.flow.SelfIssueCashFlow
 import com.secLendModel.flow.SelfIssueSecuritiesFlow
-import com.secLendModel.flow.SecuritiesDVPTradeFlow.Seller
-import com.secLendModel.flow.SecuritiesDVPTradeFlow.Buyer
+import com.secLendModel.flow.TradeFlow.Seller
+import com.secLendModel.flow.TradeFlow.Buyer
 import com.secLendModel.contract.Security
 import net.corda.core.contracts.Amount
 import net.corda.core.contracts.GBP
 import net.corda.core.getOrThrow
 import net.corda.core.identity.Party
 import net.corda.core.messaging.CordaRPCOps
+import net.corda.core.messaging.startFlow
 import net.corda.core.messaging.startTrackedFlow
 import net.corda.core.node.services.ServiceInfo
 import net.corda.core.node.services.ServiceType
@@ -19,11 +20,11 @@ import net.corda.core.serialization.OpaqueBytes
 import net.corda.flows.CashExitFlow
 import net.corda.flows.CashIssueFlow
 import net.corda.flows.CashPaymentFlow
-import net.corda.node.driver.PortAllocation
-import net.corda.node.driver.driver
 import net.corda.node.services.startFlowPermission
 import net.corda.nodeapi.User
 import net.corda.node.services.transactions.ValidatingNotaryService
+import net.corda.testing.driver.PortAllocation
+import net.corda.testing.driver.driver
 import org.bouncycastle.asn1.x500.X500Name
 import java.util.*
 
@@ -90,20 +91,16 @@ fun main(args: Array<String>) {
         }
 
         val aClient = arnoldNode.rpcClientToNode()
-        val aConnection = aClient.start(user.username, user.password)
-        val aRPC = aConnection.proxy
+        val aRPC = aClient.start(user.username, user.password).proxy
 
         val bClient = barryNode.rpcClientToNode()
-        val bConnection = bClient.start(user.username, user.password)
-        val bRPC = bConnection.proxy
+        val bRPC = bClient.start(user.username, user.password).proxy
 
         val eClient = exchangeNode.rpcClientToNode()
-        val eConnection = eClient.start(user.username, user.password)
-        val eRPC = eConnection.proxy
+        val eRPC = eClient.start(user.username, user.password).proxy
 
         val cbClient = centralNode.rpcClientToNode()
-        val cbConnection = cbClient.start(user.username, user.password)
-        val cbRPC = cbConnection.proxy
+        val cbRPC = cbClient.start(user.username, user.password).proxy
 
         println("TXNS INITIATED")
         issueCash(cbRPC, aRPC, notaryNode.nodeInfo.notaryIdentity)
@@ -203,10 +200,10 @@ fun tradeEquity(seller : CordaRPCOps, buyer : CordaRPCOps) {
     val figure = (rand.nextInt(150 + 1 - 50) + 50).toLong()
     val amount = Amount(figure, Security(CODES[stockIndex], STOCKS[stockIndex]))
 
-    val dollaryDoos = (rand.nextInt(150 + 1 - 50) + 50).toLong() * 1
+    val dollaryDoos = (rand.nextInt(150 + 1 - 50) + 50).toLong() * 100
     val sharePrice = Amount(dollaryDoos, CURRENCY)
 
-    seller.startTrackedFlow(::Seller, buyer.nodeIdentity().legalIdentity, amount, sharePrice).returnValue.getOrThrow()
+    val flowHandle = seller.startFlow(::Seller, buyer.nodeIdentity().legalIdentity, amount, sharePrice).returnValue.getOrThrow()
     println("${figure} shares in ${CODES[stockIndex]} at ${sharePrice} each sold to buyer '" +
             "${buyer.nodeIdentity().legalIdentity}' by seller '${seller.nodeIdentity().legalIdentity}'")
 }

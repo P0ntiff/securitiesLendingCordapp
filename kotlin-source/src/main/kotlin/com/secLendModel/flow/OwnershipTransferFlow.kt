@@ -45,7 +45,7 @@ open class OwnershipTransferFlow(val stock : Amount<Security>, val newOwner: Par
         progressTracker.currentStep = PREPARING
         val tx : TransactionBuilder = TransactionType.General.Builder(null as Party?)
         //Gather states from vault
-        val desiredStates = getStates()
+        val desiredStates = getStates(stock.token.code)
         //Input states from vault into transaction and create outputs with newOwner as new owner of states
         val (spendTX, keysForSigning) = try {
             OnLedgerAsset.generateSpend(
@@ -64,32 +64,40 @@ open class OwnershipTransferFlow(val stock : Amount<Security>, val newOwner: Par
         progressTracker.currentStep = COLLECTING
         try {
             subFlow(FinalityFlow(stx, setOf(newOwner)))
-        } catch (e: NotaryException) {
-            println("NOTARY ERROR DETECTED!")
+        } catch (e: ClassCastException) {
+            println("ERROR DETECTED!")
             throw SecurityException("Unable to notarise spend", e)
         }
         return stx
     }
 
     @Suspendable
-    private fun getStates() : List<StateAndRef<SecurityClaim.State>> {
+    private fun getStates(code : String) : List<StateAndRef<SecurityClaim.State>> {
         /**Old Method
          * val (vault, vaultUpdates) = serviceHub.vaultService.track()
          * val states = vault.states.filterStatesOfType<SecurityClaim.State>().toList()
-         */
-        /**Less Old Method
-         *val states = serviceHub.vaultService.states(setOf(SecurityClaim.State::class.java), EnumSet.of(Vault.StateStatus.UNCONSUMED)).toMutableList()
-         *val desiredStates : ArrayList<StateAndRef<SecurityClaim.State>> = arrayListOf()
-         *for (state in states) {
+         *
+         *Less Old Method
+         * val states = serviceHub.vaultService.states(setOf(SecurityClaim.State::class.java), EnumSet.of(Vault.StateStatus.UNCONSUMED)).toMutableList()
+         * val desiredStates : ArrayList<StateAndRef<SecurityClaim.State>> = arrayListOf()
+         * for (state in states) {
          *    if (state.state.data.amount.token.product.code == amount.token.code) {
          *        desiredStates.add(state)
          *    }
          *}
+         *Old New Method
+         * val stockStates = serviceHub.vaultService.states(setOf(SecurityClaim.State::class.java),
+         * EnumSet.of(Vault.StateStatus.UNCONSUMED))
+         * val desiredStates = stockStates.filter { (it.state.data.amount.token.product.code == code) }
          */
         //New Method
-        val stockStates = serviceHub.vaultService.states(setOf(SecurityClaim.State::class.java),
-                EnumSet.of(Vault.StateStatus.UNCONSUMED))
-        val desiredStates = stockStates.filter { (it.state.data.amount.token.product.code == stock.token.code) }
+        val states : Vault.Page<SecurityClaim.State> = serviceHub.vaultQueryService.queryBy(SecurityClaim.State::class.java)
+        val desiredStates = states.states.filter {
+            (it.state.data.owner == serviceHub.myInfo.legalIdentity) &&
+                    (it.state.data.amount.token.product.code == code) &&
+                    (states.statesMetadata[states.states.indexOf(it)].status == Vault.StateStatus.UNCONSUMED)
+        }
+
         return desiredStates
     }
 
