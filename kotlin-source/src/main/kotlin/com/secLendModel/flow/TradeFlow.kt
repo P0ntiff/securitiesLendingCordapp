@@ -14,6 +14,8 @@ import net.corda.core.identity.AnonymousParty
 import net.corda.core.identity.Party
 import net.corda.core.node.NodeInfo
 import net.corda.core.node.services.Vault
+import net.corda.core.node.services.queryBy
+import net.corda.core.node.services.vault.QueryCriteria
 import net.corda.core.seconds
 import net.corda.core.serialization.CordaSerializable
 import net.corda.core.transactions.SignedTransaction
@@ -127,10 +129,14 @@ object TradeFlow {
 //            }
             finishedSTX = finalityFlowWorkAround(unnotarisedSTX, buyer)
             try {
+                //finishedSTX = subFlow(FinalityFlow(unnotarisedSTX, setOf(buyer))).single()
                 serviceHub.recordTransactions(listOf(finishedSTX))
                 subFlow(BroadcastTransactionFlow(finishedSTX, setOf(buyer)))
             } catch (e: ClassCastException){
                 println("CLASS CAST ERROR EXCEPTION CAUGHT")
+                return unnotarisedSTX
+//            } catch (f: NotaryException) {
+//                println("Notarising error caught")
             }
             return finishedSTX
             //return unnotarisedSTX
@@ -155,14 +161,16 @@ object TradeFlow {
              * EnumSet.of(Vault.StateStatus.UNCONSUMED))
              * val desiredStates = stockStates.filter { (it.state.data.amount.token.product.code == code) }
              */
-            //Newest Method
-            val states : Vault.Page<SecurityClaim.State> = serviceHub.vaultQueryService.queryBy(SecurityClaim.State::class.java)
+            //Newer Method
+            //val states : Vault.Page<SecurityClaim.State> = serviceHub.vaultQueryService.queryBy(SecurityClaim.State::class.java)
+            //Newest Method, experimental
+            val criteria = QueryCriteria.VaultQueryCriteria(status = Vault.StateStatus.UNCONSUMED)
+            val states = serviceHub.vaultQueryService.queryBy<SecurityClaim.State>(criteria)
             val desiredStates = states.states.filter {
                 (it.state.data.owner == serviceHub.myInfo.legalIdentity)  &&
-                        (it.state.data.amount.token.product.code == code) &&
-                        (states.statesMetadata[states.states.indexOf(it)].status == Vault.StateStatus.UNCONSUMED)
+                        (it.state.data.amount.token.product.code == code) // &&
             }
-
+                    //(states.statesMetadata[states.states.indexOf(it)].status == Vault.StateStatus.UNCONSUMED)
             return desiredStates
         }
 
@@ -233,8 +241,13 @@ object TradeFlow {
 
             //TODO: Resolve the stock being proposed to sell (do the "resolution" process, going up the dependency chain) --> Check if notary does this in FinalityFlow
 
-            statesForSale.map { subFlow(ResolveTransactionsFlow(setOf(it.ref.txhash), seller)) }
-
+            try {
+                statesForSale.map { subFlow(ResolveTransactionsFlow(setOf(it.ref.txhash), seller)) }
+                //serviceHub.recordTransactions(listOf(finishedSTX))
+                //subFlow(BroadcastTransactionFlow(finishedSTX, setOf(buyer)))
+            } catch (e: ClassCastException){
+                println("CLASS CAST ERROR EXCEPTION CAUGHT")
+            }
             /*********************************************************************************************************/
             progressTracker.currentStep = INPUTTING
             val builder = TransactionType.General.Builder(notary.notaryIdentity)
@@ -251,13 +264,16 @@ object TradeFlow {
             } catch (e: InsufficientBalanceException) {
                 throw SecurityException("Insufficient holding: ${e.message}", e)
             }
-
+            println("Transaction proposal: ${stock.quantity} shares in ${stock.token.code} sold for ${stockPrice} by seller ${seller.name} ")
             val (ptx, cashSigningPubKeys) = serviceHub.vaultService.
                     generateSpend(tx,
                     Amount(stockPrice.quantity * stock.quantity, CURRENCY),
                     AnonymousParty(sellerKey)
                     )
-
+            println("\nDumping inputs\n----------------")
+            ptx.inputStates().forEach { print(it.toString()); print("seller key is ${sellerKey.toString()}") }
+            println("\nDumping outputs\n---------------")
+            ptx.outputStates().forEach { println(it.toString()) }
             /*********************************************************************************************************/
             progressTracker.currentStep = SIGNING_TX
             val currentTime = serviceHub.clock.instant()

@@ -119,6 +119,9 @@ fun main(args: Array<String>) {
 
         //DVP trades of cash for equity between sellers and buyers
         tradeEquity(aRPC, bRPC)
+        tradeEquity(bRPC, aRPC)
+        tradeEquity(aRPC, bRPC)
+        tradeEquity(bRPC, aRPC)
 
         println("ALL TXNS SUBMITTED")
         waitForAllNodesToFinish()
@@ -132,7 +135,7 @@ fun main(args: Array<String>) {
  */
 fun issueCash(centralBank : CordaRPCOps, recipient : CordaRPCOps, notaryNode : Party) {
     val rand = Random()
-    val dollaryDoos = (rand.nextInt(150 + 1 - 50) + 50).toLong() * 100000
+    val dollaryDoos = (rand.nextInt(150 + 1 - 50) + 50).toLong() * 1000000
     val amount = Amount(dollaryDoos, CURRENCY)
 
     centralBank.startTrackedFlow(::CashIssueFlow, amount, OpaqueBytes.of(1), recipient.nodeIdentity().legalIdentity, notaryNode).returnValue.getOrThrow()
@@ -203,7 +206,7 @@ fun tradeEquity(seller : CordaRPCOps, buyer : CordaRPCOps) {
     val dollaryDoos = (rand.nextInt(150 + 1 - 50) + 50).toLong() * 100
     val sharePrice = Amount(dollaryDoos, CURRENCY)
 
-    val flowHandle = seller.startFlow(::Seller, buyer.nodeIdentity().legalIdentity, amount, sharePrice).returnValue.getOrThrow()
+    seller.startFlow(::Seller, buyer.nodeIdentity().legalIdentity, amount, sharePrice).returnValue.getOrThrow()
     println("${figure} shares in ${CODES[stockIndex]} at ${sharePrice} each sold to buyer '" +
             "${buyer.nodeIdentity().legalIdentity}' by seller '${seller.nodeIdentity().legalIdentity}'")
 }
