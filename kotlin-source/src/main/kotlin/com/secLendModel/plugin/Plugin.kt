@@ -1,7 +1,7 @@
 package com.secLendModel.plugin
 
 import com.secLendModel.contract.SecurityClaim
-import com.secLendModel.flow.TradeFlow.MarketOffer
+import com.secLendModel.flow.securities.TradeFlow.MarketOffer
 import net.corda.core.contracts.TransactionType
 import net.corda.core.node.CordaPluginRegistry
 import net.corda.core.serialization.SerializationCustomization

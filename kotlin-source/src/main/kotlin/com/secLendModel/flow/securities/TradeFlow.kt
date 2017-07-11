@@ -1,7 +1,8 @@
-package com.secLendModel.flow
+package com.secLendModel.flow.securities
 
 import co.paralleluniverse.fibers.Suspendable
 import com.secLendModel.CURRENCY
+import com.secLendModel.flow.SecuritiesPreparationFlow
 import net.corda.core.contracts.*
 import net.corda.core.flows.*
 import net.corda.core.identity.AnonymousParty
@@ -21,19 +22,19 @@ import java.util.*
  *  Handles the input of security states in a subflow called SecuritiesPreparationFlow
  */
 object TradeFlow {
-    @CordaSerializable
     /** This object is serialised to the network and is the first flow message the seller sends to the buyer.
      *  The "initial market offer" --> responded to by a boolean
-     * @param code: ASX/Exchange code of stock to be traded
-     * @param quantity: Quantity of stock to be traded
-     * @param stockPrice: Unit share price
-     * @param sellerKey: Public ID of person proposing the transaction
+     * @param code = ASX/Exchange code of stock to be traded
+     * @param quantity = Quantity of stock to be traded
+     * @param stockPrice = Unit share price
+     * @param sellerKey = Public ID of person proposing the transaction
      */
+    @CordaSerializable
     data class MarketOffer(
-        val code: String,
-        val quantity: Int,
-        val stockPrice: Amount<Currency>,
-        val sellerKey: PublicKey
+            val code: String,
+            val quantity: Int,
+            val stockPrice: Amount<Currency>,
+            val sellerKey: PublicKey
     )
 
     class AssetMismatchException(val expectedTypeName: String, val typeName: String) : FlowException() {
@@ -47,7 +48,7 @@ object TradeFlow {
      * @param code = A String which refers to the name of the share to be traded (exchange code)
      * @param quantity = An Int referring to how many units of the above share are to be traded
      * @param stockPrice = An Amount<Currency>, containing the price and fiat currency of the listed equity, (per-share price)
-     * @param buyer = the Party that is becoming the new owner of the states being sent, and pays cash for the states
+     * @param buyer = The Party that is becoming the new owner of the states being sent, and who pays cash for the states
      */
     @InitiatingFlow
     @StartableByRPC
@@ -123,7 +124,7 @@ object TradeFlow {
     //TODO: Does open class make a difference?
     class Buyer(val seller: Party) : FlowLogic<SignedTransaction>() {
 
-        override val progressTracker: ProgressTracker = Buyer.tracker()
+        override val progressTracker: ProgressTracker = tracker()
         companion object {
             object CONNECTED : ProgressTracker.Step("Connected to seller, receiving proposal")
             object INPUTTING : ProgressTracker.Step("Inputting cash for sale offer")

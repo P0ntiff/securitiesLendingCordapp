@@ -1,10 +1,9 @@
 package com.secLendModel
 
-import com.secLendModel.flow.OwnershipTransferFlow
-import com.secLendModel.flow.SecuritiesIssueFlow
-import com.secLendModel.flow.SelfIssueCashFlow
-import com.secLendModel.flow.TradeFlow.Seller
-import com.secLendModel.flow.TradeFlow.Buyer
+import com.secLendModel.flow.securities.OwnershipTransferFlow
+import com.secLendModel.flow.securities.SecuritiesIssueFlow
+import com.secLendModel.flow.securities.TradeFlow.Seller
+import com.secLendModel.flow.securities.TradeFlow.Buyer
 import com.secLendModel.flow.SecuritiesPreparationFlow
 import net.corda.core.contracts.Amount
 import net.corda.core.contracts.GBP
@@ -57,7 +56,6 @@ fun main(args: Array<String>) {
             startFlowPermission<CashIssueFlow>(),
             startFlowPermission<CashPaymentFlow>(),
             startFlowPermission<CashExitFlow>(),
-            startFlowPermission<SelfIssueCashFlow>(),
             startFlowPermission<SecuritiesIssueFlow>(),
             startFlowPermission<OwnershipTransferFlow>(),
             startFlowPermission<SecuritiesPreparationFlow>(),
@@ -85,9 +83,7 @@ fun main(args: Array<String>) {
         arrayOf(notaryNode, arnoldNode, barryNode, exchangeNode, centralNode).forEach {
             println("${it.nodeInfo.legalIdentity} started on ${it.configuration.rpcAddress}")
         }
-        //LINES
 
-        //Third Change
         val aClient = arnoldNode.rpcClientToNode()
         val aRPC = aClient.start(user.username, user.password).proxy
 

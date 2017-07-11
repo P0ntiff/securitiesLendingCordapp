@@ -1,6 +1,8 @@
-package com.secLendModel.flow
+package com.secLendModel.flow.securities
 
 import co.paralleluniverse.fibers.Suspendable
+import com.secLendModel.flow.SecuritiesPreparationFlow
+import net.corda.core.contracts.InsufficientBalanceException
 import net.corda.core.identity.Party
 import net.corda.core.flows.FlowLogic
 import net.corda.core.flows.StartableByRPC
@@ -21,7 +23,7 @@ class OwnershipTransferFlow(val code : String,
                             val quantity : Int,
                             val recipient: Party) : FlowLogic<SignedTransaction>() {
 
-    override val progressTracker: ProgressTracker = OwnershipTransferFlow.tracker()
+    override val progressTracker: ProgressTracker = tracker()
     companion object {
         object PREPARING : ProgressTracker.Step("Obtaining claim from vault and building transaction.")
         object SIGNING : ProgressTracker.Step("Signing transaction.")
@@ -38,10 +40,9 @@ class OwnershipTransferFlow(val code : String,
     override fun call() : SignedTransaction {
         progressTracker.currentStep = PREPARING
 
-        //Gather states from vault
-        //Input states from vault into transaction and create outputs with recipient as the new owner of the states, along with change sent back to the old owner
+        //Input states from vault into the transaction, and create outputs with a) recipient as the new owner of the states,
+        // b) with change sent back to the old owner
         val (spendTX, keysForSigning) = subFlow(SecuritiesPreparationFlow(code, quantity, recipient))
-
 //        } catch (e: InsufficientBalanceException) {
 //            throw SecurityException("Insufficient holding: ${e.message}", e)
 //        }

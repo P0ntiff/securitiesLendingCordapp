@@ -1,4 +1,4 @@
-package com.secLendModel.flow
+package com.secLendModel.flow.securities
 
 import co.paralleluniverse.fibers.Suspendable
 import com.secLendModel.contract.SecurityClaim
@@ -12,9 +12,13 @@ import net.corda.core.transactions.TransactionBuilder
 import net.corda.core.utilities.ProgressTracker
 import net.corda.flows.FinalityFlow
 
-@StartableByRPC
 /** Issues securities from the caller of this flow to the recipient.
+ *  @param code = stock code (String) to be traded on the ledger
+ *  @param quantity = number of the above stock to be issued
+ *  @param recipient = party on the ledger who is receiving the issuance states (i.e the owner of these new states)
+ *  @param notary = validating notary on the ledger
  */
+@StartableByRPC
 class SecuritiesIssueFlow(val code: String,
                           val quantity: Int,
                           val recipient: Party,
