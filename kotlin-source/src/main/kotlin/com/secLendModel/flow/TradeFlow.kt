@@ -1,14 +1,11 @@
 package com.secLendModel.flow
 
 import co.paralleluniverse.fibers.Suspendable
-import com.secLendModel.contract.SecurityException
 import com.secLendModel.CURRENCY
 import net.corda.core.contracts.*
-import net.corda.core.crypto.isFulfilledBy
 import net.corda.core.flows.*
 import net.corda.core.identity.AnonymousParty
 import net.corda.core.identity.Party
-import net.corda.core.node.NodeInfo
 import net.corda.core.seconds
 import net.corda.core.serialization.CordaSerializable
 import net.corda.core.transactions.SignedTransaction

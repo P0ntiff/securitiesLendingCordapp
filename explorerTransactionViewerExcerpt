@@ -36,6 +36,12 @@
                                 }
                             }
                         }
+                        is OwnableState -> {
+                            row {
+                                label("Data :") { gridpaneConstraints { hAlignment = HPos.RIGHT } }
+                                label(data.toString())
+                            }
+                        }
                     // TODO : Generic view using reflection?
                         else -> {
                             val ownData = data as FungibleAsset<*>

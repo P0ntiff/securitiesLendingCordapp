@@ -1,7 +1,6 @@
 package com.secLendModel.client
 
 import com.google.common.net.HostAndPort
-import com.secLendModel.contract.Security
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.utilities.loggerFor
 import net.corda.client.rpc.CordaRPCClient
@@ -33,12 +32,5 @@ private class ClientRPC {
         val (transactions: List<SignedTransaction>, futureTransactions: Observable<SignedTransaction>) =
                 proxy.verifiedTransactions()
 
-        // Log the existing TemplateStates and listen for new ones.
-        futureTransactions.startWith(transactions).toBlocking().subscribe { transaction ->
-            transaction.tx.outputs.forEach { output ->
-                val state = output.data as Security
-                logger.info(state.toString())
-            }
-        }
     }
 }

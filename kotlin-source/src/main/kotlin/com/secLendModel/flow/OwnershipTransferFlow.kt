@@ -1,27 +1,14 @@
 package com.secLendModel.flow
 
 import co.paralleluniverse.fibers.Suspendable
-import com.secLendModel.contract.SecurityClaim
-import com.secLendModel.contract.Security
-import com.secLendModel.contract.SecurityException
 import net.corda.core.identity.Party
 import net.corda.core.flows.FlowLogic
 import net.corda.core.flows.StartableByRPC
 import net.corda.core.transactions.SignedTransaction
-import net.corda.core.transactions.TransactionBuilder
 import net.corda.core.utilities.ProgressTracker
 import net.corda.flows.CollectSignaturesFlow
 import net.corda.flows.FinalityFlow
-import net.corda.contracts.asset.OnLedgerAsset
-import net.corda.core.contracts.*
-import net.corda.core.identity.AbstractParty
-import net.corda.core.node.services.ServiceType.Companion.notary
-import net.corda.core.node.services.Vault
-import net.corda.core.node.services.queryBy
-import net.corda.core.node.services.vault.QueryCriteria
-import net.corda.flows.NotaryException
-import java.security.PublicKey
-import java.util.*
+
 
 /** A flow for transferring ownership of a securityClaim to another owner (recipient)
  *

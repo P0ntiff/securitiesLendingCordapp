@@ -1,6 +1,5 @@
 package com.secLendModel.plugin
 
-import com.secLendModel.contract.Security
 import com.secLendModel.contract.SecurityClaim
 import com.secLendModel.flow.TradeFlow.MarketOffer
 import net.corda.core.contracts.TransactionType
@@ -13,7 +12,6 @@ class Plugin : CordaPluginRegistry() {
      * Whitelisting the required types for serialisation by the Corda node.
      */
     override fun customizeSerialization(custom: SerializationCustomization): Boolean {
-        custom.addToWhitelist(Security::class.java)
         custom.addToWhitelist(SecurityClaim::class.java)
         custom.addToWhitelist(TransactionType.General.Builder::class.java)
         custom.addToWhitelist(Boolean::class.java)
