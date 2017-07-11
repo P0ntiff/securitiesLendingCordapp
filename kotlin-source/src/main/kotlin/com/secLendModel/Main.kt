@@ -87,7 +87,6 @@ fun main(args: Array<String>) {
         }
         //LINES
 
-        //Different change
         val aClient = arnoldNode.rpcClientToNode()
         val aRPC = aClient.start(user.username, user.password).proxy
 
