@@ -1,5 +1,6 @@
 package com.secLendModel.contract
 
+import net.corda.contracts.asset.Cash
 import net.corda.core.contracts.*
 import net.corda.core.crypto.SecureHash
 import net.corda.core.crypto.keys
@@ -15,7 +16,14 @@ class SecurityLoan : Contract {
 
     interface Commands : CommandData {
         class Issue : TypeOnlyCommandData(), Commands
+        class Exit: TypeOnlyCommandData(), Commands
     }
+
+    data class Terms(val length: Int,
+                     val margin: Int,
+                     val rebatePercent: Int,
+                     val collateralType: FungibleAsset<Cash> //TODO: Figure out what type collateralType is (could be cash, any fungible asset, etc)
+                     )
 
     data class State(val quantity: Int,
                      val code: String,
@@ -46,6 +54,7 @@ class SecurityLoan : Contract {
         val command = tx.commands.requireSingleCommand<SecurityLoan.Commands>()
         when (command.value) {
             is Commands.Issue -> requireThat {
+                //creating the loan state
                 "No inputs should be consumed when issuing a secLoan." using (tx.inputs.isEmpty())
                 "Only one output state should be created when issuing a SecurityLoan." using (tx.outputs.size == 1)
                 val secLoan = tx.outputs.single() as State
@@ -54,6 +63,10 @@ class SecurityLoan : Contract {
                 "Both lender and borrower together only may sign secLoan issue transaction." using
                         (command.signers.toSet() == secLoan.participants.map { it.owningKey }.toSet())
             }
+            is Commands.Exit -> requireThat{
+                //Exit the loan
+            }
+
         }
     }
 }
