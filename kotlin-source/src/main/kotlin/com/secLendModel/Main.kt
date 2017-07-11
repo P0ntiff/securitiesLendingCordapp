@@ -3,10 +3,9 @@ package com.secLendModel
 import com.secLendModel.flow.OwnershipTransferFlow
 import com.secLendModel.flow.SecuritiesIssueFlow
 import com.secLendModel.flow.SelfIssueCashFlow
-import com.secLendModel.flow.SelfIssueSecuritiesFlow
 import com.secLendModel.flow.TradeFlow.Seller
 import com.secLendModel.flow.TradeFlow.Buyer
-import com.secLendModel.contract.Security
+import com.secLendModel.flow.SecuritiesPreparationFlow
 import net.corda.core.contracts.Amount
 import net.corda.core.contracts.GBP
 import net.corda.core.getOrThrow
@@ -31,8 +30,6 @@ import java.util.*
 //@JvmField val GBT = Security.getInstance("GBT")
 
 //Identities of parties in the network
-val BANKA = X500Name("CN=UK Bank Plc,O=UK Bank Plc,L=London,C=UK")
-val BANKB = X500Name("CN=USA Bank Corp,O=USA Bank Corp,L=New York,C=US")
 val EXCHANGE = X500Name("CN=LSE Ltd,O=LSE Ltd,L=Liverpool,C=UK")
 val CENTRALBANK = X500Name("CN=BoE,O=BoE,L=London,C=UK")
 val NOTARY = X500Name("CN=Notary Service,O=R3,OU=corda,L=Zurich,C=CH,OU=corda.notary.validating")
@@ -53,7 +50,6 @@ val CURRENCIES = setOf(ServiceInfo(ServiceType.corda.getSubType("issuer.GBP")),
 //Current currency in use
 val CURRENCY = GBP
 
-
 fun main(args: Array<String>) {
     val portAllocation = PortAllocation.Incremental(20000)
     // No permissions required as we are not invoking flows.
@@ -63,8 +59,8 @@ fun main(args: Array<String>) {
             startFlowPermission<CashExitFlow>(),
             startFlowPermission<SelfIssueCashFlow>(),
             startFlowPermission<SecuritiesIssueFlow>(),
-            startFlowPermission<SelfIssueSecuritiesFlow>(),
             startFlowPermission<OwnershipTransferFlow>(),
+            startFlowPermission<SecuritiesPreparationFlow>(),
             startFlowPermission<Seller>(),
             startFlowPermission<Buyer>()
     )
@@ -109,7 +105,7 @@ fun main(args: Array<String>) {
         issueEquity(eRPC, bRPC, notaryNode.nodeInfo.notaryIdentity)
 
         //Send some assets around the ledger
-        moveCash(aRPC, bRPC)
+        //moveCash(aRPC, bRPC)
         moveEquity(aRPC, bRPC)
         moveEquity(bRPC, aRPC)
         moveEquity(aRPC, bRPC)
@@ -165,10 +161,13 @@ fun moveCash(sender : CordaRPCOps, recipient : CordaRPCOps) {
 fun issueEquity(exchange : CordaRPCOps, recipient : CordaRPCOps, notaryNode : Party) {
     val rand = Random()
     for (code in CODES) {
-        val figure = (rand.nextInt(150 + 1 - 50) + 50).toLong() * 100
-        val amount = Amount(figure, Security(code, STOCKS[CODES.indexOf(code)]))
+        val figure = (rand.nextInt(150 + 1 - 50) + 50) * 100
 
-        exchange.startTrackedFlow(::SecuritiesIssueFlow, amount, OpaqueBytes.of(1), recipient.nodeIdentity().legalIdentity, notaryNode).returnValue.getOrThrow()
+        exchange.startTrackedFlow(::SecuritiesIssueFlow,
+                code,
+                figure,
+                recipient.nodeIdentity().legalIdentity,
+                notaryNode).returnValue.getOrThrow()
         println("$figure shares in $code (${STOCKS[CODES.indexOf(code)]}) issued to ${recipient.nodeIdentity().legalIdentity}")
     }
 }
@@ -182,10 +181,9 @@ fun issueEquity(exchange : CordaRPCOps, recipient : CordaRPCOps, notaryNode : Pa
 fun moveEquity(sender : CordaRPCOps, recipient : CordaRPCOps) {
     val rand = Random()
     val stockIndex = rand.nextInt(CODES.size)
-    val figure = (rand.nextInt(150 + 1 - 50) + 50).toLong()
-    val amount = Amount(figure, Security(CODES[stockIndex], STOCKS[stockIndex]))
+    val figure = (rand.nextInt(150 + 1 - 50) + 50)
 
-    sender.startTrackedFlow(::OwnershipTransferFlow, amount, recipient.nodeIdentity().legalIdentity).returnValue.getOrThrow()
+    sender.startTrackedFlow(::OwnershipTransferFlow, CODES[stockIndex], figure, recipient.nodeIdentity().legalIdentity).returnValue.getOrThrow()
     println("${figure} shares in '${CODES[stockIndex]}' transferred to recipient '" +
             "${recipient.nodeIdentity().legalIdentity}' from sender '${sender.nodeIdentity().legalIdentity}'")
 }
@@ -200,13 +198,12 @@ fun moveEquity(sender : CordaRPCOps, recipient : CordaRPCOps) {
 fun tradeEquity(seller : CordaRPCOps, buyer : CordaRPCOps) {
     val rand = Random()
     val stockIndex = rand.nextInt(CODES.size - 0) + 0
-    val figure = (rand.nextInt(150 + 1 - 50) + 50).toLong()
-    val amount = Amount(figure, Security(CODES[stockIndex], STOCKS[stockIndex]))
+    val figure = (rand.nextInt(150 + 1 - 50) + 50)
 
     val dollaryDoos = (rand.nextInt(150 + 1 - 50) + 50).toLong() * 100
     val sharePrice = Amount(dollaryDoos, CURRENCY)
 
-    seller.startFlow(::Seller, buyer.nodeIdentity().legalIdentity, amount, sharePrice).returnValue.getOrThrow()
-    println("${figure} shares in ${CODES[stockIndex]} at ${sharePrice} each sold to buyer '" +
+    seller.startFlow(::Seller, CODES[stockIndex], figure, sharePrice, buyer.nodeIdentity().legalIdentity).returnValue.getOrThrow()
+    println("Trade Finalised: ${figure} shares in ${CODES[stockIndex]} at ${sharePrice} each sold to buyer '" +
             "${buyer.nodeIdentity().legalIdentity}' by seller '${seller.nodeIdentity().legalIdentity}'")
 }

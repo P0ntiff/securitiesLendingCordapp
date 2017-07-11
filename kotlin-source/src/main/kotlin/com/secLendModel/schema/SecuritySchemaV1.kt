@@ -22,11 +22,11 @@ object SecuritySchemaV1 : MappedSchema(schemaFamily = SecuritySchema.javaClass, 
             @Column(name = "owner_key")
             var owner: String,
 
-            @Column(name = "company_name")
-            var companyName: String,
-
             @Column(name = "code", length = 3)
             var code: String,
+
+            @Column(name = "quantity")
+            var quantity: Int,
 
             @Column(name = "issuer_key")
             var issuerParty: String,

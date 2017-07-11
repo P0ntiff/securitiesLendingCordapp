@@ -1,195 +1,149 @@
 package com.secLendModel.contract
 
 import com.secLendModel.schema.SecuritySchemaV1
-import net.corda.contracts.asset.OnLedgerAsset
-import net.corda.contracts.clause.AbstractConserveAmount
 import net.corda.contracts.clause.AbstractIssue
-import net.corda.contracts.clause.NoZeroSizedOutputs
 import net.corda.core.contracts.*
-import net.corda.core.contracts.clauses.AllOf
-import net.corda.core.contracts.clauses.FirstOf
-import net.corda.core.contracts.clauses.GroupClauseVerifier
-import net.corda.core.contracts.clauses.verifyClause
+import net.corda.core.contracts.clauses.*
 import net.corda.core.crypto.*
 import net.corda.core.schemas.MappedSchema
 import net.corda.core.schemas.PersistentState
 import net.corda.core.schemas.QueryableState
-import net.corda.core.serialization.CordaSerializable
 import net.corda.core.transactions.TransactionBuilder
-import java.math.BigInteger
-import java.security.PublicKey
-import java.util.*
 import net.corda.core.identity.AbstractParty
 import net.corda.core.identity.Party
-import org.bouncycastle.asn1.x500.X500Name
+import net.corda.core.random63BitValue
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
 // SecurityClaim
 //
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Just a fake program identifier for now
 val SECURITY_PROGRAM_ID = SecurityClaim()
 
 /**
- * A SecurityClaim transaction may split and merge stock represented by a set of (issuer, depositRef) pairs, across multiple
- * input and output states. Imagine a Bitcoin transaction but in which all UTXOs had a colour
- * (a blend of issuer+depositRef) and you couldn't merge outputs of two colours together, but you COULD put them in
- * the same transaction.
+ * A SecurityClaim transaction may split and merge claims on stock represented by a set of (issuer, depositRef) pairs, across multiple
+ * input and output states.
  */
 
-class SecurityClaim : OnLedgerAsset<Security, SecurityClaim.Commands, SecurityClaim.State>() {
-    override val legalContractReference: SecureHash = SecureHash.sha256("https://www.big-book-of-banking-law.gov/SecurityClaim.html")
-    override fun extractCommands(commands: Collection<AuthenticatedObject<CommandData>>): List<AuthenticatedObject<SecurityClaim.Commands>>
-            = commands.select<SecurityClaim.Commands>()
+class SecurityClaim : Contract {
+    override val legalContractReference: SecureHash = SecureHash.sha256("https://www.big-book-of-banking-law.gov/Security-claims.html")
+    override fun verify(tx: TransactionForContract) = verifyClause(tx, Clauses.Group(), tx.commands.select<SecurityClaim.Commands>())
 
-    interface Clauses {
-        class Group : GroupClauseVerifier<State, Commands, Issued<Security>>(AllOf<State, Commands, Issued<Security>>(
-                NoZeroSizedOutputs<State, Commands, Security>(),
-                FirstOf<State, Commands, Issued<Security>>(
-                        Issue(),
-                        ConserveAmount())
-        )
-        ) {
-            override fun groupStates(tx: TransactionForContract): List<TransactionForContract.InOutGroup<State, Issued<Security>>>
-                    = tx.groupStates<State, Issued<Security>> { it.amount.token }
-        }
+    data class Terms(
+            val quantity: Int,
+            val code: String
+    )
 
-        class Issue : AbstractIssue<State, Commands, Security>(
-                sum = { sumSecurityClaim() },
-                sumOrZero = { sumSecurityClaimOrZero(it) }
-        ) {
-            override val requiredCommands: Set<Class<out CommandData>> = setOf(Commands.Issue::class.java)
-        }
-
-        @CordaSerializable
-        class ConserveAmount : AbstractConserveAmount<State, Commands, Security>()
-    }
-
-    /** A state representing a security claim against some party */
+    /** A state representing a Security claim against some party */
     data class State(
-            override val amount: Amount<Issued<Security>>,
-            override val owner: AbstractParty
-    ) : FungibleAsset<Security>, QueryableState {
-        constructor(deposit: PartyAndReference, amount: Amount<Security>, owner: AbstractParty)
-                : this(Amount(amount.quantity, Issued(deposit, amount.token)), owner)
-
-        override val exitKeys = setOf(owner.owningKey, amount.token.issuer.party.owningKey)
+            val issuance: PartyAndReference,
+            override val owner: AbstractParty,
+            val code: String,
+            val quantity: Int
+    ) : OwnableState, QueryableState {
         override val contract = SECURITY_PROGRAM_ID
-        override val participants = listOf(owner)
+        override val participants: List<AbstractParty> = listOf(owner)
 
-        override fun move(newAmount: Amount<Issued<Security>>, newOwner: AbstractParty): FungibleAsset<Security>
-                = copy(amount = amount.copy(newAmount.quantity), owner = newOwner)
-
-        override fun toString() = "${amount.quantity} shares in ${amount.token.product.code} issued by ${amount.token.issuer})"
+        val token: Issued<Terms>
+            get() = Issued(issuance, Terms(quantity, code))
 
         override fun withNewOwner(newOwner: AbstractParty) = Pair(Commands.Move(), copy(owner = newOwner))
+        override fun toString() = "$quantity shares in $code owned by $owner)"
+
+        /** Object Relational Mapping support. */
+        override fun supportedSchemas(): Iterable<MappedSchema> = listOf(SecuritySchemaV1)
+        /** Additional used schemas would be added here (eg. SecurityClaimV2, ...) */
 
         /** Object Relational Mapping support. */
         override fun generateMappedObject(schema: MappedSchema): PersistentState {
             return when (schema) {
                 is SecuritySchemaV1 -> SecuritySchemaV1.PersistentSecurityState(
+                        issuerParty = this.issuance.party.owningKey.toBase58String(),
+                        issuerRef = this.issuance.reference.bytes,
                         owner = this.owner.owningKey.toBase58String(),
-                        companyName = this.amount.token.product.displayName,
-                        code = this.amount.token.product.code,
-                        issuerParty = this.amount.token.issuer.party.owningKey.toBase58String(),
-                        issuerRef = this.amount.token.issuer.reference.bytes
+                        code = this.code,
+                        quantity = this.quantity
                 )
+            /** Additional schema mappings would be added here (eg. SecurityClaimV2, ...) */
                 else -> throw IllegalArgumentException("Unrecognised schema $schema")
             }
         }
-
-        /** Object Relational Mapping support. */
-        override fun supportedSchemas(): Iterable<MappedSchema> = listOf(SecuritySchemaV1)
     }
 
-    // Just for grouping
-    interface Commands : FungibleAsset.Commands {
-        /**
-         * A command stating that money has been moved, optionally to fulfil another contract.
-         *
-         * @param contractHash the contract this move is for the attention of. Only that contract's verify function
-         * should take the moved states into account when considering whether it is valid. Typically this will be
-         * null.
-         */
+    interface Clauses {
+        class Group : GroupClauseVerifier<State, Commands, Issued<Terms>>(
+                AnyOf(
+                        Move(),
+                        Issue())) {
+            override fun groupStates(tx: TransactionForContract): List<TransactionForContract.InOutGroup<State, Issued<Terms>>>
+                    = tx.groupStates<State, Issued<Terms>> { it.token }
+        }
+
+        class Issue : AbstractIssue<State, Commands, Terms>(
+                { map { Amount(it.quantity.toLong(), it.token) }.sumOrThrow() },
+                { token -> map { Amount(it.quantity.toLong(), it.token) }.sumOrZero(token) }) {
+            override val requiredCommands: Set<Class<out CommandData>> = setOf(Commands.Issue::class.java)
+
+            override fun verify(tx: TransactionForContract,
+                                inputs: List<State>,
+                                outputs: List<State>,
+                                commands: List<AuthenticatedObject<Commands>>,
+                                groupingKey: Issued<Terms>?): Set<Commands> {
+                val consumedCommands = super.verify(tx, inputs, outputs, commands, groupingKey)
+                commands.requireSingleCommand<Commands.Issue>()
+                return consumedCommands
+            }
+        }
+
+        class Move : Clause<State, Commands, Issued<Terms>>() {
+            override val requiredCommands: Set<Class<out CommandData>> = setOf(Commands.Move::class.java)
+
+            override fun verify(tx: TransactionForContract,
+                                inputs: List<State>,
+                                outputs: List<State>,
+                                commands: List<AuthenticatedObject<Commands>>,
+                                groupingKey: Issued<Terms>?): Set<Commands> {
+                val command = commands.requireSingleCommand<Commands.Move>()
+                val owningPubKeys = inputs.map { it.owner.owningKey }.toSet()
+                val keysThatSigned = command.signers.toSet()
+                requireThat {
+                    "the owning keys are a subset of the signing keys" using keysThatSigned.containsAll(owningPubKeys)
+                    "there are no zero sized inputs" using inputs.none { it.quantity == 0 }
+                    // Don't need to check anything else, as if outputs.size == 1 then the output is equal to
+                    // the input ignoring the owner field due to the grouping.
+                }
+                return setOf(command.value)
+            }
+        }
+    }
+
+    interface Commands : CommandData {
         data class Move(override val contractHash: SecureHash? = null) : FungibleAsset.Commands.Move, Commands
-
-        /**
-         * Allows new SecurityClaim states to be issued into existence: the nonce ("number used once") ensures the transaction
-         * has a unique ID even when there are no inputs.
-         */
-        data class Issue(override val nonce: Long = newSecureRandom().nextLong()) : FungibleAsset.Commands.Issue, Commands
-
-        /**
-         * A command stating that money has been withdrawn from the shared ledger and is now accounted for
-         * in some other way.
-         */
-        data class Exit(override val amount: Amount<Issued<Security>>) : Commands, FungibleAsset.Commands.Exit<Security>
+        data class Issue(override val nonce: Long = random63BitValue()) : IssueCommand, Commands
     }
 
     /**
-     * Puts together an issuance transaction from the given template, that starts out being owned by the given pubkey.
+     * Returns a transaction that issues a stock, owned by the issuing parties key.
      */
-    fun generateIssue(tx: TransactionBuilder, tokenDef: Issued<Security>, pennies: Long, owner: AbstractParty, notary: Party)
-            = generateIssue(tx, Amount(pennies, tokenDef), owner, notary)
+    fun generateIssue(tx: TransactionBuilder,
+                      issuance: PartyAndReference,
+                      code: String,
+                      quantity: Int,
+                      owner: AbstractParty,
+                      notary: Party) : TransactionBuilder {
+        check(tx.inputStates().isEmpty())
+        val state = TransactionState(State(issuance, owner, code, quantity), notary)
+        tx.addOutputState(state)
+        tx.addCommand(Commands.Issue(), issuance.party.owningKey)
+        return tx
+    }
 
-    /**
-     * Puts together an issuance transaction for the specified amount that starts out being owned by the given pubkey.
-     */
-    fun generateIssue(tx: TransactionBuilder, amount: Amount<Issued<Security>>, owner: AbstractParty, notary: Party)
-            = generateIssue(tx, TransactionState(State(amount, owner), notary), generateIssueCommand())
-
-    override fun deriveState(txState: TransactionState<State>, amount: Amount<Issued<Security>>, owner: AbstractParty)
-            = txState.copy(data = txState.data.copy(amount = amount, owner = owner))
-
-    override fun generateExitCommand(amount: Amount<Issued<Security>>) = Commands.Exit(amount)
-    override fun generateIssueCommand() = Commands.Issue()
-    override fun generateMoveCommand() = Commands.Move()
-
-    override fun verify(tx: TransactionForContract)
-            = verifyClause(tx, Clauses.Group(), extractCommands(tx.commands))
+    fun generateMove(tx: TransactionBuilder, stock: StateAndRef<State>, newOwner : AbstractParty) {
+        tx.addInputState(stock)
+        tx.addOutputState(TransactionState(stock.state.data.copy(owner = newOwner), stock.state.notary))
+        tx.addCommand(Commands.Move(), stock.state.data.owner.owningKey)
+    }
+    fun generateMoveCommand() = Commands.Move()
 }
-
-// Small DSL extensions.
-
-/**
- * Sums the SecurityClaim states in the list belonging to a single owner, throwing an exception
- * if there are none, or if any of the SecurityClaim states cannot be added together (i.e. are
- * different currencies or issuers).
- */
-fun Iterable<ContractState>.sumSecurityClaimBy(owner: PublicKey): Amount<Issued<Security>> = filterIsInstance<SecurityClaim.State>().filter { it.owner == owner }.map { it.amount }.sumOrThrow()
-
-/**
- * Sums the SecurityClaim states in the list, throwing an exception if there are none, or if any of the SecurityClaim
- * states cannot be added together (i.e. are different currencies or issuers).
- */
-fun Iterable<ContractState>.sumSecurityClaim(): Amount<Issued<Security>> = filterIsInstance<SecurityClaim.State>().map { it.amount }.sumOrThrow()
-
-/** Sums the SecurityClaim states in the list, returning null if there are none. */
-fun Iterable<ContractState>.sumSecurityClaimOrNull(): Amount<Issued<Security>>? = filterIsInstance<SecurityClaim.State>().map { it.amount }.sumOrNull()
-
-/** Sums the SecurityClaim states in the list, returning zero of the given Security+issuer if there are none. */
-fun Iterable<ContractState>.sumSecurityClaimOrZero(Security: Issued<Security>): Amount<Issued<Security>> {
-    return filterIsInstance<SecurityClaim.State>().map { it.amount }.sumOrZero(Security)
-}
-
-fun SecurityClaim.State.ownedBy(owner: AbstractParty) = copy(owner = owner)
-fun SecurityClaim.State.issuedBy(party: AbstractParty) = copy(amount = Amount(amount.quantity, amount.token.copy(issuer = amount.token.issuer.copy(party = party))))
-fun SecurityClaim.State.issuedBy(deposit: PartyAndReference) = copy(amount = Amount(amount.quantity, amount.token.copy(issuer = deposit)))
-fun SecurityClaim.State.withDeposit(deposit: PartyAndReference): SecurityClaim.State = copy(amount = amount.copy(token = amount.token.copy(issuer = deposit)))
-
-infix fun SecurityClaim.State.`owned by`(owner: AbstractParty) = ownedBy(owner)
-infix fun SecurityClaim.State.`issued by`(party: AbstractParty) = issuedBy(party)
-infix fun SecurityClaim.State.`issued by`(deposit: PartyAndReference) = issuedBy(deposit)
-infix fun SecurityClaim.State.`with deposit`(deposit: PartyAndReference): SecurityClaim.State = withDeposit(deposit)
-
-// Unit testing helpers. These could go in a separate file but it's hardly worth it for just a few functions.
-
-/** A randomly generated key. */
-val DUMMY_SECURITYCLAIM_ISSUER_KEY by lazy { entropyToKeyPair(BigInteger.valueOf(10)) }
-/** A dummy, randomly generated issuer party by the name of "Snake Oil Issuer" */
-val DUMMY_SECURITYCLAIM_ISSUER by lazy { Party(X500Name("CN=Snake Oil Issuer,O=R3,OU=corda,L=London,C=UK"), DUMMY_SECURITYCLAIM_ISSUER_KEY.public).ref(1) }
-///** An extension property that lets you write 100.SHARES.SecurityClaim */
-//val Amount<Security>.SecurityClaim: SecurityClaim.State get() = SecurityClaim.State(Amount(quantity, Issued(DUMMY_SECURITYCLAIM_ISSUER, token)), NullPublicKey)
-///** An extension property that lets you get a SecurityClaim state from an issued token, under the [NullPublicKey] */
-//val Amount<Issued<Security>>.STATE: SecurityClaim.State get() = SecurityClaim.State(this, NullPublicKey)
