@@ -85,7 +85,8 @@ fun main(args: Array<String>) {
         arrayOf(notaryNode, arnoldNode, barryNode, exchangeNode, centralNode).forEach {
             println("${it.nodeInfo.legalIdentity} started on ${it.configuration.rpcAddress}")
         }
-        //NEW LINE
+        //NEW
+        //LINES
         val aClient = arnoldNode.rpcClientToNode()
         val aRPC = aClient.start(user.username, user.password).proxy
 
