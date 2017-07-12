@@ -95,6 +95,7 @@ class SecurityLoan : Contract {
                 //creating the loan state
                 "No inputs should be consumed when issuing a secLoan." using (tx.inputs.isEmpty())
                 "Only one output state should be created when issuing a SecurityLoan." using (tx.outputs.size == 1)
+                //Lender should have enough quantity of security to cover the loan state
                 val secLoan = tx.outputs.single() as State
                 "A newly issued secLoan must have a positive amount." using (secLoan.quantity > 0)
                 //"A newly issued secLoan must have a positive amount." using (secLoan.stockState.quantity > 0)
@@ -153,4 +154,5 @@ class SecurityLoan : Contract {
         tx.addCommand(SecurityLoan.Commands.Exit(), lender.owningKey)
         return tx
     }
+
 }

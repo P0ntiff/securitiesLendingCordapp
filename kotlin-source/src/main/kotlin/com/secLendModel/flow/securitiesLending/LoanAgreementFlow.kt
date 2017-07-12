@@ -30,6 +30,7 @@ object LoanAgreementFlow {
             val lenderKey : PublicKey,
             val margin : Int,       //Percent
             val rebate : Int,        //Percent
+            val lengthOfLoan: Int,   //Length represented in days?
             val collateralType : FungibleAsset<Cash>
     )
 
@@ -41,6 +42,7 @@ object LoanAgreementFlow {
                    val buyer: Party,
                    val margin : Int,
                    val rebate : Int,
+                   val lengthOfLoan: Int,
                    val collateralType : FungibleAsset<Cash>) : FlowLogic<Unit>() {
         override fun call() : Unit {
             val myKey = serviceHub.myInfo.legalIdentity.owningKey
@@ -51,6 +53,7 @@ object LoanAgreementFlow {
                     myKey,
                     margin,
                     rebate,
+                    lengthOfLoan,
                     collateralType
             )
 
