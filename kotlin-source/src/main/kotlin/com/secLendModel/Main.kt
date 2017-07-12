@@ -5,7 +5,10 @@ import com.secLendModel.flow.securities.SecuritiesIssueFlow
 import com.secLendModel.flow.securities.TradeFlow.Seller
 import com.secLendModel.flow.securities.TradeFlow.Buyer
 import com.secLendModel.flow.SecuritiesPreparationFlow
+import com.secLendModel.flow.securitiesLending.LoanAgreementFlow.Borrower
+import net.corda.contracts.asset.Cash
 import net.corda.core.contracts.Amount
+import net.corda.core.contracts.FungibleAsset
 import net.corda.core.contracts.GBP
 import net.corda.core.getOrThrow
 import net.corda.core.identity.Party
@@ -204,4 +207,27 @@ fun tradeEquity(seller : CordaRPCOps, buyer : CordaRPCOps) {
     seller.startFlow(::Seller, CODES[stockIndex], figure, sharePrice, buyer.nodeIdentity().legalIdentity).returnValue.getOrThrow()
     println("Trade Finalised: ${figure} shares in ${CODES[stockIndex]} at ${sharePrice} each sold to buyer '" +
             "${buyer.nodeIdentity().legalIdentity}' by seller '${seller.nodeIdentity().legalIdentity}'")
+}
+
+/**Selects random stock and quantity to be loaned out to the lender. These states are not exited yet
+ * and simply shows and example of stock + collateral -> stock(loaned) + collateral(new party) + securityLoanState
+ *
+ * @param borrower = party requesting to borrow an amount of a security
+ *  @param lender = party lending out the securities
+ */
+fun loanSecurities(borrower: CordaRPCOps, lender: CordaRPCOps) {
+    val rand = Random()
+    val stockIndex = rand.nextInt(CODES.size - 0) + 0
+    val figure = (rand.nextInt(150 + 1 - 50) + 50)
+
+    val dollaryDoos = (rand.nextInt(150 + 1 - 50) + 50).toLong() * 100
+    val sharePrice = Amount(dollaryDoos, CURRENCY)
+
+    val margin = 5
+    val rebate = 1
+    val length = 30
+
+    //borrower.startFlow(::Borrower, CODES[stockIndex], figure, sharePrice, lender, margin, rebate, FungibleAsset<Cash>).returnValue.getOrThrow()
+    //println("Trade Finalised: ${figure} shares in ${CODES[stockIndex]} at ${sharePrice} each sold to buyer '" +
+            //"${buyer.nodeIdentity().legalIdentity}' by seller '${seller.nodeIdentity().legalIdentity}'")
 }

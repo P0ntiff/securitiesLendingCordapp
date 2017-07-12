@@ -1,13 +1,17 @@
 package com.secLendModel.flow.securitiesLending
 
 import com.secLendModel.CURRENCY
+import com.secLendModel.contract.SecurityLoan
+import com.secLendModel.flow.SecuritiesPreparationFlow
 import net.corda.contracts.asset.Cash
 import net.corda.core.contracts.Amount
 import net.corda.core.contracts.FungibleAsset
+import net.corda.core.contracts.InsufficientBalanceException
 import net.corda.core.flows.*
 import net.corda.core.identity.AnonymousParty
 import net.corda.core.identity.Party
 import net.corda.core.serialization.CordaSerializable
+import net.corda.core.transactions.SignedTransaction
 import net.corda.core.transactions.TransactionBuilder
 import net.corda.core.utilities.unwrap
 import java.security.PublicKey
@@ -71,9 +75,7 @@ object LoanAgreementFlow {
                                 Amount(stockPrice.quantity * quantity, CURRENCY),
                                 AnonymousParty(lender.owningKey)
                         )
-                //Borrower signs and sends back to lender
-                val stx = serviceHub.signInitialTransaction(ptx, cashSigningPubKeys)
-                send(lender, stx)
+                send(lender,ptx)
 
                 return Unit
             } else {
@@ -94,6 +96,16 @@ object LoanAgreementFlow {
             } else {
                 //TODO: provide a counter proposal here
             }
+            //receive tx builder w/ cash and signature
+            val received = receive<TransactionBuilder>(lender)
+            //Generate appropriate states for the tx i.e input = securities, output = securityLoan issue
+
+
+
+
+
+
+
         }
 
     }
