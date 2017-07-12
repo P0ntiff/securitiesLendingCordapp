@@ -1,11 +1,14 @@
 package com.secLendModel.flow.securitiesLending
 
+import com.secLendModel.CURRENCY
 import net.corda.contracts.asset.Cash
 import net.corda.core.contracts.Amount
 import net.corda.core.contracts.FungibleAsset
 import net.corda.core.flows.*
+import net.corda.core.identity.AnonymousParty
 import net.corda.core.identity.Party
 import net.corda.core.serialization.CordaSerializable
+import net.corda.core.transactions.TransactionBuilder
 import net.corda.core.utilities.unwrap
 import java.security.PublicKey
 import java.util.*
@@ -39,7 +42,7 @@ object LoanAgreementFlow {
     class Borrower(val code: String,
                    val quantity: Int,
                    val stockPrice: Amount<Currency>,
-                   val buyer: Party,
+                   val lender: Party,
                    val margin : Int,
                    val rebate : Int,
                    val lengthOfLoan: Int,
@@ -57,14 +60,26 @@ object LoanAgreementFlow {
                     collateralType
             )
 
-            val counterProposal : LoanOffer = sendAndReceive<LoanOffer>(buyer, loanOffer).unwrap { it }
+            val counterProposal : LoanOffer = sendAndReceive<LoanOffer>(lender, loanOffer).unwrap { it }
             //accept counter proposal for now
             //TODO: negotiate terms of loan here
             if (counterProposal.equals(loanOffer)) {
+                //TODO: Check with ben this is on the right track for sending a cash value
+                val builder = TransactionBuilder()
+                val (ptx, cashSigningPubKeys) = serviceHub.vaultService.
+                        generateSpend(builder,
+                                Amount(stockPrice.quantity * quantity, CURRENCY),
+                                AnonymousParty(lender.owningKey)
+                        )
+                //Borrower signs and sends back to lender
+                val stx = serviceHub.signInitialTransaction(ptx, cashSigningPubKeys)
+                send(lender, stx)
+
                 return Unit
             } else {
                 throw AgreementException(null)
             }
+
         }
     }
 

@@ -12,7 +12,9 @@ import net.corda.core.schemas.MappedSchema
 import net.corda.core.schemas.PersistentState
 import net.corda.core.schemas.QueryableState
 import net.corda.core.transactions.TransactionBuilder
+import java.math.BigDecimal
 import java.security.PublicKey
+import java.util.*
 
 /**
  *  SecurityLoan Contract class. --> See "SecurityLoan.State" for state.
@@ -31,9 +33,10 @@ class SecurityLoan : Contract {
                      val collateralType: FungibleAsset<Cash> //TODO: Figure out what type collateralType is (could be cash, any fungible asset, etc)
                      )
     //TODO: Should the state take in a securityClaim state and not just code, quantity, etc (this is already stored in SecurityClaimState)
+    //Think this is the job of the flow -> adding inputs and outputs to the tx, we just verify current state and correct number of in and out
     data class State(val quantity: Int,
                      val code: String,
-                     val stockPrice: Int,
+                     val stockPrice: Amount<Currency>,
                      val lender: Party,
                      val borrower: Party,
                      val terms: Terms,
@@ -76,7 +79,8 @@ class SecurityLoan : Contract {
                         borrower = this.borrower.owningKey.toBase58String(),
                         code = this.code,
                         quantity = this.quantity,
-                        price = this.stockPrice,
+                        //price with 2 decimal places
+                        price = this.stockPrice.quantity,
                         id = this.linearId.toString(),
                         //Loan term values also saved to vault
                         length = this.terms.lengthOfLoan,
@@ -93,26 +97,23 @@ class SecurityLoan : Contract {
         when (command.value) {
             is Commands.Issue -> requireThat {
                 //creating the loan state
-                "No inputs should be consumed when issuing a secLoan." using (tx.inputs.isEmpty())
-                "Only one output state should be created when issuing a SecurityLoan." using (tx.outputs.size == 1)
-                //Lender should have enough quantity of security to cover the loan state
+                "No inputs should be consumed when issuing a secLoan." using (tx.inputs.isEmpty()) //Should be two inputs -> securities and collateral
+                "Only one output state should be created when issuing a SecurityLoan." using (tx.outputs.size == 1) //Three outputs -> cash/collateral, securities, securityLoanState
                 val secLoan = tx.outputs.single() as State
                 "A newly issued secLoan must have a positive amount." using (secLoan.quantity > 0)
                 //"A newly issued secLoan must have a positive amount." using (secLoan.stockState.quantity > 0)
-                "Shares must have some value" using (secLoan.stockPrice > 0)
+                "Shares must have some value" using (secLoan.stockPrice.quantity > 0)
                 "The lender and borrower cannot be the same identity." using (secLoan.borrower != secLoan.lender)
                 "Both lender and borrower together only may sign secLoan issue transaction." using
                         (command.signers.toSet() == secLoan.participants.map { it.owningKey }.toSet())
-                "The loan must have a timeframe" using (secLoan.terms.lengthOfLoan > 0)
             }
             is Commands.Exit -> requireThat{
                 //Exit the loan
                 val secLoan = tx.inputs.single() as State
-                "Only one input state should be consumed when exiting the secLoan" using (tx.inputs.size == 1)
-                "No outputs should be created when exiting a secLoan" using (tx.outputs.size == 1)
+                "One input state should be consumed when exiting the secLoan" using (tx.inputs.size==1) //Three inputs: loanState, securities, collateral
+                "No outputs should be created" using (tx.outputs.isEmpty()) //Outputs: cash (collateral returned to owner), securities(ownership transferred back to owner)
                 "Input should be signed by both borrow and lender" using (command.signers.toSet()
                         == secLoan.participants.map{ it.owningKey }.toSet())
-                //The loan should have reached its end date -> figure out best method for tracking this.
             }
 
         }
@@ -121,11 +122,10 @@ class SecurityLoan : Contract {
     /** Functions below for generating an issue and exit transaction, based off
      * security claim contract
      */
-    //TODO: Change these functions to incoperate stockState instead of quantity and code
     fun generateIssue(tx: TransactionBuilder,
                       quantity: Int,
                       code: String,
-                      stockPrice: Int,
+                      stockPrice: Amount<Currency>,
                       lender: Party,
                       borrower: Party,
                       lengthOfLoan: Int,
@@ -139,6 +139,7 @@ class SecurityLoan : Contract {
         val terms = Terms(lengthOfLoan, margin, rebate, collateralType)
         val state = TransactionState(State(quantity,code,stockPrice,lender,borrower,terms, linearId), notary)
         tx.addOutputState(state)
+        //TODO: check: should we add input and output states here, or is that done in flow and we simply worry about generating the securityLoan state
         //Tx signed by the lender
         tx.addCommand(SecurityLoan.Commands.Issue(), lender.owningKey)
         return tx

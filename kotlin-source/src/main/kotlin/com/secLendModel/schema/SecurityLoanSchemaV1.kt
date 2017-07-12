@@ -8,6 +8,7 @@ package com.secLendModel.schema
 import com.secLendModel.contract.SecurityLoan
 import net.corda.core.schemas.MappedSchema
 import net.corda.core.schemas.PersistentState
+import java.math.BigDecimal
 import javax.persistence.Column
 import javax.persistence.Entity
 import javax.persistence.Table
@@ -44,7 +45,7 @@ object SecurityLoanSchemaV1 : MappedSchema(schemaFamily = SecurityLoanSchema.jav
             //var issuerRef: ByteArray,
 
             @Column(name = "price")
-            var price: Int,
+            var price: Long,
 
             @Column(name = "linearID")
             var id: String,
