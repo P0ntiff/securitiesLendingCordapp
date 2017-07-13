@@ -12,6 +12,7 @@ import net.corda.core.identity.Party
 import net.corda.core.schemas.MappedSchema
 import net.corda.core.schemas.PersistentState
 import net.corda.core.schemas.QueryableState
+import net.corda.core.serialization.CordaSerializable
 import net.corda.core.transactions.TransactionBuilder
 import java.math.BigDecimal
 import java.security.PublicKey
@@ -29,10 +30,10 @@ class SecurityLoan : Contract {
         class Update: TypeOnlyCommandData(), Commands
     }
 
+    @CordaSerializable
     data class Terms(val lengthOfLoan: Int,
                      val margin: Int,
-                     val rebate: Int,
-                     val collateralType: FungibleAsset<Any> //TODO: Figure out what type collateralType is (could be cash, any fungible asset, etc)
+                     val rebate: Int //TODO: Figure out what type collateralType is (could be cash, any fungible asset, etc)
                      )
 
     data class State(val quantity: Int,
@@ -97,7 +98,7 @@ class SecurityLoan : Contract {
                     if (it is SecurityLoan.State) { secLoanIndex = tx.outputs.indexOf(it)}
                 }
                 val secLoan: SecurityLoan.State = tx.outputs.get(secLoanIndex) as State
-                var cashStatesTally = 0
+                var cashStatesTally : Long = 0
                 var securityStatesTally = 0
                 tx.inputs.forEach {
                     if (it is Cash.State) { cashStatesTally += it.amount.quantity.toInt() }
@@ -105,8 +106,8 @@ class SecurityLoan : Contract {
                 }
                 //Check we have some inputs -> Not being restrictive at this point in time
                 "Inputs should be consumed when issuing a secLoan." using (tx.inputs.isNotEmpty()) //Should be two input types -> securities and collateral(Cash States)
-                "Cash states in the inputs sum to the value of the loan + margin" using (cashStatesTally == secLoan.quantity * secLoan.stockPrice.quantity.toInt() +
-                        secLoan.quantity * secLoan.stockPrice.quantity.toInt()*secLoan.terms.margin)
+                "Cash states in the inputs sum to the value of the loan + margin" using (cashStatesTally == secLoan.quantity.toLong() * secLoan.stockPrice.quantity) //+
+                    //    secLoan.quantity * secLoan.stockPrice.quantity.toInt()*secLoan.terms.margin)
                 "Securities states in the inputs sum to the quantity of the loan" using (securityStatesTally == secLoan.quantity)
                 "A newly issued secLoan must have a positive amount." using (secLoan.quantity > 0)
                 "Shares must have some value" using (secLoan.stockPrice.quantity > 0)
@@ -163,7 +164,7 @@ class SecurityLoan : Contract {
                       borrower: Party,
                       notary: Party): TransactionBuilder{
         val state = TransactionState(State(loanTerms.quantity, loanTerms.code, loanTerms.stockPrice, loanTerms.lender, borrower,
-                Terms(loanTerms.lengthOfLoan, loanTerms.margin, loanTerms.rebate, loanTerms.collateralType)), notary)
+                Terms(loanTerms.lengthOfLoan, loanTerms.margin, loanTerms.rebate)), notary)
         tx.addOutputState(state)
         //TODO: check: should we add input and output states here, or is that done in flow and we simply worry about generating the securityLoan state
         //Tx signed by the lender
