@@ -26,6 +26,7 @@ class SecurityLoan : Contract {
     interface Commands : CommandData {
         class Issue : TypeOnlyCommandData(), Commands
         class Exit: TypeOnlyCommandData(), Commands
+        class Update: TypeOnlyCommandData(), Commands
     }
 
     data class Terms(val lengthOfLoan: Int,
@@ -33,15 +34,13 @@ class SecurityLoan : Contract {
                      val rebate: Int,
                      val collateralType: FungibleAsset<Any> //TODO: Figure out what type collateralType is (could be cash, any fungible asset, etc)
                      )
-    //TODO: Should the state take in a securityClaim state and not just code, quantity, etc (this is already stored in SecurityClaimState)
-    //Think this is the job of the flow -> adding inputs and outputs to the tx, we just verify current state and correct number of in and out
+
     data class State(val quantity: Int,
                      val code: String,
                      val stockPrice: Amount<Currency>,
                      val lender: Party,
                      val borrower: Party,
                      val terms: Terms,
-                     //val stockState: SecurityClaim.State, // This could be added, quantity, code could be removed
                      override val linearId: UniqueIdentifier = UniqueIdentifier()): LinearState, QueryableState {
         /**
          *  This property holds a list of the nodes which can "use" this state in a valid transaction. In this case, the
@@ -61,9 +60,6 @@ class SecurityLoan : Contract {
          * A toString() helper method for displaying in the console.
          */
         override fun toString(): String{
-            //If stockState is used
-            //val quantity2 = stockState.quantity
-            //val code2 = stockState.code
             return "SecurityLoan($linearId): ${borrower.name} owes ${lender.name} $quantity of $code shares."
         }
 
@@ -73,9 +69,6 @@ class SecurityLoan : Contract {
         override fun generateMappedObject(schema: MappedSchema): PersistentState {
             return when (schema) {
                 is SecurityLoanSchemaV1 -> SecurityLoanSchemaV1.PersistentSecurityState(
-                        //If stockState is used
-                        //quantity = stockState.quantity,
-                        //code = stockState.code,
                         lender = this.lender.owningKey.toBase58String(),
                         borrower = this.borrower.owningKey.toBase58String(),
                         code = this.code,
@@ -95,21 +88,27 @@ class SecurityLoan : Contract {
 
     override fun verify(tx: TransactionForContract): Unit {
         val command = tx.commands.requireSingleCommand<SecurityLoan.Commands>()
-        var cashStatesTally = 0
-        var securityStatesTally = 0
-        tx.outputs.forEach {
-            if (it is Cash.State) { cashStatesTally += it.amount.quantity.toInt() }
 
-        }
         when (command.value) {
             is Commands.Issue -> requireThat {
-                //creating the loan state
-                "Inputs should be consumed when issuing a secLoan." using (tx.inputs.isNotEmpty()) //Should be two inputs -> securities and collateral
-                 //TODO: Three outputs -> cash/collateral, securities, securityLoanState
-                val secLoan = tx.outputs.single() as State
-                "Cash states in the inputs sum to the value of the loan + margin" using (cashStatesTally == secLoan.quantity * secLoan.stockPrice.quantity.toInt())
+                //Get input and output info
+                var secLoanIndex = 0
+                tx.outputs.forEach{
+                    if (it is SecurityLoan.State) { secLoanIndex = tx.outputs.indexOf(it)}
+                }
+                val secLoan: SecurityLoan.State = tx.outputs.get(secLoanIndex) as State
+                var cashStatesTally = 0
+                var securityStatesTally = 0
+                tx.inputs.forEach {
+                    if (it is Cash.State) { cashStatesTally += it.amount.quantity.toInt() }
+                    if (it is SecurityClaim.State && it.code == secLoan.code) { securityStatesTally += it.quantity}
+                }
+                //Check we have some inputs -> Not being restrictive at this point in time
+                "Inputs should be consumed when issuing a secLoan." using (tx.inputs.isNotEmpty()) //Should be two input types -> securities and collateral(Cash States)
+                "Cash states in the inputs sum to the value of the loan + margin" using (cashStatesTally == secLoan.quantity * secLoan.stockPrice.quantity.toInt() +
+                        secLoan.quantity * secLoan.stockPrice.quantity.toInt()*secLoan.terms.margin)
+                "Securities states in the inputs sum to the quantity of the loan" using (securityStatesTally == secLoan.quantity)
                 "A newly issued secLoan must have a positive amount." using (secLoan.quantity > 0)
-                //"A newly issued secLoan must have a positive amount." using (secLoan.stockState.quantity > 0)
                 "Shares must have some value" using (secLoan.stockPrice.quantity > 0)
                 "The lender and borrower cannot be the same identity." using (secLoan.borrower != secLoan.lender)
                 "Both lender and borrower together only may sign secLoan issue transaction." using
@@ -117,11 +116,40 @@ class SecurityLoan : Contract {
             }
             is Commands.Exit -> requireThat{
                 //Exit the loan
-                val secLoan = tx.inputs.single() as State
-                "One input state should be consumed when exiting the secLoan" using (tx.inputs.size==1) //Three inputs: loanState, securities, collateral
-                "No outputs should be created" using (tx.outputs.isEmpty()) //Outputs: cash (collateral returned to owner), securities(ownership transferred back to owner)
+                //Get input and output info
+                var secLoanIndex = 0
+                tx.inputs.forEach{
+                    if (it is SecurityLoan.State) { secLoanIndex = tx.outputs.indexOf(it) }
+                }
+                val secLoan: SecurityLoan.State = tx.inputs.get(secLoanIndex) as State
+                var cashStatesTally = 0
+                var securityStatesTally = 0
+                var secLoanStates = 0
+                tx.outputs.forEach {
+                    if (it is Cash.State) { cashStatesTally += it.amount.quantity.toInt() }
+                    if (it is SecurityClaim.State && it.code == secLoan.code) { securityStatesTally += it.quantity}
+                    if (it is SecurityLoan.State) {secLoanStates += 1}
+                }
+                "Cash states in the output sum to the value of the loan" using (cashStatesTally == secLoan.quantity * secLoan.stockPrice.quantity.toInt())
+                "Security states in the output sum to the securities total of the loan" using (securityStatesTally == secLoan.quantity)
+                "Secloan state must not be present in the output" using (secLoanStates == 0) //secLoan must be consumed as part of tx
                 "Input should be signed by both borrow and lender" using (command.signers.toSet()
                         == secLoan.participants.map{ it.owningKey }.toSet())
+
+            }
+
+            is Commands.Update -> requireThat {
+                //Update the loan margin
+                "Only one input should be present" using (tx.inputs.size == 1)
+                "Only one output should be present" using (tx.outputs.size == 1)
+                //Check the ID of both loanStates is the same
+                val inputLoan = tx.inputs.single() as State
+                val outputLoan = tx.outputs.single() as State
+                "Linear ID should match" using (inputLoan.linearId == outputLoan.linearId)
+                "Both lender and borrower must have signed both input and output states." using
+                        ((command.signers.toSet() == inputLoan.participants.map { it.owningKey }.toSet()) &&
+                                (command.signers.toSet() == outputLoan.participants.map { it.owningKey }.toSet()))
+
             }
 
         }
@@ -150,7 +178,19 @@ class SecurityLoan : Contract {
             borrower: Party): TransactionBuilder {
         //Add the loan state as an input to the exit
         tx.addInputState(secLoan)
-        tx.addCommand(SecurityLoan.Commands.Exit(), lender.owningKey)
+        tx.addCommand(SecurityLoan.Commands.Exit(), lender.owningKey, borrower.owningKey)
+        return tx
+    }
+
+    fun generateUpdate(tx: TransactionBuilder,
+                     marginUpdate: Int,
+                     secLoan: StateAndRef<SecurityLoan.State>,
+                     lender: Party,
+                     borrower: Party): TransactionBuilder{
+        tx.addInputState(secLoan)
+        //Copy the input state and create a new output state with a changed margin
+        tx.addOutputState(TransactionState(secLoan.state.data.copy(terms = secLoan.state.data.terms.copy(margin = marginUpdate)), secLoan.state.notary))
+        tx.addCommand(SecurityLoan.Commands.Update(), lender.owningKey, borrower.owningKey)
         return tx
     }
 
