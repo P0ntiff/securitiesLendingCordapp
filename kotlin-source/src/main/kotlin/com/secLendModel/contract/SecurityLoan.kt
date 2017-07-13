@@ -25,6 +25,7 @@ class SecurityLoan : Contract {
     interface Commands : CommandData {
         class Issue : TypeOnlyCommandData(), Commands
         class Exit: TypeOnlyCommandData(), Commands
+        class Update: TypeOnlyCommandData(), Commands
     }
 
     data class Terms(val lengthOfLoan: Int,
@@ -133,6 +134,21 @@ class SecurityLoan : Contract {
                 "Secloan state must not be present in the output" using (secLoanStates == 0) //secLoan must be consumed as part of tx
                 "Input should be signed by both borrow and lender" using (command.signers.toSet()
                         == secLoan.participants.map{ it.owningKey }.toSet())
+
+            }
+
+            is Commands.Update -> requireThat {
+                //Update the loan margin
+                "Only one input should be present" using (tx.inputs.size == 1)
+                "Only one output should be present" using (tx.outputs.size == 1)
+                //Check the ID of both loanStates is the same
+                val inputLoan = tx.inputs.single() as State
+                val outputLoan = tx.outputs.single() as State
+                "Linear ID should match" using (inputLoan.linearId == outputLoan.linearId)
+                "Both lender and borrower must have signed both input and output states." using
+                        ((command.signers.toSet() == inputLoan.participants.map { it.owningKey }.toSet()) &&
+                                (command.signers.toSet() == outputLoan.participants.map { it.owningKey }.toSet()))
+
             }
 
         }
@@ -152,13 +168,11 @@ class SecurityLoan : Contract {
                       rebate: Int,
                       collateralType: FungibleAsset<Cash>,
                       notary: Party): TransactionBuilder{
-        //Confirm this is a creation from no input states
-        check(tx.inputStates().isEmpty())
         val terms = Terms(lengthOfLoan, margin, rebate, collateralType)
         val state = TransactionState(State(quantity,code,stockPrice,lender,borrower,terms), notary)
         tx.addOutputState(state)
         //Tx signed by the lender
-        tx.addCommand(SecurityLoan.Commands.Issue(), lender.owningKey)
+        tx.addCommand(SecurityLoan.Commands.Issue(), lender.owningKey, borrower.owningKey)
         return tx
     }
 
@@ -169,7 +183,19 @@ class SecurityLoan : Contract {
             borrower: Party): TransactionBuilder {
         //Add the loan state as an input to the exit
         tx.addInputState(secLoan)
-        tx.addCommand(SecurityLoan.Commands.Exit(), lender.owningKey)
+        tx.addCommand(SecurityLoan.Commands.Exit(), lender.owningKey, borrower.owningKey)
+        return tx
+    }
+
+    fun generateUpdate(tx: TransactionBuilder,
+                     marginUpdate: Int,
+                     secLoan: StateAndRef<SecurityLoan.State>,
+                     lender: Party,
+                     borrower: Party): TransactionBuilder{
+        tx.addInputState(secLoan)
+        //Copy the input state and create a new output state with a changed margin
+        tx.addOutputState(TransactionState(secLoan.state.data.copy(terms = secLoan.state.data.terms.copy(margin = marginUpdate)), secLoan.state.notary))
+        tx.addCommand(SecurityLoan.Commands.Update(), lender.owningKey, borrower.owningKey)
         return tx
     }
 
