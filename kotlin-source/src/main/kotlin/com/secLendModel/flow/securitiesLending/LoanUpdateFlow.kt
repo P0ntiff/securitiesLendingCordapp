@@ -6,6 +6,7 @@ import com.secLendModel.contract.SecurityClaim
 import com.secLendModel.contract.SecurityLoan
 import com.secLendModel.flow.SecuritiesPreparationFlow
 import net.corda.core.contracts.Amount
+import net.corda.core.contracts.UniqueIdentifier
 import net.corda.core.flows.FlowLogic
 import net.corda.core.flows.InitiatedBy
 import net.corda.core.flows.InitiatingFlow
@@ -36,26 +37,16 @@ import java.util.*
 object LoanUpdateFlow {
     @StartableByRPC
     @InitiatingFlow
-    class Lender(val code: String,
-                 val quantity: Int,
-                 val stockPrice: Amount<Currency>,
-                 val lender: Party,
-                 val borrower: Party,
-                 val terms: SecurityLoan.Terms,
+    class Lender(val linearID: UniqueIdentifier,
                  val newMargin: Int
-                 ) : FlowLogic<Unit>() {
+                 ) : FlowLogic<UniqueIdentifier>() {
         @Suspendable
-        override fun call() : Unit {
+        override fun call() : UniqueIdentifier {
             //Retrieve the loan from our vault
             val criteria = QueryCriteria.VaultQueryCriteria(status = Vault.StateStatus.UNCONSUMED)
             val equityStates = serviceHub.vaultQueryService.queryBy<SecurityLoan.State>(criteria)
             val desiredStates = equityStates.states.filter {
-                (it.state.data.code == code)  &&
-                        (it.state.data.quantity == quantity) &&
-                        (it.state.data.lender == lender) &&
-                        (it.state.data.stockPrice == stockPrice) &&
-                        (it.state.data.borrower == borrower) &&
-                        (it.state.data.terms == terms) }
+                (it.state.data.linearId == linearID) }
             if (desiredStates.size > 1){
                 throw Exception("Too many states found")
             }
@@ -63,15 +54,17 @@ object LoanUpdateFlow {
                 throw Exception("No states found matching inputs")
             }
 
+            val borrower = desiredStates.single().state.data.borrower
+            val lender = serviceHub.myInfo.legalIdentity
             //We now have a single loan state that matches the inputs
             val originalStateBuilder = TransactionBuilder()
             val builder = SecurityLoan().generateUpdate(originalStateBuilder,newMargin,desiredStates.single(),lender,borrower)
             //Send a recieve to the borrower to confirm they are happy with the update
-            val ptx = sendAndReceive<TransactionBuilder>(borrower, builder)
-            val stx = serviceHub.signInitialTransaction(ptx.unwrap { it })
-            subFlow(FinalityFlow(stx))
-
-
+            //TODO: Check that securityLoan matches
+            val ptx = sendAndReceive<SignedTransaction>(borrower, builder).unwrap { it }
+            val stx = serviceHub.addSignature(ptx, serviceHub.myInfo.legalIdentity.owningKey)
+            val finaltx = subFlow(FinalityFlow(stx))
+            return finaltx.single().tx.outputs.filterIsInstance<SecurityLoan.State>().single().linearId
         }
     }
 
@@ -79,9 +72,9 @@ object LoanUpdateFlow {
     class Borrower(val lender : Party) : FlowLogic<Unit>() {
         @Suspendable
         override fun call() : Unit {
-            val builder = receive<TransactionBuilder>(lender)
+            val builder = receive<TransactionBuilder>(lender).unwrap { it }
             //TODO: Check we are happy with this update, for now lets just sign it
-            val signedTx = serviceHub.signInitialTransaction(builder.unwrap { it })
+            val signedTx = serviceHub.signInitialTransaction(builder)
             send(lender, signedTx)
         }
 

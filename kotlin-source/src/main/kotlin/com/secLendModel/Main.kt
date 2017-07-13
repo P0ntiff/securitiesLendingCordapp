@@ -125,7 +125,7 @@ fun main(args: Array<String>) {
 
         val id = loanSecurities(aRPC, bRPC)
         //call update loan function
-        
+
         println("ALL TXNS SUBMITTED")
         waitForAllNodesToFinish()
     }
@@ -242,6 +242,6 @@ fun loanSecurities(borrower: CordaRPCOps, lender: CordaRPCOps): UniqueIdentifier
     return linearId
 }
 
-fun updateMargin(id: UniqueIdentifier){
+fun updateMargin(id: UniqueIdentifier, borrower: CordaRPCOps, lender: CordaRPCOps){
 
 }

@@ -1,5 +1,6 @@
 package com.secLendModel.contract
 
+import com.secLendModel.CURRENCY
 import com.secLendModel.flow.securitiesLending.LoanTerms
 import com.secLendModel.schema.SecurityLoanSchemaV1
 import net.corda.contracts.asset.Cash
@@ -61,7 +62,7 @@ class SecurityLoan : Contract {
          * A toString() helper method for displaying in the console.
          */
         override fun toString(): String{
-            return "SecurityLoan($linearId): ${borrower.name} owes ${lender.name} $quantity of $code shares."
+            return "SecurityLoan: ${borrower.name} owes ${lender.name} $quantity of $code shares. ID = ($linearId)"
         }
 
         override fun supportedSchemas(): Iterable<MappedSchema> = listOf(SecurityLoanSchemaV1)
@@ -100,13 +101,21 @@ class SecurityLoan : Contract {
                 val secLoan: SecurityLoan.State = tx.outputs.get(secLoanIndex) as State
                 var cashStatesTally : Long = 0
                 var securityStatesTally = 0
-                tx.inputs.forEach {
-                    if (it is Cash.State) { cashStatesTally += it.amount.quantity.toInt() }
-                    if (it is SecurityClaim.State && it.code == secLoan.code) { securityStatesTally += it.quantity}
+                tx.outputs.forEach {
+                    if (it is Cash.State && it.owner == secLoan.lender) {
+                        cashStatesTally += it.amount.quantity
+                    }
+                    if (it is SecurityClaim.State && it.code == secLoan.code && it.owner == secLoan.borrower) {
+                        securityStatesTally += it.quantity
+                    }
                 }
                 //Check we have some inputs -> Not being restrictive at this point in time
+                println("DEBUG: AMOUNT FROM CONTRACT")
+                println(securityStatesTally)
+                println(Amount(cashStatesTally, CURRENCY))
+                println(Amount(secLoan.quantity * secLoan.stockPrice.quantity, CURRENCY))
                 "Inputs should be consumed when issuing a secLoan." using (tx.inputs.isNotEmpty()) //Should be two input types -> securities and collateral(Cash States)
-                "Cash states in the inputs sum to the value of the loan + margin" using (cashStatesTally == secLoan.quantity.toLong() * secLoan.stockPrice.quantity) //+
+                "Cash states in the outputs sum to the value of the loan + margin" using (Amount(cashStatesTally, CURRENCY) == Amount(secLoan.quantity * secLoan.stockPrice.quantity, CURRENCY)) //+
                     //    secLoan.quantity * secLoan.stockPrice.quantity.toInt()*secLoan.terms.margin)
                 "Securities states in the inputs sum to the quantity of the loan" using (securityStatesTally == secLoan.quantity)
                 "A newly issued secLoan must have a positive amount." using (secLoan.quantity > 0)
@@ -147,6 +156,7 @@ class SecurityLoan : Contract {
                 val inputLoan = tx.inputs.single() as State
                 val outputLoan = tx.outputs.single() as State
                 "Linear ID should match" using (inputLoan.linearId == outputLoan.linearId)
+                //TODO: Check that state fields are the same besides margin
                 "Both lender and borrower must have signed both input and output states." using
                         ((command.signers.toSet() == inputLoan.participants.map { it.owningKey }.toSet()) &&
                                 (command.signers.toSet() == outputLoan.participants.map { it.owningKey }.toSet()))
@@ -168,7 +178,7 @@ class SecurityLoan : Contract {
         tx.addOutputState(state)
         //TODO: check: should we add input and output states here, or is that done in flow and we simply worry about generating the securityLoan state
         //Tx signed by the lender
-        tx.addCommand(SecurityLoan.Commands.Issue(), loanTerms.lender.owningKey)
+        tx.addCommand(SecurityLoan.Commands.Issue(), loanTerms.lender.owningKey, borrower.owningKey)
         return tx
     }
 

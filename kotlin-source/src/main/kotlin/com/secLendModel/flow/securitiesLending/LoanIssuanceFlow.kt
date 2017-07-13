@@ -6,10 +6,7 @@ import com.secLendModel.contract.SecurityClaim
 import com.secLendModel.contract.SecurityLoan
 import com.secLendModel.flow.SecuritiesPreparationFlow
 import net.corda.contracts.asset.sumCashBy
-import net.corda.core.contracts.Amount
-import net.corda.core.contracts.InsufficientBalanceException
-import net.corda.core.contracts.TransactionType
-import net.corda.core.contracts.withoutIssuer
+import net.corda.core.contracts.*
 import net.corda.core.flows.*
 import net.corda.core.identity.AnonymousParty
 import net.corda.core.identity.Party
@@ -34,9 +31,9 @@ object LoanIssuanceFlow {
 
     @StartableByRPC
     @InitiatingFlow
-    open class Borrower(val loanTerms : LoanTerms) : FlowLogic<SignedTransaction>() {
+    open class Borrower(val loanTerms : LoanTerms) : FlowLogic<UniqueIdentifier>() {
         @Suspendable
-        override fun call(): SignedTransaction {
+        override fun call(): UniqueIdentifier {
             val notary = serviceHub.networkMapCache.notaryNodes.single().notaryIdentity
 
             //STEP 1: Negotiation
@@ -54,6 +51,10 @@ object LoanIssuanceFlow {
                     Amount(agreedTerms.stockPrice.quantity * agreedTerms.quantity, CURRENCY),
                     AnonymousParty(agreedTerms.lender.owningKey)
             )
+            println("DEBUG: AMOUNT FROM FLOW")
+            println("Price ${agreedTerms.stockPrice} Quantity ${agreedTerms.quantity}")
+            println(Amount(agreedTerms.stockPrice.quantity * agreedTerms.quantity, CURRENCY))
+
 
             //STEP 6: Check other party has put in the securities and securityLoan as outputs and signed the txn
             val halfSignedTransaction = sendAndReceive<SignedTransaction>(agreedTerms.lender, ptx).unwrap {
@@ -83,7 +84,7 @@ object LoanIssuanceFlow {
             val ourSignature = serviceHub.createSignature(halfSignedTransaction, myKey)
             val unnotarisedSTX = halfSignedTransaction + ourSignature
             val finishedSTX = subFlow(FinalityFlow(unnotarisedSTX, setOf(agreedTerms.lender))).single()
-            return finishedSTX
+            return finishedSTX.tx.outputs.filterIsInstance<SecurityLoan.State>().single().linearId
 
         }
     }
