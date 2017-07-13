@@ -94,12 +94,19 @@ class SecurityLoan : Contract {
 
     override fun verify(tx: TransactionForContract): Unit {
         val command = tx.commands.requireSingleCommand<SecurityLoan.Commands>()
+        var cashStatesTally = 0
+        var securityStatesTally = 0
+        tx.outputs.forEach {
+            if (it is Cash.State) { cashStatesTally += it.amount.quantity.toInt() }
+
+        }
         when (command.value) {
             is Commands.Issue -> requireThat {
                 //creating the loan state
-                "No inputs should be consumed when issuing a secLoan." using (tx.inputs.isEmpty()) //Should be two inputs -> securities and collateral
-                "Only one output state should be created when issuing a SecurityLoan." using (tx.outputs.size == 1) //Three outputs -> cash/collateral, securities, securityLoanState
+                "Inputs should be consumed when issuing a secLoan." using (tx.inputs.isNotEmpty()) //Should be two inputs -> securities and collateral
+                 //TODO: Three outputs -> cash/collateral, securities, securityLoanState
                 val secLoan = tx.outputs.single() as State
+                "Cash states in the inputs sum to the value of the loan + margin" using (cashStatesTally == secLoan.quantity * secLoan.stockPrice.quantity.toInt())
                 "A newly issued secLoan must have a positive amount." using (secLoan.quantity > 0)
                 //"A newly issued secLoan must have a positive amount." using (secLoan.stockState.quantity > 0)
                 "Shares must have some value" using (secLoan.stockPrice.quantity > 0)
@@ -131,13 +138,12 @@ class SecurityLoan : Contract {
                       lengthOfLoan: Int,
                       margin: Int,
                       rebate: Int,
-                      linearId: UniqueIdentifier,
                       collateralType: FungibleAsset<Cash>,
                       notary: Party): TransactionBuilder{
         //Confirm this is a creation from no input states
         check(tx.inputStates().isEmpty())
         val terms = Terms(lengthOfLoan, margin, rebate, collateralType)
-        val state = TransactionState(State(quantity,code,stockPrice,lender,borrower,terms, linearId), notary)
+        val state = TransactionState(State(quantity,code,stockPrice,lender,borrower,terms), notary)
         tx.addOutputState(state)
         //TODO: check: should we add input and output states here, or is that done in flow and we simply worry about generating the securityLoan state
         //Tx signed by the lender

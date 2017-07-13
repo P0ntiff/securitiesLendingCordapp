@@ -52,6 +52,7 @@ class SecuritiesPreparationFlow(val code : String,
             (it.state.data.owner == serviceHub.myInfo.legalIdentity)  &&
                     (it.state.data.code == code) // &&
         }
+
         val (gathered, gatheredQuantity) = gatherEquity(desiredStates, code, quantity)
 
         val takeChangeFrom = gathered.firstOrNull()

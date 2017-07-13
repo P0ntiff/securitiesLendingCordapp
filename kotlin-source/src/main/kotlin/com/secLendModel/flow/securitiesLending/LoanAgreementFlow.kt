@@ -1,6 +1,7 @@
 package com.secLendModel.flow.securitiesLending
 
 import com.secLendModel.CURRENCY
+import com.secLendModel.contract.SecurityClaim
 import com.secLendModel.contract.SecurityLoan
 import com.secLendModel.flow.SecuritiesPreparationFlow
 import net.corda.contracts.asset.Cash
@@ -69,14 +70,14 @@ object LoanAgreementFlow {
             //TODO: negotiate terms of loan here
             if (counterProposal.equals(loanOffer)) {
                 //TODO: Check with ben this is on the right track for sending a cash value
-                val builder = TransactionBuilder()
-                val (ptx, cashSigningPubKeys) = serviceHub.vaultService.
-                        generateSpend(builder,
-                                Amount(stockPrice.quantity * quantity, CURRENCY),
-                                AnonymousParty(lender.owningKey)
-                        )
-                send(lender,ptx)
-
+                //val builder = TransactionBuilder()
+                //val (ptx, cashSigningPubKeys) = serviceHub.vaultService.
+                        //generateSpend(builder,
+                         //       Amount(stockPrice.quantity * quantity, CURRENCY),
+                         //       AnonymousParty(lender.owningKey)
+                        //)
+                //val stx = sendAndReceive<TransactionBuilder>(lender,ptx)
+                val transaction = sendAndReceive<TransactionBuilder>(lender,true)
                 return Unit
             } else {
                 throw AgreementException(null)
@@ -86,19 +87,44 @@ object LoanAgreementFlow {
     }
 
     @InitiatedBy(Borrower::class)
-    class Lender(val lender : Party) : FlowLogic<Unit>() {
+    class Lender(val borrower : Party) : FlowLogic<Unit>() {
         override fun call() : Unit {
-            val offer = receive<LoanOffer>(lender).unwrap { it }
+            val offer = receive<LoanOffer>(borrower).unwrap { it }
             //accept terms of agreement for now
             val offerIsAcceptable = true
             if (offerIsAcceptable) {
-                send(lender, offer)
+                send(borrower, offer)
             } else {
                 //TODO: provide a counter proposal here
             }
-            //receive tx builder w/ cash and signature
-            val received = receive<TransactionBuilder>(lender)
-            //Generate appropriate states for the tx i.e input = securities, output = securityLoan issue
+            //The lender has agreed with our counter offer, start building tx
+            val agreed = receive<Boolean>(borrower).unwrap{it}
+            if (agreed){
+                val code = offer.code
+                val quantity = offer.quantity
+                val price = offer.stockPrice
+                val length = offer.lengthOfLoan
+                val collateral = offer.collateralType
+                val margin = offer.margin
+                val rebate = offer.rebate
+
+                //add our securities
+                val (builder, keysForSigning) = try {
+                    subFlow(SecuritiesPreparationFlow(code, quantity, borrower))
+                } catch (e: InsufficientBalanceException) {
+                    throw SecurityException("Insufficient holding: ${e.message}", e)
+                }
+                //add output state -> securityLoan state
+                val loanState = SecurityLoan()
+                val selfParty = this
+                //val ptx = loanState.generateIssue(builder,quantity,code, price, selfParty ,borrower, length, margin, rebate, collateral)
+            }
+
+
+
+
+
+
 
 
 
