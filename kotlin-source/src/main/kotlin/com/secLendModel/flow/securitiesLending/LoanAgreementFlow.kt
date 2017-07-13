@@ -1,5 +1,6 @@
 package com.secLendModel.flow.securitiesLending
 
+import co.paralleluniverse.fibers.Suspendable
 import net.corda.core.flows.*
 import net.corda.core.identity.Party
 import net.corda.core.utilities.unwrap
@@ -21,6 +22,7 @@ object LoanAgreementFlow {
     @StartableByRPC
     @InitiatingFlow
     class Borrower(val loanTerms : LoanTerms) : FlowLogic<LoanTerms>() {
+        @Suspendable
         override fun call() : LoanTerms {
             val myKey = serviceHub.myInfo.legalIdentity.owningKey
             val counterProposal : LoanTerms = sendAndReceive<LoanTerms>(loanTerms.lender, loanTerms).unwrap { it }
@@ -36,6 +38,7 @@ object LoanAgreementFlow {
 
     @InitiatedBy(Borrower::class)
     class Lender(val borrower : Party) : FlowLogic<Unit>() {
+        @Suspendable
         override fun call() : Unit {
             val offer = receive<LoanTerms>(borrower).unwrap { it }
             //accept terms of agreement for now

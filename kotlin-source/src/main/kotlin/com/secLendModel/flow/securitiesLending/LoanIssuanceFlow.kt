@@ -1,5 +1,6 @@
 package com.secLendModel.flow.securitiesLending
 
+import co.paralleluniverse.fibers.Suspendable
 import com.secLendModel.CURRENCY
 import com.secLendModel.contract.SecurityClaim
 import com.secLendModel.contract.SecurityLoan
@@ -34,6 +35,7 @@ object LoanIssuanceFlow {
     @StartableByRPC
     @InitiatingFlow
     open class Borrower(val loanTerms : LoanTerms) : FlowLogic<SignedTransaction>() {
+        @Suspendable
         override fun call(): SignedTransaction {
             val notary = serviceHub.networkMapCache.notaryNodes.single().notaryIdentity
 
@@ -88,6 +90,7 @@ object LoanIssuanceFlow {
 
     @InitiatedBy(Borrower::class)
     open class Lender(val borrower : Party) : FlowLogic<SignedTransaction>() {
+        @Suspendable
         override fun call() : SignedTransaction {
             val myKey = serviceHub.myInfo.legalIdentity.owningKey
             val notary = serviceHub.networkMapCache.notaryNodes.single().notaryIdentity

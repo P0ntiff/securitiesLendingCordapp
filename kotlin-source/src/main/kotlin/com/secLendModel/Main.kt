@@ -122,6 +122,8 @@ fun main(args: Array<String>) {
         tradeEquity(aRPC, bRPC)
         tradeEquity(bRPC, aRPC)
 
+        loanSecurities(aRPC, bRPC)
+
         println("ALL TXNS SUBMITTED")
         waitForAllNodesToFinish()
     }
@@ -233,6 +235,6 @@ fun loanSecurities(borrower: CordaRPCOps, lender: CordaRPCOps) {
             rebate, length)
 
     borrower.startFlow(::Borrower, loanTerms).returnValue.getOrThrow()
-    //println("Trade Finalised: ${figure} shares in ${CODES[stockIndex]} at ${sharePrice} each sold to buyer '" +
-            //"${buyer.nodeIdentity().legalIdentity}' by seller '${seller.nodeIdentity().legalIdentity}'")
+    println("Loan Finalised: ${figure} shares in ${CODES[stockIndex]} at ${sharePrice} each loaned to borrower '" +
+            "${borrower.nodeIdentity().legalIdentity}' by lender '${lender.nodeIdentity().legalIdentity}'")
 }
