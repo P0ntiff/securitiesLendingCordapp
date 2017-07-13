@@ -30,13 +30,12 @@ class InsufficientHoldingException(val amountMissing: Int, val code: String) : F
 
 @StartableByRPC
 @InitiatingFlow
-class SecuritiesPreparationFlow(val code : String,
+class SecuritiesPreparationFlow(val builder : TransactionBuilder,
+                                val code : String,
                                 val quantity : Int,
                                 val recipient : Party) : FlowLogic<Pair<TransactionBuilder, List<PublicKey>>>() {
     override fun call(): Pair<TransactionBuilder, List<PublicKey>> {
-        val notary = serviceHub.networkMapCache.notaryNodes.first().notaryIdentity
         val recipientKey = recipient
-        val builder : TransactionBuilder = TransactionType.General.Builder(notary)
 
         return prepareTransaction(builder, code, quantity, recipientKey)
     }

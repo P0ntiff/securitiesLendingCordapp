@@ -88,12 +88,13 @@ object TradeFlow {
             val acceptance = sendAndReceive<Boolean>(buyer, marketOffer)
             //TODO: Have a backup plan if confirmation doesn't return True
             //Input states from vault into transaction and create outputs with recipient as the new owner of the states, along with change sent back to the old owner
-            val (builder, keysForSigning) = try {
-                subFlow(SecuritiesPreparationFlow(code, quantity, buyer))
+            val builder : TransactionBuilder = TransactionType.General.Builder(notary)
+            val (tx, keysForSigning) = try {
+                subFlow(SecuritiesPreparationFlow(builder, code, quantity, buyer))
             } catch (e: InsufficientBalanceException) {
                 throw SecurityException("Insufficient holding: ${e.message}", e)
             }
-            val spendTX = sendAndReceive<SignedTransaction>(buyer, builder)
+            val spendTX = sendAndReceive<SignedTransaction>(buyer, tx)
 
             /**********************************************************************************************************/
             progressTracker.currentStep = RESOLVING

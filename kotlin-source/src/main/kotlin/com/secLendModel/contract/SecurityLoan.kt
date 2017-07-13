@@ -1,5 +1,6 @@
 package com.secLendModel.contract
 
+import com.secLendModel.flow.securitiesLending.LoanTerms
 import com.secLendModel.schema.SecurityLoanSchemaV1
 import net.corda.contracts.asset.Cash
 import net.corda.core.contracts.*
@@ -30,7 +31,7 @@ class SecurityLoan : Contract {
     data class Terms(val lengthOfLoan: Int,
                      val margin: Int,
                      val rebate: Int,
-                     val collateralType: FungibleAsset<Cash> //TODO: Figure out what type collateralType is (could be cash, any fungible asset, etc)
+                     val collateralType: FungibleAsset<Any> //TODO: Figure out what type collateralType is (could be cash, any fungible asset, etc)
                      )
     //TODO: Should the state take in a securityClaim state and not just code, quantity, etc (this is already stored in SecurityClaimState)
     //Think this is the job of the flow -> adding inputs and outputs to the tx, we just verify current state and correct number of in and out
@@ -130,24 +131,15 @@ class SecurityLoan : Contract {
      * security claim contract
      */
     fun generateIssue(tx: TransactionBuilder,
-                      quantity: Int,
-                      code: String,
-                      stockPrice: Amount<Currency>,
-                      lender: Party,
+                      loanTerms: LoanTerms,
                       borrower: Party,
-                      lengthOfLoan: Int,
-                      margin: Int,
-                      rebate: Int,
-                      collateralType: FungibleAsset<Cash>,
                       notary: Party): TransactionBuilder{
-        //Confirm this is a creation from no input states
-        check(tx.inputStates().isEmpty())
-        val terms = Terms(lengthOfLoan, margin, rebate, collateralType)
-        val state = TransactionState(State(quantity,code,stockPrice,lender,borrower,terms), notary)
+        val state = TransactionState(State(loanTerms.quantity, loanTerms.code, loanTerms.stockPrice, loanTerms.lender, borrower,
+                Terms(loanTerms.lengthOfLoan, loanTerms.margin, loanTerms.rebate, loanTerms.collateralType)), notary)
         tx.addOutputState(state)
         //TODO: check: should we add input and output states here, or is that done in flow and we simply worry about generating the securityLoan state
         //Tx signed by the lender
-        tx.addCommand(SecurityLoan.Commands.Issue(), lender.owningKey)
+        tx.addCommand(SecurityLoan.Commands.Issue(), loanTerms.lender.owningKey)
         return tx
     }
 

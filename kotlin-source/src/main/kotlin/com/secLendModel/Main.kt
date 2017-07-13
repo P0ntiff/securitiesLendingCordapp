@@ -5,10 +5,10 @@ import com.secLendModel.flow.securities.SecuritiesIssueFlow
 import com.secLendModel.flow.securities.TradeFlow.Seller
 import com.secLendModel.flow.securities.TradeFlow.Buyer
 import com.secLendModel.flow.SecuritiesPreparationFlow
-import com.secLendModel.flow.securitiesLending.LoanAgreementFlow.Borrower
-import net.corda.contracts.asset.Cash
+import com.secLendModel.flow.securitiesLending.LoanIssuanceFlow.Borrower
+import com.secLendModel.flow.securitiesLending.LoanIssuanceFlow.Lender
+import com.secLendModel.flow.securitiesLending.LoanTerms
 import net.corda.core.contracts.Amount
-import net.corda.core.contracts.FungibleAsset
 import net.corda.core.contracts.GBP
 import net.corda.core.getOrThrow
 import net.corda.core.identity.Party
@@ -62,6 +62,8 @@ fun main(args: Array<String>) {
             startFlowPermission<SecuritiesIssueFlow>(),
             startFlowPermission<OwnershipTransferFlow>(),
             startFlowPermission<SecuritiesPreparationFlow>(),
+            startFlowPermission<Borrower>(),
+            startFlowPermission<Lender>(),
             startFlowPermission<Seller>(),
             startFlowPermission<Buyer>()
     )
@@ -227,7 +229,10 @@ fun loanSecurities(borrower: CordaRPCOps, lender: CordaRPCOps) {
     val rebate = 1
     val length = 30
 
-    //borrower.startFlow(::Borrower, CODES[stockIndex], figure, sharePrice, lender, margin, rebate, FungibleAsset<Cash>).returnValue.getOrThrow()
+    val loanTerms = LoanTerms(CODES[stockIndex], figure, sharePrice, lender.nodeIdentity().legalIdentity, margin,
+            rebate, length)
+
+    borrower.startFlow(::Borrower, loanTerms).returnValue.getOrThrow()
     //println("Trade Finalised: ${figure} shares in ${CODES[stockIndex]} at ${sharePrice} each sold to buyer '" +
             //"${buyer.nodeIdentity().legalIdentity}' by seller '${seller.nodeIdentity().legalIdentity}'")
 }
