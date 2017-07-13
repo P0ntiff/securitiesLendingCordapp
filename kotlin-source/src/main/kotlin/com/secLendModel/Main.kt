@@ -8,6 +8,8 @@ import com.secLendModel.flow.SecuritiesPreparationFlow
 import com.secLendModel.flow.securitiesLending.LoanIssuanceFlow.Borrower
 import com.secLendModel.flow.securitiesLending.LoanIssuanceFlow.Lender
 import com.secLendModel.flow.securitiesLending.LoanTerms
+import com.secLendModel.flow.securitiesLending.LoanUpdateFlow.Initiator
+import com.secLendModel.flow.securitiesLending.LoanUpdateFlow.Acceptor
 import net.corda.core.contracts.Amount
 import net.corda.core.contracts.GBP
 import net.corda.core.contracts.UniqueIdentifier
@@ -66,7 +68,9 @@ fun main(args: Array<String>) {
             startFlowPermission<Borrower>(),
             startFlowPermission<Lender>(),
             startFlowPermission<Seller>(),
-            startFlowPermission<Buyer>()
+            startFlowPermission<Buyer>(),
+            startFlowPermission<Initiator>(),
+            startFlowPermission<Acceptor>()
     )
     val user = User("user1", "test", permissions = permissions)
     driver(portAllocation = portAllocation) {
@@ -109,7 +113,7 @@ fun main(args: Array<String>) {
         issueEquity(eRPC, bRPC, notaryNode.nodeInfo.notaryIdentity)
 
         //Send some assets around the ledger
-        //moveCash(aRPC, bRPC)
+        moveCash(aRPC, bRPC)
         moveEquity(aRPC, bRPC)
         moveEquity(bRPC, aRPC)
         moveEquity(aRPC, bRPC)
@@ -118,13 +122,14 @@ fun main(args: Array<String>) {
         moveEquity(bRPC, aRPC)
 
         //DVP trades of cash for equity between sellers and buyers
-        //tradeEquity(aRPC, bRPC)
-        //tradeEquity(bRPC, aRPC)
-        //tradeEquity(aRPC, bRPC)
-        //tradeEquity(bRPC, aRPC)
+        tradeEquity(aRPC, bRPC)
+        tradeEquity(bRPC, aRPC)
+        tradeEquity(aRPC, bRPC)
+        tradeEquity(bRPC, aRPC)
 
-        val id = loanSecurities(aRPC, bRPC)
-        //call update loan function
+        //Loan issuance and margin update transactions
+        val id = loanSecurities(bRPC, aRPC)
+        updateMargin(id, aRPC)
 
         println("ALL TXNS SUBMITTED")
         waitForAllNodesToFinish()
@@ -228,11 +233,11 @@ fun loanSecurities(borrower: CordaRPCOps, lender: CordaRPCOps): UniqueIdentifier
 
     val dollaryDoos = (rand.nextInt(150 + 1 - 50) + 50).toLong() * 100
     val sharePrice = Amount(dollaryDoos, CURRENCY)
-
+    //Percentage
     val margin = 5
     val rebate = 1
+    //Days
     val length = 30
-
     val loanTerms = LoanTerms(CODES[stockIndex], figure, sharePrice, lender.nodeIdentity().legalIdentity, margin,
             rebate, length)
 
@@ -242,6 +247,7 @@ fun loanSecurities(borrower: CordaRPCOps, lender: CordaRPCOps): UniqueIdentifier
     return linearId
 }
 
-fun updateMargin(id: UniqueIdentifier, borrower: CordaRPCOps, lender: CordaRPCOps){
-
+fun updateMargin(id: UniqueIdentifier, initiator: CordaRPCOps): UniqueIdentifier {
+    val newMargin = 6
+    return initiator.startFlow(::Initiator, id, newMargin).returnValue.getOrThrow()
 }

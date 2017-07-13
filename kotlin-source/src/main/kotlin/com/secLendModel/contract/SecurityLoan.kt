@@ -15,7 +15,6 @@ import net.corda.core.schemas.PersistentState
 import net.corda.core.schemas.QueryableState
 import net.corda.core.serialization.CordaSerializable
 import net.corda.core.transactions.TransactionBuilder
-import java.math.BigDecimal
 import java.security.PublicKey
 import java.util.*
 
@@ -110,10 +109,6 @@ class SecurityLoan : Contract {
                     }
                 }
                 //Check we have some inputs -> Not being restrictive at this point in time
-                println("DEBUG: AMOUNT FROM CONTRACT")
-                println(securityStatesTally)
-                println(Amount(cashStatesTally, CURRENCY))
-                println(Amount(secLoan.quantity * secLoan.stockPrice.quantity, CURRENCY))
                 "Inputs should be consumed when issuing a secLoan." using (tx.inputs.isNotEmpty()) //Should be two input types -> securities and collateral(Cash States)
                 "Cash states in the outputs sum to the value of the loan + margin" using (Amount(cashStatesTally, CURRENCY) == Amount(secLoan.quantity * secLoan.stockPrice.quantity, CURRENCY)) //+
                     //    secLoan.quantity * secLoan.stockPrice.quantity.toInt()*secLoan.terms.margin)
@@ -150,11 +145,11 @@ class SecurityLoan : Contract {
 
             is Commands.Update -> requireThat {
                 //Update the loan margin
-                "Only one input should be present" using (tx.inputs.size == 1)
-                "Only one output should be present" using (tx.outputs.size == 1)
+                "Only one input loan should be present" using (tx.inputs.filterIsInstance<State>().size == 1)
+                "Only one output loan should be present" using (tx.outputs.filterIsInstance<State>().size == 1)
                 //Check the ID of both loanStates is the same
-                val inputLoan = tx.inputs.single() as State
-                val outputLoan = tx.outputs.single() as State
+                val inputLoan = tx.inputs.filterIsInstance<State>().single()
+                val outputLoan = tx.outputs.filterIsInstance<State>().single()
                 "Linear ID should match" using (inputLoan.linearId == outputLoan.linearId)
                 //TODO: Check that state fields are the same besides margin
                 "Both lender and borrower must have signed both input and output states." using
@@ -162,7 +157,6 @@ class SecurityLoan : Contract {
                                 (command.signers.toSet() == outputLoan.participants.map { it.owningKey }.toSet()))
 
             }
-
         }
     }
 

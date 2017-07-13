@@ -51,10 +51,6 @@ object LoanIssuanceFlow {
                     Amount(agreedTerms.stockPrice.quantity * agreedTerms.quantity, CURRENCY),
                     AnonymousParty(agreedTerms.lender.owningKey)
             )
-            println("DEBUG: AMOUNT FROM FLOW")
-            println("Price ${agreedTerms.stockPrice} Quantity ${agreedTerms.quantity}")
-            println(Amount(agreedTerms.stockPrice.quantity * agreedTerms.quantity, CURRENCY))
-
 
             //STEP 6: Check other party has put in the securities and securityLoan as outputs and signed the txn
             val halfSignedTransaction = sendAndReceive<SignedTransaction>(agreedTerms.lender, ptx).unwrap {
@@ -84,7 +80,7 @@ object LoanIssuanceFlow {
             val ourSignature = serviceHub.createSignature(halfSignedTransaction, myKey)
             val unnotarisedSTX = halfSignedTransaction + ourSignature
             val finishedSTX = subFlow(FinalityFlow(unnotarisedSTX, setOf(agreedTerms.lender))).single()
-            return finishedSTX.tx.outputs.filterIsInstance<SecurityLoan.State>().single().linearId
+            return finishedSTX.tx.outputs.map { it.data }.filterIsInstance<SecurityLoan.State>().single().linearId
 
         }
     }
