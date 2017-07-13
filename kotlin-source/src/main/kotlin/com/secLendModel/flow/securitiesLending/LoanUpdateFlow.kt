@@ -1,6 +1,7 @@
 package com.secLendModel.flow.securitiesLending
 
 
+import co.paralleluniverse.fibers.Suspendable
 import com.secLendModel.contract.SecurityClaim
 import com.secLendModel.contract.SecurityLoan
 import com.secLendModel.flow.SecuritiesPreparationFlow
@@ -43,6 +44,7 @@ object LoanUpdateFlow {
                  val terms: SecurityLoan.Terms,
                  val newMargin: Int
                  ) : FlowLogic<Unit>() {
+        @Suspendable
         override fun call() : Unit {
             //Retrieve the loan from our vault
             val criteria = QueryCriteria.VaultQueryCriteria(status = Vault.StateStatus.UNCONSUMED)
@@ -75,6 +77,7 @@ object LoanUpdateFlow {
 
     @InitiatedBy(Lender::class)
     class Borrower(val lender : Party) : FlowLogic<Unit>() {
+        @Suspendable
         override fun call() : Unit {
             val builder = receive<TransactionBuilder>(lender)
             //TODO: Check we are happy with this update, for now lets just sign it

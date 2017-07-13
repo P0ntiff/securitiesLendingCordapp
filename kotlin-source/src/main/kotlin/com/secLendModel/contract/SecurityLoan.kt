@@ -31,8 +31,7 @@ class SecurityLoan : Contract {
 
     data class Terms(val lengthOfLoan: Int,
                      val margin: Int,
-                     val rebate: Int,
-                     val collateralType: FungibleAsset<Any> //TODO: Figure out what type collateralType is (could be cash, any fungible asset, etc)
+                     val rebate: Int //TODO: Figure out what type collateralType is (could be cash, any fungible asset, etc)
                      )
 
     data class State(val quantity: Int,
@@ -163,7 +162,7 @@ class SecurityLoan : Contract {
                       borrower: Party,
                       notary: Party): TransactionBuilder{
         val state = TransactionState(State(loanTerms.quantity, loanTerms.code, loanTerms.stockPrice, loanTerms.lender, borrower,
-                Terms(loanTerms.lengthOfLoan, loanTerms.margin, loanTerms.rebate, loanTerms.collateralType)), notary)
+                Terms(loanTerms.lengthOfLoan, loanTerms.margin, loanTerms.rebate)), notary)
         tx.addOutputState(state)
         //TODO: check: should we add input and output states here, or is that done in flow and we simply worry about generating the securityLoan state
         //Tx signed by the lender
