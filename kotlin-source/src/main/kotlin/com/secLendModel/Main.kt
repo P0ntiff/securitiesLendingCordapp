@@ -10,6 +10,7 @@ import com.secLendModel.flow.securitiesLending.LoanIssuanceFlow.Lender
 import com.secLendModel.flow.securitiesLending.LoanTerms
 import net.corda.core.contracts.Amount
 import net.corda.core.contracts.GBP
+import net.corda.core.contracts.UniqueIdentifier
 import net.corda.core.getOrThrow
 import net.corda.core.identity.Party
 import net.corda.core.messaging.CordaRPCOps
@@ -117,13 +118,14 @@ fun main(args: Array<String>) {
         moveEquity(bRPC, aRPC)
 
         //DVP trades of cash for equity between sellers and buyers
-        tradeEquity(aRPC, bRPC)
-        tradeEquity(bRPC, aRPC)
-        tradeEquity(aRPC, bRPC)
-        tradeEquity(bRPC, aRPC)
+        //tradeEquity(aRPC, bRPC)
+        //tradeEquity(bRPC, aRPC)
+        //tradeEquity(aRPC, bRPC)
+        //tradeEquity(bRPC, aRPC)
 
-        loanSecurities(aRPC, bRPC)
-
+        val id = loanSecurities(aRPC, bRPC)
+        //call update loan function
+        
         println("ALL TXNS SUBMITTED")
         waitForAllNodesToFinish()
     }
@@ -219,7 +221,7 @@ fun tradeEquity(seller : CordaRPCOps, buyer : CordaRPCOps) {
  * @param borrower = party requesting to borrow an amount of a security
  *  @param lender = party lending out the securities
  */
-fun loanSecurities(borrower: CordaRPCOps, lender: CordaRPCOps) {
+fun loanSecurities(borrower: CordaRPCOps, lender: CordaRPCOps): UniqueIdentifier {
     val rand = Random()
     val stockIndex = rand.nextInt(CODES.size - 0) + 0
     val figure = (rand.nextInt(150 + 1 - 50) + 50)
@@ -234,7 +236,12 @@ fun loanSecurities(borrower: CordaRPCOps, lender: CordaRPCOps) {
     val loanTerms = LoanTerms(CODES[stockIndex], figure, sharePrice, lender.nodeIdentity().legalIdentity, margin,
             rebate, length)
 
-    borrower.startFlow(::Borrower, loanTerms).returnValue.getOrThrow()
+    val linearId = borrower.startFlow(::Borrower, loanTerms).returnValue.getOrThrow()
     println("Loan Finalised: ${figure} shares in ${CODES[stockIndex]} at ${sharePrice} each loaned to borrower '" +
             "${borrower.nodeIdentity().legalIdentity}' by lender '${lender.nodeIdentity().legalIdentity}'")
+    return linearId
+}
+
+fun updateMargin(id: UniqueIdentifier){
+
 }
