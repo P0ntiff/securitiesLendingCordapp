@@ -117,7 +117,8 @@ object LoanAgreementFlow {
                 //add output state -> securityLoan state
                 val loanState = SecurityLoan()
                 val selfParty = this
-                //val ptx = loanState.generateIssue(builder,quantity,code, price, selfParty ,borrower, length, margin, rebate, collateral)
+                val ptx = loanState.generateIssue(builder,quantity,code, price, serviceHub.myInfo.legalIdentity ,borrower, length, margin, rebate,
+                        collateral, serviceHub.networkMapCache.notaryNodes.first().notaryIdentity)
             }
 
 
