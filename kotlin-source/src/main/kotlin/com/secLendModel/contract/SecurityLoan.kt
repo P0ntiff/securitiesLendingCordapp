@@ -32,8 +32,8 @@ class SecurityLoan : Contract {
 
     @CordaSerializable
     data class Terms(val lengthOfLoan: Int,
-                     val margin: Int,
-                     val rebate: Int //TODO: Figure out what type collateralType is (could be cash, any fungible asset, etc)
+                     val margin: Double,
+                     val rebate: Double //TODO: Figure out what type collateralType is (could be cash, any fungible asset, etc)
                      )
 
     data class State(val quantity: Int,

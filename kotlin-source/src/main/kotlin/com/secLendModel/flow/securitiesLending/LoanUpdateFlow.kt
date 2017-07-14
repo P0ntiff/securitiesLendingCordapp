@@ -1,6 +1,7 @@
 package com.secLendModel.flow.securitiesLending
 
 import co.paralleluniverse.fibers.Suspendable
+import com.nhaarman.mockito_kotlin.eq
 import com.secLendModel.contract.SecurityClaim
 import com.secLendModel.CURRENCY
 import com.secLendModel.contract.SecurityLoan
@@ -59,27 +60,19 @@ object LoanUpdateFlow {
             val changeMargin = newMargin - secLoan.state.data.terms.margin //Positive if increase, negative if decrease
             val cashToAdd = secLoan.state.data.quantity * secLoan.state.data.stockPrice.quantity * Math.abs(changeMargin)
             //Check if we are lender or borrower
-            //If borrower and margin increased -> attach cash state as input
+            //If borrower and margin increased -> lender should recieve money
             if(serviceHub.myInfo.legalIdentity == borrower && changeMargin > 0){
                 serviceHub.vaultService.generateSpend(builder,
-                        Amount(cashToAdd, CURRENCY),
+                        Amount(cashToAdd.toLong(), CURRENCY),
                         AnonymousParty(secLoan.state.data.lender.owningKey)
                 )
             }
-            //If borrower and margin decreased -> attach cash state as output
-            if(serviceHub.myInfo.legalIdentity == borrower && changeMargin < 0){
-
-            }
-            //If lender and margin decreased -> attach cash state as input
+            //If lender and margin decreased -> borrower should recieve money
             if(serviceHub.myInfo.legalIdentity == lender && changeMargin < 0){
                 serviceHub.vaultService.generateSpend(builder,
-                        Amount(cashToAdd, CURRENCY),
+                        Amount(cashToAdd.toLong(), CURRENCY),
                         AnonymousParty(secLoan.state.data.borrower.owningKey)
                 )
-            }
-            //If lender and margin increased -> attach cash state as output
-            if(serviceHub.myInfo.legalIdentity == lender && changeMargin > 0){
-
             }
             //Send to the other party to confirm they are happy with the update
             //TODO: Check that securityLoan matches -> Is this needed? simply accepts or denies state so shouldnt be changed
@@ -101,10 +94,24 @@ object LoanUpdateFlow {
         @Suspendable
         override fun call() : Unit {
             val builder = receive<TransactionBuilder>(counterParty).unwrap {
+                val outputState = it.outputStates().map { it.data }.filterIsInstance<SecurityLoan.State>().single()
+                //Add cash states as needed
+                if(serviceHub.myInfo.legalIdentity == outputState.borrower && changeMargin > 0){
+                    serviceHub.vaultService.generateSpend(builder,
+                            Amount(cashToAdd.toLong(), CURRENCY),
+                            AnonymousParty(secLoan.state.data.lender.owningKey)
+                    )
+                }
+                //If lender and margin decreased -> borrower should recieve money
+                if(serviceHub.myInfo.legalIdentity == lender && changeMargin < 0){
+                    serviceHub.vaultService.generateSpend(builder,
+                            Amount(cashToAdd.toLong(), CURRENCY),
+                            AnonymousParty(secLoan.state.data.borrower.owningKey)
+                    )
+                }
                 //TODO: Check we are happy with this margin update, for now lets just sign it as long as their is an update
-                val newMargin =  it.outputStates().map { it.data }.filterIsInstance<SecurityLoan.State>().single().terms.margin
-
-                if (newMargin==0) throw Exception("Disagreement on loan update")
+                val newMargin =  outputState.terms.margin
+                if (checkLoanInput(outputState,it.inputStates().single())) throw Exception("Disagreement on loan update")
                 it
             }
             val signedTx : SignedTransaction = serviceHub.signInitialTransaction(builder)
@@ -122,10 +129,25 @@ object LoanUpdateFlow {
                         (it.state.data.code == outputState.code) &&
                         (it.state.data.quantity == outputState.quantity) &&
                         (it.state.data.terms.lengthOfLoan == outputState.terms.lengthOfLoan) &&
-                        (it.state.data.terms.rebate == outputState.terms.rebate) &&
+                        (it.state.data.terms.rebate == outputState.terms.rebate)
             }.single()
             return (loanInputState.ref.txhash == inputRef.txhash)
         }
+
+        fun getInputMargin(outputState : SecurityLoan.State) : Double {
+            val criteria = QueryCriteria.VaultQueryCriteria(status = Vault.StateStatus.UNCONSUMED)
+            val loanStates = serviceHub.vaultQueryService.queryBy<SecurityLoan.State>(criteria)
+            val loanInputState = loanStates.states.filter {
+                (it.state.data.lender == outputState.lender)  &&
+                        (it.state.data.borrower == outputState.borrower) &&
+                        (it.state.data.code == outputState.code) &&
+                        (it.state.data.quantity == outputState.quantity) &&
+                        (it.state.data.terms.lengthOfLoan == outputState.terms.lengthOfLoan) &&
+                        (it.state.data.terms.rebate == outputState.terms.rebate)
+            }.single()
+            return (loanInputState.state.data.terms.margin)
+        }
+
     }
 
 }

@@ -16,8 +16,8 @@ data class LoanTerms(
         val quantity : Int,
         val stockPrice : Amount<Currency>,
         val lender : Party,
-        val margin : Int,       //Percent
-        val rebate : Int,        //Percent
+        val margin : Double,       //Percent
+        val rebate : Double,        //Percent
         val lengthOfLoan: Int   //Length represented in days?
         //val collateralType: FungibleAsset<Any>
 )
