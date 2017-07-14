@@ -6,9 +6,11 @@
 package com.secLendModel.schema
 
 import com.secLendModel.contract.SecurityLoan
+import net.corda.core.contracts.Amount
 import net.corda.core.schemas.MappedSchema
 import net.corda.core.schemas.PersistentState
 import java.math.BigDecimal
+import java.util.*
 import javax.persistence.Column
 import javax.persistence.Entity
 import javax.persistence.Table
@@ -37,26 +39,19 @@ object SecurityLoanSchemaV1 : MappedSchema(schemaFamily = SecurityLoanSchema.jav
             @Column(name = "quantity")
             var quantity: Int,
 
-            //TODO: Ask what keys would be needed for our secLoan States
-            //@Column(name = "issuer_key")
-            //var issuerParty: String,
-
-            //@Column(name = "issuer_ref")
-            //var issuerRef: ByteArray,
-
             @Column(name = "price")
-            var price: Long,
+            var price: Amount<Currency>,
 
             @Column(name = "linearID")
             var id: String,
 
-            @Column(name = "length")
+            @Column(name = "lengthOfLoan")
             var length: Int,
 
             @Column(name = "margin")
-            var margin: Int,
+            var margin: Double,
 
             @Column(name = "rebate")
-            var rebate: Int
+            var rebate: Double
     ) : PersistentState()
 }
