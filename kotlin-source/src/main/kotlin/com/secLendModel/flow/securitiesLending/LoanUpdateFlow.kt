@@ -32,7 +32,7 @@ import java.text.DecimalFormat
 object LoanUpdateFlow {
     @StartableByRPC
     @InitiatingFlow
-    class Initiator(val linearID: UniqueIdentifier,
+    class Updator(val linearID: UniqueIdentifier,
                     val newMargin: Double) : FlowLogic<UniqueIdentifier>() {
         @Suspendable
         override fun call() : UniqueIdentifier {
@@ -86,8 +86,8 @@ object LoanUpdateFlow {
         }
     }
 
-    @InitiatedBy(Initiator::class)
-    class Acceptor(val counterParty : Party) : FlowLogic<Unit>() {
+    @InitiatedBy(Updator::class)
+    class UpdateAcceptor(val counterParty : Party) : FlowLogic<Unit>() {
         @Suspendable
         override fun call() : Unit {
             //STEP 5 Receive txBuilder with loanStates and possibly cash from initiator. Add Cash if required
@@ -96,7 +96,7 @@ object LoanUpdateFlow {
                 val changeMargin = DecimalFormat(".##").format(outputState.terms.margin - getInputMargin(outputState)).toDouble()
                 val cashToAdd = (outputState.quantity * outputState.stockPrice.quantity * Math.abs(changeMargin)).toLong()
                 //TODO: Decide whether or not to accept the proposed update to margin -> For now this is simulated if margin is too low
-                if (changeMargin <= 0.01) throw Exception("Margin Change too small for update")
+//                if (changeMargin <= 0.01) throw Exception("Margin Change too small for update")
                 //Add cash states as needed
                 //If borrower and margin increased -> send money to lender
                 if ((serviceHub.myInfo.legalIdentity == outputState.borrower) && (changeMargin > 0)) {
