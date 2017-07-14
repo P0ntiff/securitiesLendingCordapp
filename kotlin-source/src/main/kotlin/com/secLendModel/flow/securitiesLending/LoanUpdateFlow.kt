@@ -57,7 +57,7 @@ object LoanUpdateFlow {
             val builder = TransactionType.General.Builder(notary = serviceHub.networkMapCache.notaryNodes.single().notaryIdentity)
             SecurityLoan().generateUpdate(builder, newMargin, secLoan, lender, borrower)
             //Check increase or decrease in margin
-            val changeMargin = newMargin - secLoan.state.data.terms.margin //Positive if increase, negative if decrease
+            val changeMargin = Math.round(newMargin - secLoan.state.data.terms.margin) //Positive if increase, negative if decrease
             val cashToAdd = secLoan.state.data.quantity * secLoan.state.data.stockPrice.quantity * Math.abs(changeMargin)
             //Check if we are lender or borrower
             //If borrower and margin increased -> lender should recieve money
@@ -77,11 +77,11 @@ object LoanUpdateFlow {
                 println("Lender added cash initiator")
             }
             //Send to the other party to confirm they are happy with the update
-            println(changeMargin)
+            println("New Margin: $newMargin Old Margin: ${secLoan.state.data.terms.margin}")
             //TODO: Check that securityLoan matches -> Is this needed? simply accepts or denies state so shouldnt be changed
             val ptx = sendAndReceive<SignedTransaction>(borrower, builder).unwrap {
                 //Check the PTX is what we were expecting i.e original secLoan as input, with updated loan as output
-                val wtx: WireTransaction = it.verifySignatures(myKey, notary.owningKey)
+                val wtx: WireTransaction? = it.verifySignatures(myKey, notary.owningKey)
 
                 it
             }
@@ -101,6 +101,7 @@ object LoanUpdateFlow {
                 val outputState = it.outputStates().map { it.data }.filterIsInstance<SecurityLoan.State>().single()
                 val changeMargin = outputState.terms.margin - getInputMargin(outputState)
                 println(changeMargin)
+                println("New Margin: ${outputState.terms.margin} Old Margin: ${getInputMargin(outputState)}")
                 val cashToAdd = outputState.quantity * outputState.stockPrice.quantity * Math.abs(changeMargin)
                 //Add cash states as needed
                 //If borrower and margin increased -> send money to lender
