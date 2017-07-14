@@ -66,6 +66,7 @@ object LoanUpdateFlow {
                         Amount(cashToAdd.toLong(), CURRENCY),
                         AnonymousParty(secLoan.state.data.lender.owningKey)
                 )
+                println("Borrower Added cash initiator")
             }
             //If lender and margin decreased -> borrower should recieve money
             else if((serviceHub.myInfo.legalIdentity == lender) && changeMargin < 0) {
@@ -73,8 +74,10 @@ object LoanUpdateFlow {
                         Amount(cashToAdd.toLong(), CURRENCY),
                         AnonymousParty(secLoan.state.data.borrower.owningKey)
                 )
+                println("Lender added cash initiator")
             }
             //Send to the other party to confirm they are happy with the update
+            println(changeMargin)
             //TODO: Check that securityLoan matches -> Is this needed? simply accepts or denies state so shouldnt be changed
             val ptx = sendAndReceive<SignedTransaction>(borrower, builder).unwrap {
                 //Check the PTX is what we were expecting i.e original secLoan as input, with updated loan as output
@@ -96,7 +99,8 @@ object LoanUpdateFlow {
             val builder = receive<TransactionBuilder>(counterParty).unwrap {
                 //TODO: Decide whether or not to accept the proposed update to margin
                 val outputState = it.outputStates().map { it.data }.filterIsInstance<SecurityLoan.State>().single()
-                val changeMargin = getInputMargin(outputState) - outputState.terms.margin
+                val changeMargin = outputState.terms.margin - getInputMargin(outputState)
+                println(changeMargin)
                 val cashToAdd = outputState.quantity * outputState.stockPrice.quantity * Math.abs(changeMargin)
                 //Add cash states as needed
                 //If borrower and margin increased -> send money to lender
@@ -105,6 +109,7 @@ object LoanUpdateFlow {
                             Amount(cashToAdd.toLong(), CURRENCY),
                             AnonymousParty(outputState.lender.owningKey)
                     )
+                    println("Borrower Added cash acceptor")
                 }
                 //If lender and margin decreased -> borrower should recieve money
                 else if((serviceHub.myInfo.legalIdentity == outputState.lender) && changeMargin < 0){
@@ -112,8 +117,9 @@ object LoanUpdateFlow {
                             Amount(cashToAdd.toLong(), CURRENCY),
                             AnonymousParty(outputState.borrower.owningKey)
                     )
+                    println("lender Added cash acceptor")
                 }
-                if (checkLoanInput(outputState,it.inputStates().single())) throw Exception("Disagreement on loan update")
+                //if (!checkLoanInput(outputState,it.inputStates().filterIsInstance<StateAndRef<SecurityLoan.State>>().single().ref)) throw Exception("Disagreement on loan update")
                 it
             }
             val signedTx : SignedTransaction = serviceHub.signInitialTransaction(builder)

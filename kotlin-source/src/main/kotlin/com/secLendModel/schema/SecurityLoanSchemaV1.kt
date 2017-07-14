@@ -40,7 +40,7 @@ object SecurityLoanSchemaV1 : MappedSchema(schemaFamily = SecurityLoanSchema.jav
             var quantity: Int,
 
             @Column(name = "price")
-            var price: Amount<Currency>,
+            var price: Int,
 
             @Column(name = "linearID")
             var id: String,
