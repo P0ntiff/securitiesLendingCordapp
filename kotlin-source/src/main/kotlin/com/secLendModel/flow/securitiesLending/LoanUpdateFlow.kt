@@ -61,14 +61,14 @@ object LoanUpdateFlow {
             val cashToAdd = secLoan.state.data.quantity * secLoan.state.data.stockPrice.quantity * Math.abs(changeMargin)
             //Check if we are lender or borrower
             //If borrower and margin increased -> lender should recieve money
-            if(serviceHub.myInfo.legalIdentity == borrower && changeMargin > 0){
+            if((serviceHub.myInfo.legalIdentity == borrower) && changeMargin > 0){
                 serviceHub.vaultService.generateSpend(builder,
                         Amount(cashToAdd.toLong(), CURRENCY),
                         AnonymousParty(secLoan.state.data.lender.owningKey)
                 )
             }
             //If lender and margin decreased -> borrower should recieve money
-            if(serviceHub.myInfo.legalIdentity == lender && changeMargin < 0){
+            else if((serviceHub.myInfo.legalIdentity == lender) && changeMargin < 0){
                 serviceHub.vaultService.generateSpend(builder,
                         Amount(cashToAdd.toLong(), CURRENCY),
                         AnonymousParty(secLoan.state.data.borrower.owningKey)
@@ -94,23 +94,25 @@ object LoanUpdateFlow {
         @Suspendable
         override fun call() : Unit {
             val builder = receive<TransactionBuilder>(counterParty).unwrap {
+                //TODO: Decide whether or not to accept the proposed update to margin
                 val outputState = it.outputStates().map { it.data }.filterIsInstance<SecurityLoan.State>().single()
+                val changeMargin = getInputMargin(outputState) - outputState.terms.margin
+                val cashToAdd = outputState.quantity * outputState.stockPrice.quantity * Math.abs(changeMargin)
                 //Add cash states as needed
-                if(serviceHub.myInfo.legalIdentity == outputState.borrower && changeMargin > 0){
-                    serviceHub.vaultService.generateSpend(builder,
+                //If borrower and margin increased -> send money to lender
+                if((serviceHub.myInfo.legalIdentity == outputState.borrower) && changeMargin > 0){
+                    serviceHub.vaultService.generateSpend(it,
                             Amount(cashToAdd.toLong(), CURRENCY),
-                            AnonymousParty(secLoan.state.data.lender.owningKey)
+                            AnonymousParty(outputState.lender.owningKey)
                     )
                 }
                 //If lender and margin decreased -> borrower should recieve money
-                if(serviceHub.myInfo.legalIdentity == lender && changeMargin < 0){
-                    serviceHub.vaultService.generateSpend(builder,
+                else if((serviceHub.myInfo.legalIdentity == outputState.lender) && changeMargin < 0){
+                    serviceHub.vaultService.generateSpend(it,
                             Amount(cashToAdd.toLong(), CURRENCY),
-                            AnonymousParty(secLoan.state.data.borrower.owningKey)
+                            AnonymousParty(outputState.borrower.owningKey)
                     )
                 }
-                //TODO: Check we are happy with this margin update, for now lets just sign it as long as their is an update
-                val newMargin =  outputState.terms.margin
                 if (checkLoanInput(outputState,it.inputStates().single())) throw Exception("Disagreement on loan update")
                 it
             }

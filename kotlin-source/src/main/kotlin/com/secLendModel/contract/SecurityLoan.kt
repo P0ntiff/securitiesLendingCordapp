@@ -75,7 +75,7 @@ class SecurityLoan : Contract {
                         code = this.code,
                         quantity = this.quantity,
                         //price with 2 decimal places
-                        price = this.stockPrice.quantity,
+                        price = this.stockPrice,
                         id = this.linearId.toString(),
                         //Loan term values also saved to vault
                         length = this.terms.lengthOfLoan,
@@ -188,7 +188,7 @@ class SecurityLoan : Contract {
     }
 
     fun generateUpdate(tx: TransactionBuilder,
-                     marginUpdate: Int,
+                     marginUpdate: Double,
                      secLoan: StateAndRef<SecurityLoan.State>,
                      lender: Party,
                      borrower: Party): TransactionBuilder{
