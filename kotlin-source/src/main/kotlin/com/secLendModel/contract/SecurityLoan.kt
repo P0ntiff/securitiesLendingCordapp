@@ -93,11 +93,7 @@ class SecurityLoan : Contract {
         when (command.value) {
             is Commands.Issue -> requireThat {
                 //Get input and output info
-                var secLoanIndex = 0
-                tx.outputs.forEach{
-                    if (it is SecurityLoan.State) { secLoanIndex = tx.outputs.indexOf(it)}
-                }
-                val secLoan: SecurityLoan.State = tx.outputs.get(secLoanIndex) as State
+                val secLoan = tx.outputs.filterIsInstance<SecurityLoan.State>().single()
                 var cashStatesTally : Long = 0
                 var securityStatesTally = 0
                 tx.outputs.forEach {
@@ -122,11 +118,7 @@ class SecurityLoan : Contract {
             is Commands.Exit -> requireThat{
                 //Exit the loan
                 //Get input and output info
-                var secLoanIndex = 0
-                tx.inputs.forEach{
-                    if (it is SecurityLoan.State) { secLoanIndex = tx.outputs.indexOf(it) }
-                }
-                val secLoan: SecurityLoan.State = tx.inputs.get(secLoanIndex) as State
+                val secLoan = tx.outputs.filterIsInstance<SecurityLoan.State>().single()
                 var cashStatesTally = 0
                 var securityStatesTally = 0
                 var secLoanStates = 0
