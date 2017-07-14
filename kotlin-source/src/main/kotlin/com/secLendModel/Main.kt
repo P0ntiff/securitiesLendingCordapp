@@ -114,24 +114,26 @@ fun main(args: Array<String>) {
 
         //Send some assets around the ledger
         moveCash(aRPC, bRPC)
-//        moveEquity(aRPC, bRPC)
-//        moveEquity(bRPC, aRPC)
-//        moveEquity(aRPC, bRPC)
-//        moveEquity(bRPC, aRPC)
-//        moveEquity(aRPC, bRPC)
-//        moveEquity(bRPC, aRPC)
+        moveEquity(aRPC, bRPC)
+        moveEquity(bRPC, aRPC)
+        moveEquity(aRPC, bRPC)
+        moveEquity(bRPC, aRPC)
+        moveEquity(aRPC, bRPC)
+        moveEquity(bRPC, aRPC)
 
         //DVP trades of cash for equity between sellers and buyers
-//        tradeEquity(aRPC, bRPC)
-//        tradeEquity(bRPC, aRPC)
-//        tradeEquity(aRPC, bRPC)
-//        tradeEquity(bRPC, aRPC)
+        tradeEquity(aRPC, bRPC)
+        tradeEquity(bRPC, aRPC)
+        tradeEquity(aRPC, bRPC)
+        tradeEquity(bRPC, aRPC)
 
         //Loan issuance and margin update transactions
         val id = loanSecurities(bRPC, aRPC)
         val id2 = loanSecurities(aRPC, bRPC)
+        val id3 = loanSecurities(aRPC, bRPC)
         updateMargin(id, aRPC)
-        updateMargin(id2, aRPC)
+        updateMargin(id2, bRPC)
+        updateMargin(id3, aRPC)
 
         println("ALL TXNS SUBMITTED")
         waitForAllNodesToFinish()
@@ -246,7 +248,7 @@ fun loanSecurities(borrower: CordaRPCOps, lender: CordaRPCOps): UniqueIdentifier
 
     val linearId = borrower.startFlow(::Borrower, loanTerms).returnValue.getOrThrow()
     println("Loan Finalised: ${figure} shares in ${CODES[stockIndex]} at ${sharePrice} each loaned to borrower '" +
-            "${borrower.nodeIdentity().legalIdentity}' by lender '${lender.nodeIdentity().legalIdentity}'")
+            "${borrower.nodeIdentity().legalIdentity}' by lender '${lender.nodeIdentity().legalIdentity}' at a margin of ${margin}")
     return linearId
 }
 
@@ -254,7 +256,7 @@ fun updateMargin(id: UniqueIdentifier, initiator: CordaRPCOps): UniqueIdentifier
     val rand = Random()
     val newMargin : Double = (rand.nextInt(8 + 1 - 2) + 2).toDouble() / 100
     val updatedID = initiator.startFlow(::Initiator, id, newMargin).returnValue.getOrThrow()
-    println("Margin Updated on loan with old ID: '${id}' and  newID: '${updatedID}'")
+    println("Margin updated on loan with old ID: '${id}' and  newID: '${updatedID}'")
     return updatedID
 }
 

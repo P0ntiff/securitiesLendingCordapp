@@ -57,9 +57,6 @@ class SecurityLoan : Contract {
 
         override val contract get() = SecurityLoan()
 
-        /**
-         * A toString() helper method for displaying in the console.
-         */
         override fun toString(): String{
             return "SecurityLoan: ${borrower.name} owes ${lender.name} $quantity of $code shares. ID = ($linearId) Margin = ${terms.margin}"
         }
@@ -106,8 +103,8 @@ class SecurityLoan : Contract {
                 }
                 //Check we have some inputs -> Not being restrictive at this point in time
                 "Inputs should be consumed when issuing a secLoan." using (tx.inputs.isNotEmpty()) //Should be two input types -> securities and collateral(Cash States)
-                "Cash states in the outputs sum to the value of the loan + margin" using (Amount(cashStatesTally, CURRENCY) == Amount(secLoan.quantity * secLoan.stockPrice.quantity, CURRENCY)) //+
-                    //    secLoan.quantity * secLoan.stockPrice.quantity.toInt()*secLoan.terms.margin)
+                "Cash states in the outputs sum to the value of the loan + margin" using (Amount(cashStatesTally, CURRENCY) ==
+                        Amount(((secLoan.quantity * secLoan.stockPrice.quantity) * (1.0 + secLoan.terms.margin)).toLong(), CURRENCY))
                 "Securities states in the inputs sum to the quantity of the loan" using (securityStatesTally == secLoan.quantity)
                 "A newly issued secLoan must have a positive amount." using (secLoan.quantity > 0)
                 "Shares must have some value" using (secLoan.stockPrice.quantity > 0)

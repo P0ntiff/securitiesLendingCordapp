@@ -31,6 +31,7 @@ object LoanIssuanceFlow {
 
     @StartableByRPC
     @InitiatingFlow
+    //TODO: Don't hardcode borrower as the initiator (perhaps make a superflow to initiate borrower or lender, depending on what role the initiator and acceptor play)
     open class Borrower(val loanTerms : LoanTerms) : FlowLogic<UniqueIdentifier>() {
         @Suspendable
         override fun call(): UniqueIdentifier {
@@ -46,9 +47,9 @@ object LoanIssuanceFlow {
             //STEP 2: Put in cash collateral
             val myKey = serviceHub.myInfo.legalIdentity.owningKey
             //Put in the cash states to represent collateral
-            // TODO: add margin in later, and don't hard code cash as the collateral
+            // TODO: don't hard code cash as the collateral
             val (ptx, cashSigningPubKeys) = serviceHub.vaultService.generateSpend(builder,
-                    Amount(agreedTerms.stockPrice.quantity * agreedTerms.quantity, CURRENCY),
+                    Amount(((agreedTerms.stockPrice.quantity * agreedTerms.quantity) * (1.0 + agreedTerms.margin)).toLong(), CURRENCY),
                     AnonymousParty(agreedTerms.lender.owningKey)
             )
 
@@ -95,10 +96,9 @@ object LoanIssuanceFlow {
             //TODO: Make this stronger, check these agreed terms really are the agreed terms (i.e from LoanAgreementFlow)
             val agreedTerms = receive<LoanTerms>(borrower).unwrap { it }
             val builder = receive<TransactionBuilder>(borrower).unwrap {
-                //Check cash states have been put in
-                //TODO: Factor margin in later
+                //Check cash states have been put in to the agreed amount
                 if (it.outputStates().map { it.data }.sumCashBy(AnonymousParty(myKey)).withoutIssuer().quantity.toInt()
-                        != (agreedTerms.stockPrice.quantity.toInt() * agreedTerms.quantity)) {
+                        != ((agreedTerms.stockPrice.quantity.toInt() * agreedTerms.quantity) * (1.0 + agreedTerms.margin)).toInt()) {
                     throw FlowException("Borrower did not put in the agreed amount of cash for collateral.")
                 }
                 it
