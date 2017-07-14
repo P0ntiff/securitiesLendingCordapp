@@ -131,7 +131,7 @@ fun main(args: Array<String>) {
         val id = loanSecurities(bRPC, aRPC)
         val id2 = loanSecurities(aRPC, bRPC)
         updateMargin(id, aRPC)
-        updateMargin(id2, bRPC)
+        updateMargin(id2, aRPC)
 
         println("ALL TXNS SUBMITTED")
         waitForAllNodesToFinish()

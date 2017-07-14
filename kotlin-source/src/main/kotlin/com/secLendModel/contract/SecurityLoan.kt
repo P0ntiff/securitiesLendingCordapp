@@ -75,7 +75,7 @@ class SecurityLoan : Contract {
                         code = this.code,
                         quantity = this.quantity,
                         //price with 2 decimal places
-                        price = this.stockPrice,
+                        price = this.stockPrice.quantity.toInt(),
                         id = this.linearId.toString(),
                         //Loan term values also saved to vault
                         length = this.terms.lengthOfLoan,
