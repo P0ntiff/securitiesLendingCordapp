@@ -1,7 +1,10 @@
 package com.secLendModel.flow.securitiesLending
 
 import co.paralleluniverse.fibers.Suspendable
+import com.secLendModel.contract.SecurityClaim
 import com.secLendModel.contract.SecurityLoan
+import net.corda.core.contracts.StateAndRef
+import net.corda.core.contracts.StateRef
 import net.corda.core.contracts.TransactionType
 import net.corda.core.contracts.UniqueIdentifier
 import net.corda.core.flows.FlowLogic
@@ -28,7 +31,7 @@ object LoanUpdateFlow {
     @StartableByRPC
     @InitiatingFlow
     class Initiator(val linearID: UniqueIdentifier,
-                    val newMargin: Int) : FlowLogic<UniqueIdentifier>() {
+                    val newMargin: Double) : FlowLogic<UniqueIdentifier>() {
         @Suspendable
         override fun call() : UniqueIdentifier {
             val notary = serviceHub.networkMapCache.notaryNodes.single().notaryIdentity
@@ -70,7 +73,7 @@ object LoanUpdateFlow {
         override fun call() : Unit {
             val builder = receive<TransactionBuilder>(counterParty).unwrap {
                 //TODO: Check we are happy with this margin update, for now lets just sign it as long as their is an update
-                val newMargin =  it.outputStates().map { it }.filterIsInstance<SecurityLoan.State>().single().terms.margin
+                val newMargin =  it.outputStates().map { it.data }.filterIsInstance<SecurityLoan.State>().single().terms.margin
                 val oldMargin = it.inputStates().map { it }.filterIsInstance<SecurityLoan.State>().single().terms.margin
                 if (oldMargin == newMargin) throw Exception("Disagreement on loan update")
                 it
@@ -78,6 +81,23 @@ object LoanUpdateFlow {
             val signedTx : SignedTransaction = serviceHub.signInitialTransaction(builder)
             send(counterParty, signedTx)
         }
+
+        @Suspendable
+        //Get a loan state with the same data as the one on the inputRef and check whether it has the same StateAndRef
+        fun checkLoanInput(outputState : SecurityLoan.State, inputRef : StateRef) : Boolean {
+            val criteria = QueryCriteria.VaultQueryCriteria(status = Vault.StateStatus.UNCONSUMED)
+            val loanStates = serviceHub.vaultQueryService.queryBy<SecurityLoan.State>(criteria)
+            val loanInputState = loanStates.states.filter {
+                (it.state.data.lender == outputState.lender)  &&
+                        (it.state.data.borrower == outputState.borrower) &&
+                        (it.state.data.code == outputState.code) &&
+                        (it.state.data.quantity == outputState.quantity) &&
+                        (it.state.data.terms.lengthOfLoan == outputState.terms.lengthOfLoan) &&
+                        (it.state.data.terms.rebate == outputState.terms.rebate) &&
+            }.single()
+            return (loanInputState.ref.txhash == inputRef.txhash)
+        }
     }
+
 }
 
