@@ -39,16 +39,7 @@ object LoanTerminationFlow {
         override fun call(): Unit {
             //TODO: Implement, for now, the opposite logic of the LoanIssuanceFlow
             //STEP 1 Retrieve LoanState from the vault of the borrower
-            val criteria = QueryCriteria.VaultQueryCriteria(status = Vault.StateStatus.UNCONSUMED)
-            val loanStates = serviceHub.vaultQueryService.queryBy<SecurityLoan.State>(criteria)
-            val secLoans = loanStates.states.filter {
-                (it.state.data.linearId == loanID) }
-            if (secLoans.size > 1) {
-                throw Exception("Too many states found")
-            } else if (secLoans.isEmpty()) {
-                throw Exception("No states found matching inputs")
-            }
-            val secLoan = secLoans.single()
+            val secLoan = subFlow(LoanRetrievalFlow(loanID))
 
             //STEP 2: Prepare the txBuilder for the exit -> add the securityLoan states
             val lender = secLoan.state.data.lender

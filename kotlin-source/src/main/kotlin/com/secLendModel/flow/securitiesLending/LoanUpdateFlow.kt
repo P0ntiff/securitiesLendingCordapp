@@ -40,16 +40,7 @@ object LoanUpdateFlow {
             val myKey = serviceHub.myInfo.legalIdentity.owningKey
 
             //STEP1: Get Loan that is being updated -> retrieving using unique LinearID
-            val criteria = QueryCriteria.VaultQueryCriteria(status = Vault.StateStatus.UNCONSUMED)
-            val loanStates = serviceHub.vaultQueryService.queryBy<SecurityLoan.State>(criteria)
-            val secLoans = loanStates.states.filter {
-                (it.state.data.linearId == linearID) }
-            if (secLoans.size > 1) {
-                throw Exception("Too many states found")
-            } else if (secLoans.isEmpty()) {
-                throw Exception("No states found matching inputs")
-            }
-            val secLoan = secLoans.single()
+            val secLoan = subFlow(LoanRetrievalFlow(linearID))
 
             //STEP 2: Create Transaction with the loanState as input and updated LoanState as output
             val borrower = secLoan.state.data.borrower
