@@ -1,11 +1,8 @@
 package com.secLendModel.flow.securitiesLending
 
 import co.paralleluniverse.fibers.Suspendable
-import com.nhaarman.mockito_kotlin.eq
-import com.secLendModel.contract.SecurityClaim
 import com.secLendModel.CURRENCY
 import com.secLendModel.contract.SecurityLoan
-import net.corda.core.contracts.StateAndRef
 import net.corda.core.contracts.StateRef
 import net.corda.core.contracts.Amount
 import net.corda.core.contracts.TransactionType
@@ -16,7 +13,6 @@ import net.corda.core.flows.InitiatingFlow
 import net.corda.core.flows.StartableByRPC
 import net.corda.core.identity.AnonymousParty
 import net.corda.core.identity.Party
-import net.corda.core.node.services.ServiceType.Companion.notary
 import net.corda.core.node.services.Vault
 import net.corda.core.node.services.queryBy
 import net.corda.core.node.services.vault.QueryCriteria
