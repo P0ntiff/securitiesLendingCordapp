@@ -51,22 +51,14 @@ object LoanUpdateFlow {
             //STEP 3: Calcualte change in margin, add cash if required. If not required, will be added by acceptor in STEP X
             val changeMargin = DecimalFormat(".##").format(newMargin - secLoan.state.data.terms.margin).toDouble()
             val cashToAdd = (secLoan.state.data.quantity * secLoan.state.data.stockPrice.quantity * Math.abs(changeMargin)).toLong()
-            //Check if we are lender or borrower
-            //If borrower and margin increased -> lender should recieve money
-            if ((serviceHub.myInfo.legalIdentity == borrower) && (changeMargin > 0)) {
+            //Check if cash required, send to counterparty if it is
+            if (loanUpdateCash().cashRequired(serviceHub.myInfo.legalIdentity, borrower, lender, changeMargin)){
+                val counterParty = loanUpdateCash().getCounterParty(serviceHub.myInfo.legalIdentity, borrower, lender)
                 serviceHub.vaultService.generateSpend(builder,
                         Amount(cashToAdd, CURRENCY),
-                        AnonymousParty(secLoan.state.data.lender.owningKey)
+                        AnonymousParty(counterParty.owningKey)
                 )
             }
-            //If lender and margin decreased -> borrower should recieve money
-            else if ((serviceHub.myInfo.legalIdentity == lender) && (changeMargin < 0)) {
-                serviceHub.vaultService.generateSpend(builder,
-                        Amount(cashToAdd, CURRENCY),
-                        AnonymousParty(secLoan.state.data.borrower.owningKey)
-                )
-            }
-
             //STEP 4 Send TxBuilder with loanStates (input and output) and possibly cash to acceptor party
             //Find out who our counterParty is (either lender or borrower)
             var counterParty : Party = lender
@@ -94,22 +86,16 @@ object LoanUpdateFlow {
             val builder = receive<TransactionBuilder>(counterParty).unwrap {
                 val outputState = it.outputStates().map { it.data }.filterIsInstance<SecurityLoan.State>().single()
                 val changeMargin = DecimalFormat(".##").format(outputState.terms.margin - getInputMargin(outputState)).toDouble()
+                println("Change in margin: $changeMargin")
                 val cashToAdd = (outputState.quantity * outputState.stockPrice.quantity * Math.abs(changeMargin)).toLong()
                 //TODO: Decide whether or not to accept the proposed update to margin -> For now this is simulated if margin is too low
-                if (changeMargin <= 0.01) throw Exception("Margin Change too small for update")
-                //Add cash states as needed
-                //If borrower and margin increased -> send money to lender
-                if ((serviceHub.myInfo.legalIdentity == outputState.borrower) && (changeMargin > 0)) {
+                //if (changeMargin <= 0.01) throw Exception("Margin Change too small for update")
+                //Check if cash required, send to counterParty if needed
+                if (loanUpdateCash().cashRequired(serviceHub.myInfo.legalIdentity, outputState.borrower, outputState.lender, changeMargin)){
+                    val counterParty = loanUpdateCash().getCounterParty(serviceHub.myInfo.legalIdentity, outputState.borrower, outputState.lender)
                     serviceHub.vaultService.generateSpend(it,
                             Amount(cashToAdd, CURRENCY),
-                            AnonymousParty(outputState.lender.owningKey)
-                    )
-                }
-                //If lender and margin decreased -> borrower should recieve money
-                else if ((serviceHub.myInfo.legalIdentity == outputState.lender) && (changeMargin < 0)) {
-                    serviceHub.vaultService.generateSpend(it,
-                            Amount(cashToAdd, CURRENCY),
-                            AnonymousParty(outputState.borrower.owningKey)
+                            AnonymousParty(counterParty.owningKey)
                     )
                 }
                 it
@@ -149,6 +135,23 @@ object LoanUpdateFlow {
             return (loanInputState.state.data.terms.margin)
         }
 
+
+    }
+
+    //Class for managing adding cash and checking requirements for a loanUpdate
+    class loanUpdateCash{
+
+        fun cashRequired(currentParty: Party,borrower: Party, lender: Party, changeMargin: Double): Boolean{
+            if(currentParty == borrower && changeMargin>0) return true
+            else if(currentParty == lender && changeMargin < 0) return true
+            return false
+        }
+
+        fun getCounterParty(currentParty: Party,borrower: Party, lender: Party): Party{
+            if (currentParty == borrower) return lender
+            else if (currentParty == lender) return borrower
+            else throw Exception("Invalid Parties provided to get CounterParty")
+        }
     }
 
 }
