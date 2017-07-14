@@ -59,6 +59,7 @@ object LoanUpdateFlow {
                         AnonymousParty(counterParty.owningKey)
                 )
             }
+
             //STEP 4 Send TxBuilder with loanStates (input and output) and possibly cash to acceptor party
             //Find out who our counterParty is (either lender or borrower)
             var counterParty : Party = lender
