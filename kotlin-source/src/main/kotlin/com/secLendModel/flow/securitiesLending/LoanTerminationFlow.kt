@@ -17,7 +17,7 @@ import net.corda.core.identity.Party
  *  Outputs: -Cash (owned by borrower)
  *           -Securities (owned by lender)
  */
- 
+
 object LoanTerminationFlow {
     @StartableByRPC
     @InitiatingFlow

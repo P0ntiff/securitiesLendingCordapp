@@ -236,8 +236,8 @@ fun loanSecurities(borrower: CordaRPCOps, lender: CordaRPCOps): UniqueIdentifier
     val dollaryDoos = (rand.nextInt(150 + 1 - 50) + 50).toLong() * 100
     val sharePrice = Amount(dollaryDoos, CURRENCY)
     //Percentage
-    val margin = 5
-    val rebate = 1
+    val margin : Double= 0.05
+    val rebate : Double= 0.01
     //Days
     val length = 30
     val loanTerms = LoanTerms(CODES[stockIndex], figure, sharePrice, lender.nodeIdentity().legalIdentity, margin,
@@ -251,9 +251,8 @@ fun loanSecurities(borrower: CordaRPCOps, lender: CordaRPCOps): UniqueIdentifier
 
 fun updateMargin(id: UniqueIdentifier, initiator: CordaRPCOps): UniqueIdentifier {
     val rand = Random()
-    val newMargin = rand.nextInt()%8 //random int between 0 and 8
-    //val newMargin = 6
+    val newMargin : Double = (rand.nextInt(7 + 1 - 3) + 3).toDouble() / 100
     val updatedID = initiator.startFlow(::Initiator, id, newMargin).returnValue.getOrThrow()
-    println("Margin Updated: Inidital ID: ${id} + newID: ${updatedID}")
+    println("Margin Updated: Iniital ID: ${id} + newID: ${updatedID}")
     return updatedID
 }
