@@ -129,7 +129,9 @@ fun main(args: Array<String>) {
 
         //Loan issuance and margin update transactions
         val id = loanSecurities(bRPC, aRPC)
+        val id2 = loanSecurities(aRPC, bRPC)
         updateMargin(id, aRPC)
+        updateMargin(id2, bRPC)
 
         println("ALL TXNS SUBMITTED")
         waitForAllNodesToFinish()
@@ -248,6 +250,10 @@ fun loanSecurities(borrower: CordaRPCOps, lender: CordaRPCOps): UniqueIdentifier
 }
 
 fun updateMargin(id: UniqueIdentifier, initiator: CordaRPCOps): UniqueIdentifier {
-    val newMargin = 6
-    return initiator.startFlow(::Initiator, id, newMargin).returnValue.getOrThrow()
+    val rand = Random()
+    val newMargin = rand.nextInt()%8 //random int between 0 and 8
+    //val newMargin = 6
+    val updatedID = initiator.startFlow(::Initiator, id, newMargin).returnValue.getOrThrow()
+    println("Margin Updated: Inidital ID: ${id} + newID: ${updatedID}")
+    return updatedID
 }

@@ -50,8 +50,9 @@ object LoanUpdateFlow {
             val builder = TransactionType.General.Builder(notary = serviceHub.networkMapCache.notaryNodes.single().notaryIdentity)
             SecurityLoan().generateUpdate(builder, newMargin, secLoan, lender, borrower)
             //Send to the other party to confirm they are happy with the update
-            //TODO: Check that securityLoan matches
+            //TODO: Check that securityLoan matches -> Is this needed? simply accepts or denies state so shouldnt be changed
             val ptx = sendAndReceive<SignedTransaction>(borrower, builder).unwrap {
+                //Check the PTX is what we were expecting i.e original secLoan as input, with updated loan as output
                 val wtx: WireTransaction = it.verifySignatures(myKey, notary.owningKey)
 
                 it
@@ -68,7 +69,10 @@ object LoanUpdateFlow {
         @Suspendable
         override fun call() : Unit {
             val builder = receive<TransactionBuilder>(counterParty).unwrap {
-                //TODO: Check we are happy with this margin update, for now lets just sign it
+                //TODO: Check we are happy with this margin update, for now lets just sign it as long as their is an update
+                val newMargin =  it.outputStates().map { it }.filterIsInstance<SecurityLoan.State>().single().terms.margin
+                val oldMargin = it.inputStates().map { it }.filterIsInstance<SecurityLoan.State>().single().terms.margin
+                if (oldMargin == newMargin) throw Exception("Disagreement on loan update")
                 it
             }
             val signedTx : SignedTransaction = serviceHub.signInitialTransaction(builder)

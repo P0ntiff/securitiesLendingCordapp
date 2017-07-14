@@ -61,7 +61,7 @@ class SecurityLoan : Contract {
          * A toString() helper method for displaying in the console.
          */
         override fun toString(): String{
-            return "SecurityLoan: ${borrower.name} owes ${lender.name} $quantity of $code shares. ID = ($linearId)"
+            return "SecurityLoan: ${borrower.name} owes ${lender.name} $quantity of $code shares. ID = ($linearId) Margin = ${terms.margin}"
         }
 
         override fun supportedSchemas(): Iterable<MappedSchema> = listOf(SecurityLoanSchemaV1)
