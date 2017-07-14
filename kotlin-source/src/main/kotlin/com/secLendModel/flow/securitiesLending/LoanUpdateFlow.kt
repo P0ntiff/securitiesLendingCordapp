@@ -68,7 +68,7 @@ object LoanUpdateFlow {
                 )
             }
             //If lender and margin decreased -> borrower should recieve money
-            else if((serviceHub.myInfo.legalIdentity == lender) && changeMargin < 0){
+            else if((serviceHub.myInfo.legalIdentity == lender) && changeMargin < 0) {
                 serviceHub.vaultService.generateSpend(builder,
                         Amount(cashToAdd.toLong(), CURRENCY),
                         AnonymousParty(secLoan.state.data.borrower.owningKey)
