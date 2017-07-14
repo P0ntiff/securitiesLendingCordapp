@@ -32,8 +32,8 @@ class SecurityLoan : Contract {
 
     @CordaSerializable
     data class Terms(val lengthOfLoan: Int,
-                     val margin: Int,
-                     val rebate: Int //TODO: Figure out what type collateralType is (could be cash, any fungible asset, etc)
+                     val margin: Double,
+                     val rebate: Double //TODO: Figure out what type collateralType is (could be cash, any fungible asset, etc)
                      )
 
     data class State(val quantity: Int,
@@ -74,8 +74,7 @@ class SecurityLoan : Contract {
                         borrower = this.borrower.owningKey.toBase58String(),
                         code = this.code,
                         quantity = this.quantity,
-                        //price with 2 decimal places
-                        price = this.stockPrice.quantity,
+                        price = this.stockPrice,
                         id = this.linearId.toString(),
                         //Loan term values also saved to vault
                         length = this.terms.lengthOfLoan,
@@ -188,7 +187,7 @@ class SecurityLoan : Contract {
     }
 
     fun generateUpdate(tx: TransactionBuilder,
-                     marginUpdate: Int,
+                     marginUpdate: Double,
                      secLoan: StateAndRef<SecurityLoan.State>,
                      lender: Party,
                      borrower: Party): TransactionBuilder{
