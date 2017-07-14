@@ -252,7 +252,7 @@ fun loanSecurities(borrower: CordaRPCOps, lender: CordaRPCOps): UniqueIdentifier
 
 fun updateMargin(id: UniqueIdentifier, initiator: CordaRPCOps): UniqueIdentifier {
     val rand = Random()
-    val newMargin : Double = (rand.nextInt(7 + 1 - 3) + 3).toDouble() / 100
+    val newMargin : Double = (rand.nextInt(8 + 1 - 2) + 2).toDouble() / 100
     val updatedID = initiator.startFlow(::Initiator, id, newMargin).returnValue.getOrThrow()
     println("Margin Updated on loan with old ID: '${id}' and  newID: '${updatedID}'")
     return updatedID

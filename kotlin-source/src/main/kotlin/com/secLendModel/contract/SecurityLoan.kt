@@ -143,7 +143,13 @@ class SecurityLoan : Contract {
                 val inputLoan = tx.inputs.filterIsInstance<State>().single()
                 val outputLoan = tx.outputs.filterIsInstance<State>().single()
                 "Linear ID should match" using (inputLoan.linearId == outputLoan.linearId)
-                //TODO: Check that state fields are the same besides margin
+                "Loans should match, besides margin" using ((inputLoan.stockPrice == outputLoan.stockPrice)
+                        &&(inputLoan.borrower == outputLoan.borrower)
+                        &&(inputLoan.code == outputLoan.code)
+                        &&(inputLoan.lender == outputLoan.lender)
+                        &&(inputLoan.quantity == outputLoan.quantity)
+                        &&(inputLoan.terms.rebate == outputLoan.terms.rebate)
+                        &&(inputLoan.terms.lengthOfLoan == outputLoan.terms.lengthOfLoan))
                 "Both lender and borrower must have signed both input and output states." using
                         ((command.signers.toSet() == inputLoan.participants.map { it.owningKey }.toSet()) &&
                                 (command.signers.toSet() == outputLoan.participants.map { it.owningKey }.toSet()))
@@ -162,7 +168,6 @@ class SecurityLoan : Contract {
         val state = TransactionState(State(loanTerms.quantity, loanTerms.code, loanTerms.stockPrice, loanTerms.lender, borrower,
                 Terms(loanTerms.lengthOfLoan, loanTerms.margin, loanTerms.rebate)), notary)
         tx.addOutputState(state)
-        //TODO: check: should we add input and output states here, or is that done in flow and we simply worry about generating the securityLoan state
         //Tx signed by the lender
         tx.addCommand(SecurityLoan.Commands.Issue(), loanTerms.lender.owningKey, borrower.owningKey)
         return tx
