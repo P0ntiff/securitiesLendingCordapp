@@ -115,8 +115,8 @@ class SecurityLoan : Contract {
             is Commands.Exit -> requireThat{
                 //Exit the loan
                 //Get input and output info
-                val secLoan = tx.outputs.filterIsInstance<SecurityLoan.State>().single()
-                var cashStatesTally = 0
+                val secLoan = tx.inputs.filterIsInstance<SecurityLoan.State>().single()
+                var cashStatesTally: Long = 0
                 var securityStatesTally = 0
                 var secLoanStates = 0
                 tx.outputs.forEach {
@@ -124,9 +124,11 @@ class SecurityLoan : Contract {
                     if (it is SecurityClaim.State && it.code == secLoan.code) { securityStatesTally += it.quantity}
                     if (it is SecurityLoan.State) {secLoanStates += 1}
                 }
-                "Cash states in the output sum to the value of the loan" using (cashStatesTally == secLoan.quantity * secLoan.stockPrice.quantity.toInt())
+                "Cash states in the output sum to the value of the loan + margin" using (Amount(cashStatesTally, CURRENCY) ==
+                        Amount(((secLoan.quantity * secLoan.stockPrice.quantity) * (1.0 + secLoan.terms.margin)).toLong(), CURRENCY))
                 "Security states in the output sum to the securities total of the loan" using (securityStatesTally == secLoan.quantity)
                 "Secloan state must not be present in the output" using (secLoanStates == 0) //secLoan must be consumed as part of tx
+                "Output must contain some states" using (tx.outputs.isNotEmpty())
                 "Input should be signed by both borrow and lender" using (command.signers.toSet()
                         == secLoan.participants.map{ it.owningKey }.toSet())
 

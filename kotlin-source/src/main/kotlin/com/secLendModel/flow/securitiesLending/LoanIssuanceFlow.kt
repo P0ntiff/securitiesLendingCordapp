@@ -46,7 +46,6 @@ object LoanIssuanceFlow {
 
             //STEP 2: Put in cash collateral
             val myKey = serviceHub.myInfo.legalIdentity.owningKey
-            //Put in the cash states to represent collateral
             // TODO: don't hard code cash as the collateral
             val (ptx, cashSigningPubKeys) = serviceHub.vaultService.generateSpend(builder,
                     Amount(((agreedTerms.stockPrice.quantity * agreedTerms.quantity) * (1.0 + agreedTerms.margin)).toLong(), CURRENCY),

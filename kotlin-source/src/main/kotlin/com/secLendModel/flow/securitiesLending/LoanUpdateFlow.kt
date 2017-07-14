@@ -25,6 +25,7 @@ import java.text.DecimalFormat
 
 /** A flow for updating the margin of a given SecurityLoan state -> all other parameters preserved
  *
+ * Commands: UPDATE
  * @param linearID = the reference to the loan in both borrower and lender's databases
  * @param newMargin = the new percentage margin that the loan will take
  */
@@ -45,7 +46,7 @@ object LoanUpdateFlow {
                 (it.state.data.linearId == linearID) }
             if (secLoans.size > 1) {
                 throw Exception("Too many states found")
-            } else if (secLoans.size == 0) {
+            } else if (secLoans.isEmpty()) {
                 throw Exception("No states found matching inputs")
             }
             val secLoan = secLoans.single()
