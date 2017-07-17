@@ -70,8 +70,6 @@ object LoanTerminationFlow {
                     (it.owner.owningKey == serviceHub.myInfo.legalIdentity.owningKey)
                 }.sumByDouble { it.amount.quantity.toDouble() } != (((secLoan.state.data.quantity * secLoan.state.data.stockPrice.quantity) *
                         (1.0 + secLoan.state.data.terms.margin)))) {
-                    println("Cash being received back should be ${((secLoan.state.data.quantity * secLoan.state.data.stockPrice.quantity) *
-                            (1.0 + secLoan.state.data.terms.margin))}")
                     throw FlowException("Lender is not giving us back the correct amount of cash collateral.")
                 }
                 subFlow(ResolveTransactionsFlow(wtx, secLoan.state.data.lender))
@@ -112,7 +110,6 @@ object LoanTerminationFlow {
                     Amount(cashToAdd, CURRENCY),
                     AnonymousParty(borrower.owningKey)
             )
-            println("Cash sent back is ${cashToAdd}")
             //STEP 7: Send this tx back to the borrower
             val stx = serviceHub.signInitialTransaction(ptx)
             send(borrower, stx)
