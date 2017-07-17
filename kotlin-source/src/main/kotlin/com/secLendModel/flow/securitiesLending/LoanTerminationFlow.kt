@@ -5,6 +5,8 @@ import com.secLendModel.CURRENCY
 import com.secLendModel.contract.SecurityClaim
 import com.secLendModel.contract.SecurityLoan
 import com.secLendModel.flow.SecuritiesPreparationFlow
+import com.secLendModel.flow.securitiesLending.LoanChecks.isLender
+import com.secLendModel.flow.securitiesLending.LoanChecks.stateToLoanTerms
 import net.corda.contracts.asset.Cash
 import net.corda.core.contracts.*
 import net.corda.core.flows.*
@@ -12,11 +14,9 @@ import net.corda.core.identity.AnonymousParty
 import net.corda.core.identity.Party
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.transactions.TransactionBuilder
-import net.corda.core.transactions.WireTransaction
 import net.corda.core.utilities.unwrap
 import net.corda.flows.CollectSignaturesFlow
 import net.corda.flows.FinalityFlow
-import net.corda.flows.ResolveTransactionsFlow
 import net.corda.flows.SignTransactionFlow
 
 /**
@@ -33,15 +33,16 @@ import net.corda.flows.SignTransactionFlow
 object LoanTerminationFlow {
     @StartableByRPC
     @InitiatingFlow
-    //Borrower currently coded as the initiator/"terminator"
     open class Terminator(val loanID : UniqueIdentifier) : FlowLogic<Unit>() {
         @Suspendable
         override fun call(): Unit {
             val notary = serviceHub.networkMapCache.notaryNodes.single().notaryIdentity
 
-            //STEP 1 Retrieve loan being terminated from the vault of the borrower, and notify the counterParty about the loan we're terminating
+            //STEP 1 Retrieve loan being terminated from the vault, and notify the counterParty about the loan we're terminating
             val secLoan = subFlow(LoanRetrievalFlow(loanID))
-            send(secLoan.state.data.lender, loanID)
+            val secLoanTerms = stateToLoanTerms(secLoan.state.data)
+            val counterParty = LoanChecks.getCounterParty(secLoanTerms, serviceHub.myInfo.legalIdentity)
+            send(counterParty, loanID)
 
             //STEP 2: Prepare the txBuilder for the exit -> add the securityLoan input state
             val lender = secLoan.state.data.lender
@@ -49,25 +50,27 @@ object LoanTerminationFlow {
             val builder = TransactionType.General.Builder(notary = notary)
             SecurityLoan().generateExit(builder, secLoan, lender, borrower)
 
-            //STEP 3: Add the security states to return to the lender
-            val code = secLoan.state.data.code
-            val quantity = secLoan.state.data.quantity
-            val tx = try {
-                subFlow(SecuritiesPreparationFlow(builder, code, quantity, lender)).first
-            } catch (e: InsufficientBalanceException) {
-                throw SecurityException("Insufficient holding: ${e.message}", e)
+            //STEP 3: Return either cash or securities, depending on which party we are in the deal.
+            val ptx : TransactionBuilder
+            //If we are the lender, then we are returning cash collateral
+            if (isLender(secLoanTerms, serviceHub.myInfo.legalIdentity)) {
+                ptx = serviceHub.vaultService.generateSpend(builder,
+                        Amount(((secLoanTerms.stockPrice.quantity * secLoanTerms.quantity) * (1.0 + secLoanTerms.margin)).toLong(), CURRENCY),
+                        AnonymousParty(counterParty.owningKey)).first
             }
-            send(lender, tx)
+            else{  //If we are the borrower, then we are returning stock to the lender
+                ptx = try {
+                    subFlow(SecuritiesPreparationFlow(builder, secLoanTerms.code, secLoanTerms.quantity, counterParty)).first
+                } catch (e: InsufficientBalanceException) {
+                    throw SecurityException("Insufficient holding: ${e.message}", e)
+                }
+            }
+            send(counterParty, ptx)
 
-            //STEP 4: Send the tx containing stock and the securityLoan to the lender
-            val signTransactionFlow = object : SignTransactionFlow(secLoan.state.data.lender) {
+            //STEP 4: Check the other party has put in the securities/collateral they should be returning
+            val signTransactionFlow = object : SignTransactionFlow(counterParty) {
                 override fun checkTransaction(stx: SignedTransaction)  = requireThat {
-                    "Lender must give us back the correct amount of cash collateral." using
-                        (stx.tx.outputs.map { it.data }.filterIsInstance<Cash.State>().filter {
-                        (it.owner.owningKey == serviceHub.myInfo.legalIdentity.owningKey)
-                        }.sumByDouble { it.amount.quantity.toDouble() } ==
-                                (((secLoan.state.data.quantity * secLoan.state.data.stockPrice.quantity) *
-                            (1.0 + secLoan.state.data.terms.margin))))
+                    //TODO: Check our company is happy with this termination
                 }
             }
 
@@ -80,31 +83,43 @@ object LoanTerminationFlow {
 
     @StartableByRPC
     @InitiatedBy(Terminator::class)
-    class TerminationAcceptor(val borrower : Party) : FlowLogic<Unit>() {
+    class TerminationAcceptor(val counterParty : Party) : FlowLogic<Unit>() {
         @Suspendable
         override fun call(): Unit {
             //STEP 5: Receive information about the loan being terminated from borrower
-            val loanID = receive<UniqueIdentifier>(borrower). unwrap { it }
+            val loanID = receive<UniqueIdentifier>(counterParty). unwrap { it }
             val secLoan = subFlow(LoanRetrievalFlow(loanID))
+            val secLoanTerms = stateToLoanTerms(secLoan.state.data)
 
             //STEP 6:Receive the tx builder and and add the required cash states
-            val ptx = receive<TransactionBuilder>(borrower).unwrap {
+            val ptx = receive<TransactionBuilder>(counterParty).unwrap {
                 //TODO: Check we want to settle this loan/the total loan time has elapsed
-                //Check the securities have been returned to us
-                if (it.outputStates().map { it.data }.filterIsInstance<SecurityClaim.State>().filter {
-                    (it.owner.owningKey == serviceHub.myInfo.legalIdentity.owningKey) &&
-                            (it.code == secLoan.state.data.code)
-                }.sumBy { it.quantity } != (secLoan.state.data.quantity)) {
-                    throw FlowException("Borrower is not giving all of the securities back")
-                }
+//                //Check the securities have been returned to us
+//                if (it.outputStates().map { it.data }.filterIsInstance<SecurityClaim.State>().filter {
+//                    (it.owner.owningKey == serviceHub.myInfo.legalIdentity.owningKey) &&
+//                            (it.code == secLoan.state.data.code)
+//                }.sumBy { it.quantity } != (secLoan.state.data.quantity)) {
+//                    throw FlowException("Borrower is not giving all of the securities back")
+//                }
                 it
             }
-            val cashToAdd: Long = ((secLoan.state.data.quantity * secLoan.state.data.stockPrice.quantity.toInt()) *
-                    (1.0 + secLoan.state.data.terms.margin)).toLong()
-            serviceHub.vaultService.generateSpend(ptx, Amount(cashToAdd, CURRENCY), AnonymousParty(borrower.owningKey))
+            val tx : TransactionBuilder
+            if (isLender(secLoanTerms, serviceHub.myInfo.legalIdentity)) {
+                //We are lender -> should send back cash collateral to the borrower
+                tx = serviceHub.vaultService.generateSpend(ptx,
+                        Amount(((secLoanTerms.stockPrice.quantity * secLoanTerms.quantity) * (1.0 + secLoanTerms.margin)).toLong(), CURRENCY),
+                        AnonymousParty(counterParty.owningKey)).first
+            }
+            else{ //We are the borrower -> should send back stock to the lender
+                tx = try {
+                    subFlow(SecuritiesPreparationFlow(ptx, secLoanTerms.code, secLoanTerms.quantity, counterParty)).first
+                } catch (e: InsufficientBalanceException) {
+                    throw SecurityException("Insufficient holding: ${e.message}", e)
+                }
+            }
 
             //STEP 7: Send this tx back to the borrower
-            val stx = serviceHub.signInitialTransaction(ptx)
+            val stx = serviceHub.signInitialTransaction(tx)
             val fullySignedTX = subFlow(CollectSignaturesFlow(stx))
             subFlow(FinalityFlow(fullySignedTX)).single()
 

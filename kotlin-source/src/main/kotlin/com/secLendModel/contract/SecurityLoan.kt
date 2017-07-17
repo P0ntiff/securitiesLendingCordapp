@@ -105,7 +105,6 @@ class SecurityLoan : Contract {
                 "Inputs should be consumed when issuing a secLoan." using (tx.inputs.isNotEmpty()) //Should be two input types -> securities and collateral(Cash States)
                 "Cash states in the outputs sum to the value of the loan + margin" using (Amount(cashStatesTally, CURRENCY) ==
                         Amount(((secLoan.quantity * secLoan.stockPrice.quantity) * (1.0 + secLoan.terms.margin)).toLong(), CURRENCY))
-                println(" Security states in the loan = $securityStatesTally ")
                 "Securities states in the inputs sum to the quantity of the loan" using (securityStatesTally == secLoan.quantity)
                 "A newly issued secLoan must have a positive amount." using (secLoan.quantity > 0)
                 "Shares must have some value" using (secLoan.stockPrice.quantity > 0)
