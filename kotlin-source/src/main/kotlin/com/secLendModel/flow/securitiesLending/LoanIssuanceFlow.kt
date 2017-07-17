@@ -73,9 +73,8 @@ object LoanIssuanceFlow {
                             (secLoan.terms.rebate == agreedTerms.rebate))
                 }
             }
-
-            //STEP 7: Sign on our end and return
             return subFlow(signTransactionFlow).tx.outputs.map { it.data }.filterIsInstance<SecurityLoan.State>().single().linearId
+
         }
     }
 
@@ -108,6 +107,7 @@ object LoanIssuanceFlow {
             //STEP 5: Generate securityLoan state as output state and send back to borrower
             val ptx = SecurityLoan().generateIssue(tx, agreedTerms, borrower, notary)
             val stx = serviceHub.signInitialTransaction(ptx)
+
             val fullySignedTX = subFlow(CollectSignaturesFlow(stx))
             return subFlow(FinalityFlow(fullySignedTX)).single()
         }
