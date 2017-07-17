@@ -2,6 +2,7 @@ package com.secLendModel.flow.securitiesLending
 
 import co.paralleluniverse.fibers.Suspendable
 import com.secLendModel.CURRENCY
+import com.secLendModel.contract.SecurityClaim
 import com.secLendModel.contract.SecurityLoan
 import com.secLendModel.flow.SecuritiesPreparationFlow
 import com.secLendModel.flow.securitiesLending.LoanChecks.getCounterParty
@@ -47,7 +48,7 @@ object LoanIssuanceFlow {
             val myKey = serviceHub.myInfo.legalIdentity.owningKey
             val ptx: TransactionBuilder
             //If we are lender
-            if (loanIssuanceChecks().isLender(loanTerms,serviceHub.myInfo.legalIdentity)){
+            if (isLender(loanTerms,serviceHub.myInfo.legalIdentity)){
                  ptx = try {
                     subFlow(SecuritiesPreparationFlow(builder, agreedTerms.code, agreedTerms.quantity, agreedTerms.borrower)).first
                 } catch (e: InsufficientBalanceException) {
@@ -65,7 +66,7 @@ object LoanIssuanceFlow {
             val signTransactionFlow = object : SignTransactionFlow(counterParty) {
                 //TODO: Edit this checkTransaction to be more generalized
                 override fun checkTransaction(stx: SignedTransaction)  = requireThat {
-                    if (loanIssuanceChecks().isLender(agreedTerms, serviceHub.myInfo.legalIdentity)){
+                    if (isLender(agreedTerms, serviceHub.myInfo.legalIdentity)){
                         //Checks for if we are lender -> need to make sure the correct cash state has been supplied per our agreement
 
                     }
