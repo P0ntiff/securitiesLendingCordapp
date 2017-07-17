@@ -25,14 +25,28 @@ object LoanAgreementFlow {
         @Suspendable
         override fun call() : LoanTerms {
             val myKey = serviceHub.myInfo.legalIdentity.owningKey
-            val counterProposal : LoanTerms = sendAndReceive<LoanTerms>(loanTerms.lender, loanTerms).unwrap { it }
-            //Accept counter proposal for now
-            //TODO: negotiate terms of loan here
-            if (counterProposal == loanTerms) {
-                return loanTerms
-            } else {
-                throw AgreementException(null)
+            if(loanAgreementChecks().isLender(loanTerms, serviceHub.myInfo.legalIdentity)){
+                val counterProposal : LoanTerms = sendAndReceive<LoanTerms>(loanTerms.borrower, loanTerms).unwrap { it }
+                //Accept counter proposal for now
+                //TODO: negotiate terms of loan here
+                if (counterProposal == loanTerms) {
+                    return loanTerms
+                } else {
+                    throw AgreementException(null)
+                }
             }
+            else{
+                val counterProposal : LoanTerms = sendAndReceive<LoanTerms>(loanTerms.lender, loanTerms).unwrap { it }
+                //Accept counter proposal for now
+                //TODO: negotiate terms of loan here
+                if (counterProposal == loanTerms) {
+                    return loanTerms
+                } else {
+                    throw AgreementException(null)
+                }
+            }
+
+
         }
     }
 
@@ -48,6 +62,13 @@ object LoanAgreementFlow {
             } else {
                 //TODO: provide a counter proposal here
             }
+        }
+    }
+
+    class loanAgreementChecks(){
+        fun isLender(loanTerms: LoanTerms, me: Party): Boolean{
+            val lender = loanTerms.lender
+            return (me == lender)
         }
     }
 }

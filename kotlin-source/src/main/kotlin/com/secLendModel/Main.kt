@@ -134,7 +134,7 @@ fun main(args: Array<String>) {
         //Loan issuance and margin update transactions
         val id = loanSecurities(bRPC, aRPC)
         val id2 = loanSecurities(aRPC, bRPC)
-        val id3 = loanSecurities(aRPC, bRPC)
+        val id3 = loanSecuritiesOtherDirection(aRPC, bRPC)
         updateMargin(id, aRPC)
         updateMargin(id2, bRPC)
         updateMargin(id3, aRPC)
@@ -252,7 +252,7 @@ fun loanSecurities(borrower: CordaRPCOps, lender: CordaRPCOps): UniqueIdentifier
 
     //Days
     val length = 30
-    val loanTerms = LoanTerms(CODES[stockIndex], figure, sharePrice, lender.nodeIdentity().legalIdentity, margin,
+    val loanTerms = LoanTerms(CODES[stockIndex], figure, sharePrice, lender.nodeIdentity().legalIdentity, borrower.nodeIdentity().legalIdentity, margin,
             rebate, length)
 
     val linearId = borrower.startFlow(::Borrower, loanTerms).returnValue.getOrThrow()
@@ -260,6 +260,28 @@ fun loanSecurities(borrower: CordaRPCOps, lender: CordaRPCOps): UniqueIdentifier
             "${borrower.nodeIdentity().legalIdentity}' by lender '${lender.nodeIdentity().legalIdentity}' at a margin of ${margin}")
     return linearId
 }
+fun loanSecuritiesOtherDirection(borrower: CordaRPCOps, lender: CordaRPCOps): UniqueIdentifier {
+    val rand = Random()
+    val stockIndex = rand.nextInt(CODES.size - 0) + 0
+    val figure = (rand.nextInt(150 + 1 - 50) + 50)
+
+    val dollaryDoos = (rand.nextInt(150 + 1 - 50) + 50).toLong() * 100
+    val sharePrice = Amount(dollaryDoos, CURRENCY)
+    //Percentage
+    val margin : Double = 0.05
+    val rebate : Double = 0.01
+
+    //Days
+    val length = 30
+    val loanTerms = LoanTerms(CODES[stockIndex], figure, sharePrice, lender.nodeIdentity().legalIdentity, borrower.nodeIdentity().legalIdentity, margin,
+            rebate, length)
+
+    val linearId = lender.startFlow(::Borrower, loanTerms).returnValue.getOrThrow()
+    println("Loan Finalised: ${figure} shares in ${CODES[stockIndex]} at ${sharePrice} each loaned to borrower '" +
+            "${borrower.nodeIdentity().legalIdentity}' by lender '${lender.nodeIdentity().legalIdentity}' at a margin of ${margin}")
+    return linearId
+}
+
 
 fun updateMargin(id: UniqueIdentifier, initiator: CordaRPCOps): UniqueIdentifier {
     val rand = Random()
