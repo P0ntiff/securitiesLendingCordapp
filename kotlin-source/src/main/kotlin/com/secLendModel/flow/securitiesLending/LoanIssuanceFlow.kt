@@ -82,7 +82,7 @@ object LoanIssuanceFlow {
                                         (secLoan.code == agreedTerms.code) &&
                                         (secLoan.stockPrice == agreedTerms.stockPrice) &&
                                         (secLoan.lender == agreedTerms.lender) &&
-                                        (secLoan.borrower == serviceHub.myInfo.legalIdentity) &&
+                                        (secLoan.borrower == agreedTerms.borrower) &&
                                         (secLoan.terms.margin == agreedTerms.margin) &&
                                         (secLoan.terms.rebate == agreedTerms.rebate))
                     }

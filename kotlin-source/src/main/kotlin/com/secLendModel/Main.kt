@@ -132,19 +132,24 @@ fun main(args: Array<String>) {
         tradeEquity(bRPC, aRPC)
 
         //Loan issuance and margin update transactions
-        val id = loanSecurities(bRPC, aRPC)
-        val id2 = loanSecurities(aRPC, bRPC)
-        val id3 = loanSecuritiesOtherDirection(aRPC, bRPC)
-        val id4 = loanSecuritiesOtherDirection(bRPC, aRPC)
-        val id5 = loanSecuritiesOtherDirection(aRPC, bRPC)
-        //updateMargin(id, aRPC)
-        //updateMargin(id2, bRPC)
-        //updateMargin(id3, aRPC)
+        //a borrows from b, and a initiates the deal
+        val id = loanSecurities(aRPC, bRPC, true)
+        //b borrows from a,, and a initiates the deal
+        val id2 = loanSecurities(bRPC, aRPC, true)
+        //a borrows from b, and b initiates the deal
+        val id3 = loanSecurities(aRPC, bRPC, false)
+        //b borrows from a, and a initiates the deal
+        val id4 = loanSecurities(bRPC, aRPC, false)
 
-        //Borrower hardcoded to be the loan terminator at the moment
-        //terminateLoan(id, bRPC)
-        //terminateLoan(id2, aRPC)
-        //terminateLoan(id3, aRPC)
+        updateMargin(id, aRPC)
+        updateMargin(id2, bRPC)
+        updateMargin(id3, aRPC)
+
+        //The party passed in initiates the loan termination
+        terminateLoan(id, aRPC)
+        terminateLoan(id2, bRPC)
+        terminateLoan(id3, bRPC)
+        terminateLoan(id4, aRPC)
 
         println("ALL TXNS SUBMITTED")
         waitForAllNodesToFinish()
@@ -241,7 +246,7 @@ fun tradeEquity(seller : CordaRPCOps, buyer : CordaRPCOps) {
  * @param borrower = party requesting to borrow an amount of a security
  *  @param lender = party lending out the securities
  */
-fun loanSecurities(borrower: CordaRPCOps, lender: CordaRPCOps): UniqueIdentifier {
+fun loanSecurities(borrower: CordaRPCOps, lender: CordaRPCOps, BorrowerOrLender : Boolean): UniqueIdentifier {
     val rand = Random()
     val stockIndex = rand.nextInt(CODES.size - 0) + 0
     val figure = (rand.nextInt(150 + 1 - 50) + 50)
@@ -254,36 +259,25 @@ fun loanSecurities(borrower: CordaRPCOps, lender: CordaRPCOps): UniqueIdentifier
 
     //Days
     val length = 30
-    val loanTerms = LoanTerms(CODES[stockIndex], figure, sharePrice, lender.nodeIdentity().legalIdentity, borrower.nodeIdentity().legalIdentity, margin,
-            rebate, length)
-
-    val linearId = borrower.startFlow(::Initiator, loanTerms).returnValue.getOrThrow()
-    println("Loan Finalised: ${figure} shares in ${CODES[stockIndex]} at ${sharePrice} each loaned to borrower '" +
-            "${borrower.nodeIdentity().legalIdentity}' by lender '${lender.nodeIdentity().legalIdentity}' at a margin of ${margin}")
-    return linearId
+    when (BorrowerOrLender) {
+        true -> {
+            //borrower
+            val loanTerms = LoanTerms(CODES[stockIndex], figure, sharePrice, lender.nodeIdentity().legalIdentity, borrower.nodeIdentity().legalIdentity, margin,
+                    rebate, length)
+            println("Loan Finalised: ${figure} shares in ${CODES[stockIndex]} at ${sharePrice} each loaned to borrower '" +
+                    "${borrower.nodeIdentity().legalIdentity}' by lender '${lender.nodeIdentity().legalIdentity}' at a margin of ${margin}")
+            return borrower.startFlow(::Initiator, loanTerms).returnValue.getOrThrow()
+        }
+        false -> {
+            //lender
+            val loanTerms = LoanTerms(CODES[stockIndex], figure, sharePrice, lender.nodeIdentity().legalIdentity, borrower.nodeIdentity().legalIdentity, margin,
+                    rebate, length)
+            println("Loan Finalised: ${figure} shares in ${CODES[stockIndex]} at ${sharePrice} each loaned to borrower '" +
+                    "${borrower.nodeIdentity().legalIdentity}' by lender '${lender.nodeIdentity().legalIdentity}' at a margin of ${margin}")
+            return lender.startFlow(::Initiator, loanTerms).returnValue.getOrThrow()
+        }
+    }
 }
-fun loanSecuritiesOtherDirection(borrower: CordaRPCOps, lender: CordaRPCOps): UniqueIdentifier {
-    val rand = Random()
-    val stockIndex = rand.nextInt(CODES.size - 0) + 0
-    val figure = (rand.nextInt(150 + 1 - 50) + 50)
-
-    val dollaryDoos = (rand.nextInt(150 + 1 - 50) + 50).toLong() * 100
-    val sharePrice = Amount(dollaryDoos, CURRENCY)
-    //Percentage
-    val margin : Double = 0.05
-    val rebate : Double = 0.01
-
-    //Days
-    val length = 30
-    val loanTerms = LoanTerms(CODES[stockIndex], figure, sharePrice, lender.nodeIdentity().legalIdentity, borrower.nodeIdentity().legalIdentity, margin,
-            rebate, length)
-
-    val linearId = lender.startFlow(::Initiator, loanTerms).returnValue.getOrThrow()
-    println("Loan Finalised: ${figure} shares in ${CODES[stockIndex]} at ${sharePrice} each loaned to borrower '" +
-            "${borrower.nodeIdentity().legalIdentity}' by lender '${lender.nodeIdentity().legalIdentity}' at a margin of ${margin}")
-    return linearId
-}
-
 
 fun updateMargin(id: UniqueIdentifier, initiator: CordaRPCOps): UniqueIdentifier {
     val rand = Random()
@@ -292,7 +286,6 @@ fun updateMargin(id: UniqueIdentifier, initiator: CordaRPCOps): UniqueIdentifier
     println("Margin updated on loan with old ID: '${id}' and  newID: '${updatedID}'")
     return updatedID
 }
-
 
 fun terminateLoan(id: UniqueIdentifier, initiator: CordaRPCOps) {
     initiator.startFlow(::Terminator, id).returnValue.getOrThrow()
