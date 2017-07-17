@@ -5,6 +5,7 @@ import com.secLendModel.CURRENCY
 import com.secLendModel.contract.SecurityClaim
 import com.secLendModel.contract.SecurityLoan
 import com.secLendModel.flow.SecuritiesPreparationFlow
+import net.corda.contracts.asset.Cash
 import net.corda.contracts.asset.sumCashBy
 import net.corda.core.contracts.*
 import net.corda.core.flows.*
@@ -48,45 +49,50 @@ object LoanIssuanceFlow {
             //Now that the two parties have come to agreement on terms to use, begin to build the transaction
             val builder = TransactionType.General.Builder(notary = notary)
 
-            //STEP 2: Put in cash collateral
+            //STEP 2: Put in either cash or securities, depending on which party we are in the deal.
             // TODO: don't hard code cash as the collateral
             val myKey = serviceHub.myInfo.legalIdentity.owningKey
+            val ptx: TransactionBuilder
             //If we are lender
             if (loanIssuanceChecks().isLender(loanTerms,serviceHub.myInfo.legalIdentity)){
-                val (ptx, keysForSigning) = try {
-                    subFlow(SecuritiesPreparationFlow(builder, agreedTerms.code, agreedTerms.quantity, agreedTerms.borrower))
+                 ptx = try {
+                    subFlow(SecuritiesPreparationFlow(builder, agreedTerms.code, agreedTerms.quantity, agreedTerms.borrower)).first
                 } catch (e: InsufficientBalanceException) {
                     throw SecurityException("Insufficient holding: ${e.message}", e)
                 }
-                println("Securities Added Initiator ${agreedTerms.code} with Quantity ${agreedTerms.quantity} at price ${agreedTerms.stockPrice} ")
-                send(counterParty, ptx)
             }
-            else{ //We are the borrower
-                val (ptx, cashSigningPubKeys) = serviceHub.vaultService.generateSpend(builder,
+            else{ //If we are the borrower
+                 ptx = serviceHub.vaultService.generateSpend(builder,
                         Amount(((agreedTerms.stockPrice.quantity * agreedTerms.quantity) * (1.0 + agreedTerms.margin)).toLong(), CURRENCY),
-                        AnonymousParty(agreedTerms.lender.owningKey)
-                )
-                println("Cash Added on Initiator Side ${((agreedTerms.stockPrice.quantity * agreedTerms.quantity) * (1.0 + agreedTerms.margin))} ")
-                send(counterParty, ptx)
+                        AnonymousParty(agreedTerms.lender.owningKey)).first
             }
+            send(counterParty, ptx)
 
-            //STEP 6: Check other party has put in the securities and securityLoan as outputs and signed the txn
+            //STEP 6: Check other party has put in the securities/collateral and the securityLoan state.
             val signTransactionFlow = object : SignTransactionFlow(counterParty) {
                 //TODO: Edit this checkTransaction to be more generalized
                 override fun checkTransaction(stx: SignedTransaction)  = requireThat {
-                  //  "Lender must send us the right amount of securities" using
-                    //        (stx.tx.outputs.map { it.data }.filterIsInstance<SecurityClaim.State>().filter
-                      //      { it.owner.owningKey == myKey && it.code == agreedTerms.code }
-                        //            .sumBy { it.quantity } == (agreedTerms.quantity))
-                    //val secLoan = stx.tx.outputs.map { it.data }.filterIsInstance<SecurityLoan.State>().single()
-                    //"Lender must have issued us a loan with the agreed terms" using
-                            //((secLoan.quantity == agreedTerms.quantity) &&
-                            //(secLoan.code == agreedTerms.code) &&
-                            //(secLoan.stockPrice == agreedTerms.stockPrice) &&
-                            //(secLoan.lender == agreedTerms.lender) &&
-                            //(secLoan.borrower == serviceHub.myInfo.legalIdentity) &&
-                            //(secLoan.terms.margin == agreedTerms.margin) &&
-                            //(secLoan.terms.rebate == agreedTerms.rebate))
+                    if (loanIssuanceChecks().isLender(agreedTerms, serviceHub.myInfo.legalIdentity)){
+                        //Checks for if we are lender -> need to make sure the correct cash state has been supplied per our agreement
+                        
+                    }
+                    else{
+                        //Terms for if we are the borrower
+                          "Lender must send us the right amount of securities" using
+                        (stx.tx.outputs.map { it.data }.filterIsInstance<SecurityClaim.State>().filter
+                        { it.owner.owningKey == myKey && it.code == agreedTerms.code }
+                                .sumBy { it.quantity } == (agreedTerms.quantity))
+                        val secLoan = stx.tx.outputs.map { it.data }.filterIsInstance<SecurityLoan.State>().single()
+                        "Lender must have issued us a loan with the agreed terms" using
+                                ((secLoan.quantity == agreedTerms.quantity) &&
+                                        (secLoan.code == agreedTerms.code) &&
+                                        (secLoan.stockPrice == agreedTerms.stockPrice) &&
+                                        (secLoan.lender == agreedTerms.lender) &&
+                                        (secLoan.borrower == serviceHub.myInfo.legalIdentity) &&
+                                        (secLoan.terms.margin == agreedTerms.margin) &&
+                                        (secLoan.terms.rebate == agreedTerms.rebate))
+                    }
+
                 }
             }
 
@@ -116,11 +122,11 @@ object LoanIssuanceFlow {
                 it
             }
 
-            //STEP 4: Put in security states as inputs and outputs
+            //STEP 4: Put in security states/collateral as inputs and securityLoan as output
             //Check which party in the deal we are
             val tx: TransactionBuilder
             if (loanIssuanceChecks().isLender(agreedTerms,serviceHub.myInfo.legalIdentity)){
-                //We are lender -> should have recieved cash, adding in stock
+                //We are lender -> should have received cash, adding in stock
                 tx = try {
                     subFlow(SecuritiesPreparationFlow(builder, agreedTerms.code, agreedTerms.quantity, agreedTerms.borrower)).first
                 } catch (e: InsufficientBalanceException) {
@@ -133,7 +139,6 @@ object LoanIssuanceFlow {
                         Amount(((agreedTerms.stockPrice.quantity * agreedTerms.quantity) * (1.0 + agreedTerms.margin)).toLong(), CURRENCY),
                         AnonymousParty(agreedTerms.lender.owningKey)).first
             }
-            println("Cash Added on Acceptor ${((agreedTerms.stockPrice.quantity * agreedTerms.quantity) * (1.0 + agreedTerms.margin))} ")
             //STEP 5: Generate securityLoan state as output state and send back to borrower
             val ptx = SecurityLoan().generateIssue(tx, agreedTerms, notary)
             val stx = serviceHub.signInitialTransaction(ptx)
