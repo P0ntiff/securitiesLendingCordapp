@@ -2,10 +2,12 @@ package com.secLendModel.flow.securitiesLending
 
 import co.paralleluniverse.fibers.Suspendable
 import com.secLendModel.CURRENCY
+import com.secLendModel.contract.SecurityClaim
 import com.secLendModel.contract.SecurityLoan
 import com.secLendModel.flow.SecuritiesPreparationFlow
 import com.secLendModel.flow.securitiesLending.LoanChecks.getCounterParty
 import com.secLendModel.flow.securitiesLending.LoanChecks.isLender
+import net.corda.contracts.asset.Cash
 import net.corda.core.contracts.*
 import net.corda.core.flows.*
 import net.corda.core.identity.AnonymousParty
@@ -47,7 +49,7 @@ object LoanIssuanceFlow {
             val myKey = serviceHub.myInfo.legalIdentity.owningKey
             val ptx: TransactionBuilder
             //If we are lender
-            if (loanIssuanceChecks().isLender(loanTerms,serviceHub.myInfo.legalIdentity)){
+            if (isLender(loanTerms,serviceHub.myInfo.legalIdentity)){
                  ptx = try {
                     subFlow(SecuritiesPreparationFlow(builder, agreedTerms.code, agreedTerms.quantity, agreedTerms.borrower)).first
                 } catch (e: InsufficientBalanceException) {
@@ -65,26 +67,17 @@ object LoanIssuanceFlow {
             val signTransactionFlow = object : SignTransactionFlow(counterParty) {
                 //TODO: Edit this checkTransaction to be more generalized
                 override fun checkTransaction(stx: SignedTransaction)  = requireThat {
-                    if (loanIssuanceChecks().isLender(agreedTerms, serviceHub.myInfo.legalIdentity)){
-                        //Checks for if we are lender -> need to make sure the correct cash state has been supplied per our agreement
-
-                    }
-                    else{
-                        //Terms for if we are the borrower
-                          "Lender must send us the right amount of securities" using
-                        (stx.tx.outputs.map { it.data }.filterIsInstance<SecurityClaim.State>().filter
-                        { it.owner.owningKey == myKey && it.code == agreedTerms.code }
-                                .sumBy { it.quantity } == (agreedTerms.quantity))
+                        //Our only requirment is that the issued loan matches the agreed Terms
                         val secLoan = stx.tx.outputs.map { it.data }.filterIsInstance<SecurityLoan.State>().single()
                         "Lender must have issued us a loan with the agreed terms" using
                                 ((secLoan.quantity == agreedTerms.quantity) &&
                                         (secLoan.code == agreedTerms.code) &&
                                         (secLoan.stockPrice == agreedTerms.stockPrice) &&
                                         (secLoan.lender == agreedTerms.lender) &&
-                                        (secLoan.borrower == serviceHub.myInfo.legalIdentity) &&
+                                        (secLoan.borrower == agreedTerms.borrower) &&
                                         (secLoan.terms.margin == agreedTerms.margin) &&
                                         (secLoan.terms.rebate == agreedTerms.rebate))
-                    }
+
 
                 }
             }
@@ -103,16 +96,7 @@ object LoanIssuanceFlow {
             //STEP 3: Connect to borrower / initiator
             //TODO: Make this stronger, check these agreed terms really are the agreed terms (i.e from LoanAgreementFlow)
             val agreedTerms = receive<LoanTerms>(counterParty).unwrap { it }
-            val builder = receive<TransactionBuilder>(counterParty).unwrap {
-                //TODO: Add checks for both security and cash state depending on which party we are
-                //Check cash states have been put in to the agreed amount
-                //if (it.outputStates().map { it.data }.sumCashBy(AnonymousParty(myKey)).withoutIssuer().quantity.toInt()
-                  //      != ((agreedTerms.stockPrice.quantity.toInt() * agreedTerms.quantity) * (1.0 + agreedTerms.margin)).toInt()) {
-                    //throw FlowException("Borrower did not put in the agreed amount of cash for collateral.")
-                //}
-                //T
-                it
-            }
+            val builder = receive<TransactionBuilder>(counterParty).unwrap { it }
 
             //STEP 4: Put in security states/collateral as inputs and securityLoan as output
             //Check which party in the deal we are
