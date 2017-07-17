@@ -1,6 +1,7 @@
 package com.secLendModel.flow.securitiesLending
 
 import co.paralleluniverse.fibers.Suspendable
+import com.secLendModel.flow.securitiesLending.LoanChecks.isLender
 import net.corda.core.flows.*
 import net.corda.core.identity.Party
 import net.corda.core.utilities.unwrap
@@ -25,7 +26,7 @@ object LoanAgreementFlow {
         @Suspendable
         override fun call() : LoanTerms {
             val myKey = serviceHub.myInfo.legalIdentity.owningKey
-            if(loanAgreementChecks().isLender(loanTerms, serviceHub.myInfo.legalIdentity)){
+            if(isLender(loanTerms, serviceHub.myInfo.legalIdentity)){
                 val counterProposal : LoanTerms = sendAndReceive<LoanTerms>(loanTerms.borrower, loanTerms).unwrap { it }
                 //Accept counter proposal for now
                 //TODO: negotiate terms of loan here
@@ -65,10 +66,4 @@ object LoanAgreementFlow {
         }
     }
 
-    class loanAgreementChecks(){
-        fun isLender(loanTerms: LoanTerms, me: Party): Boolean{
-            val lender = loanTerms.lender
-            return (me == lender)
-        }
-    }
 }
