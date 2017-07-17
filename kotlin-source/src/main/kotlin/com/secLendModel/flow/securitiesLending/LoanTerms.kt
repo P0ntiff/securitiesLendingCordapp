@@ -9,9 +9,7 @@ import net.corda.core.serialization.CordaSerializable
 import java.util.*
 
 
-/**
- * Created by beng on 13/07/2017.
- */
+//Storage container class for storing terms of a loan
 @CordaSerializable
 data class LoanTerms(
         val code : String,
@@ -25,7 +23,7 @@ data class LoanTerms(
         //val collateralType: FungibleAsset<Any>
 )
 
-//Helper functions in securities lending flows
+//Helper functions used in securitiesLending flows
 object LoanChecks {
     //Function for checking if you are the lender in a deal.
     @Suspendable
@@ -34,6 +32,7 @@ object LoanChecks {
         return (me == lender)
     }
 
+    //Function for getting the counterParty to a deal
     @Suspendable
     fun getCounterParty(loanTerms: LoanTerms, me: Party): Party {
         if (me == loanTerms.lender) {
@@ -43,7 +42,7 @@ object LoanChecks {
         }
     }
 
-    //Function for managing adding cash and checking requirements for a loanUpdate
+    //Function for managing whether or not to add cash in response to a loan/margin update
     @Suspendable
     fun cashRequired(currentParty: Party, borrower: Party, lender: Party, changeMargin: Double) : Boolean {
         if (currentParty == borrower && changeMargin > 0) return true
@@ -51,7 +50,7 @@ object LoanChecks {
         return false
     }
 
-    //converts a SecurityLoan.State to a LoanTerms
+    //Function for converting from State terms into LoanTerms
     @Suspendable
     fun stateToLoanTerms(state : SecurityLoan.State) : LoanTerms {
         return LoanTerms(state.code, state.quantity, state.stockPrice, state.lender, state.borrower,

@@ -38,9 +38,6 @@ object LoanUpdateFlow {
                     val newMargin: Double) : FlowLogic<UniqueIdentifier>() {
         @Suspendable
         override fun call() : UniqueIdentifier {
-            val notary = serviceHub.networkMapCache.notaryNodes.single().notaryIdentity
-            val myKey = serviceHub.myInfo.legalIdentity.owningKey
-
             //STEP1: Get Loan that is being updated -> retrieving using unique LinearID
             val secLoan = subFlow(LoanRetrievalFlow(linearID))
 
@@ -54,7 +51,7 @@ object LoanUpdateFlow {
             val changeMargin = DecimalFormat(".##").format(newMargin - secLoan.state.data.terms.margin).toDouble()
             val cashToAdd = (secLoan.state.data.quantity * secLoan.state.data.stockPrice.quantity * Math.abs(changeMargin)).toLong()
             //Check if cash required, send to counterparty if it is
-            if (cashRequired(serviceHub.myInfo.legalIdentity, borrower, lender, changeMargin)){
+            if (cashRequired(serviceHub.myInfo.legalIdentity, borrower, lender, changeMargin)) {
                 val counterParty = getCounterParty(stateToLoanTerms(secLoan.state.data), serviceHub.myInfo.legalIdentity)
                 serviceHub.vaultService.generateSpend(builder,
                         Amount(cashToAdd, CURRENCY),
@@ -64,15 +61,13 @@ object LoanUpdateFlow {
 
             //STEP 4 Send TxBuilder with loanStates (input and output) and possibly cash to acceptor party
             //Find out who our counterParty is (either lender or borrower)
-            var counterParty : Party = lender
-            if (serviceHub.myInfo.legalIdentity == borrower) { counterParty = lender }
-            if (serviceHub.myInfo.legalIdentity == lender) { counterParty = borrower }
+            val counterParty = getCounterParty(stateToLoanTerms(secLoan.state.data), serviceHub.myInfo.legalIdentity)
             send(counterParty, builder)
 
              //STEP 7 Receive back signed tx and finalize this update to the loan
             val signTransactionFlow = object : SignTransactionFlow(counterParty) {
                 override fun checkTransaction(stx: SignedTransaction) = requireThat {
-                    //TODO: Check restraints here
+                    //TODO: Check company restraints/parameters here
                 }
             }
             return subFlow(signTransactionFlow).tx.outputs.map { it.data }.filterIsInstance<SecurityLoan.State>().single().linearId
@@ -89,7 +84,7 @@ object LoanUpdateFlow {
                 val changeMargin = DecimalFormat(".##").format(outputState.terms.margin - getOldMargin(outputState)).toDouble()
                 val cashToAdd = (outputState.quantity * outputState.stockPrice.quantity * Math.abs(changeMargin)).toLong()
                 //TODO: Decide whether or not to accept the proposed update to margin -> For now this is simulated if margin is too low
-                //if (changeMargin <= 0.01) throw Exception("Margin Change too small for update")
+                //if (changeMargin <= 0.02 throw Exception("Margin Change too small for update")
                 //Check if cash required, send to counterParty if needed
                 if (cashRequired(serviceHub.myInfo.legalIdentity, outputState.borrower, outputState.lender, changeMargin)){
                     val counterParty = getCounterParty(stateToLoanTerms(outputState), serviceHub.myInfo.legalIdentity)
@@ -100,6 +95,7 @@ object LoanUpdateFlow {
                 }
                 it
             }
+
             //STEP 6: Sign Tx and send back to initiator
             val signedTX : SignedTransaction = serviceHub.signInitialTransaction(builder)
             val fullySignedTX = subFlow(CollectSignaturesFlow(signedTX))
