@@ -126,7 +126,7 @@ object LoanIssuanceFlow {
             return (me == lender)
         }
 
-        
+
     }
 }
 

@@ -48,7 +48,7 @@ object LoanUpdateFlow {
             val builder = TransactionType.General.Builder(notary = serviceHub.networkMapCache.notaryNodes.single().notaryIdentity)
             SecurityLoan().generateUpdate(builder, newMargin, secLoan, lender, borrower)
 
-            //STEP 3: Calcualte change in margin, add cash if required. If not required, will be added by acceptor in STEP X
+            //STEP 3: Calcualte change in margin, add cash if required. If not required, will be added by acceptor in STEP 5
             val changeMargin = DecimalFormat(".##").format(newMargin - secLoan.state.data.terms.margin).toDouble()
             val cashToAdd = (secLoan.state.data.quantity * secLoan.state.data.stockPrice.quantity * Math.abs(changeMargin)).toLong()
             //Check if cash required, send to counterparty if it is
