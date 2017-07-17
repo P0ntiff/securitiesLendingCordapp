@@ -118,5 +118,15 @@ object LoanIssuanceFlow {
             return stx
         }
     }
+
+    class loanIssuanceChecks(){
+        //Function for checking if you are the lender in a deal.
+        fun isLender(loanTerms: LoanTerms, me: Party): Boolean{
+            val lender = loanTerms.lender
+            return (me == lender)
+        }
+
+        
+    }
 }
 
