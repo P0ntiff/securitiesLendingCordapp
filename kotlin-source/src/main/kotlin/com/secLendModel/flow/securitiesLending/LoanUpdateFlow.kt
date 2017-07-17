@@ -3,6 +3,9 @@ package com.secLendModel.flow.securitiesLending
 import co.paralleluniverse.fibers.Suspendable
 import com.secLendModel.CURRENCY
 import com.secLendModel.contract.SecurityLoan
+import com.secLendModel.flow.securitiesLending.LoanChecks.cashRequired
+import com.secLendModel.flow.securitiesLending.LoanChecks.getCounterParty
+import com.secLendModel.flow.securitiesLending.LoanChecks.stateToLoanTerms
 import net.corda.core.contracts.*
 import net.corda.core.flows.FlowLogic
 import net.corda.core.flows.InitiatedBy
@@ -52,7 +55,7 @@ object LoanUpdateFlow {
             val cashToAdd = (secLoan.state.data.quantity * secLoan.state.data.stockPrice.quantity * Math.abs(changeMargin)).toLong()
             //Check if cash required, send to counterparty if it is
             if (cashRequired(serviceHub.myInfo.legalIdentity, borrower, lender, changeMargin)){
-                val counterParty = getCounterParty(serviceHub.myInfo.legalIdentity, borrower, lender)
+                val counterParty = getCounterParty(stateToLoanTerms(secLoan.state.data), serviceHub.myInfo.legalIdentity)
                 serviceHub.vaultService.generateSpend(builder,
                         Amount(cashToAdd, CURRENCY),
                         AnonymousParty(counterParty.owningKey)
@@ -89,7 +92,7 @@ object LoanUpdateFlow {
                 //if (changeMargin <= 0.01) throw Exception("Margin Change too small for update")
                 //Check if cash required, send to counterParty if needed
                 if (cashRequired(serviceHub.myInfo.legalIdentity, outputState.borrower, outputState.lender, changeMargin)){
-                    val counterParty = getCounterParty(serviceHub.myInfo.legalIdentity, outputState.borrower, outputState.lender)
+                    val counterParty = getCounterParty(stateToLoanTerms(outputState), serviceHub.myInfo.legalIdentity)
                     serviceHub.vaultService.generateSpend(it,
                             Amount(cashToAdd, CURRENCY),
                             AnonymousParty(counterParty.owningKey)
@@ -121,20 +124,7 @@ object LoanUpdateFlow {
         }
     }
 
-    //Functions for managing adding cash and checking requirements for a loanUpdate
-    @Suspendable
-    fun cashRequired(currentParty: Party,borrower: Party, lender: Party, changeMargin: Double) : Boolean {
-        if (currentParty == borrower && changeMargin > 0) return true
-        else if (currentParty == lender && changeMargin < 0) return true
-        return false
-    }
 
-    @Suspendable
-    fun getCounterParty(currentParty: Party,borrower: Party, lender: Party) : Party{
-        if (currentParty == borrower) return lender
-        else if (currentParty == lender) return borrower
-        else throw Exception("Invalid Parties provided to get CounterParty")
-    }
 
 }
 

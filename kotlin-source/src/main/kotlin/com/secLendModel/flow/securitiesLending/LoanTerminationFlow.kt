@@ -38,7 +38,6 @@ object LoanTerminationFlow {
         @Suspendable
         override fun call(): Unit {
             val notary = serviceHub.networkMapCache.notaryNodes.single().notaryIdentity
-            val myKey = serviceHub.myInfo.legalIdentity.owningKey
 
             //STEP 1 Retrieve loan being terminated from the vault of the borrower, and notify the counterParty about the loan we're terminating
             val secLoan = subFlow(LoanRetrievalFlow(loanID))
