@@ -5,8 +5,8 @@ import com.secLendModel.flow.securities.SecuritiesIssueFlow
 import com.secLendModel.flow.securities.TradeFlow.Seller
 import com.secLendModel.flow.securities.TradeFlow.Buyer
 import com.secLendModel.flow.SecuritiesPreparationFlow
-import com.secLendModel.flow.securitiesLending.LoanIssuanceFlow.Borrower
-import com.secLendModel.flow.securitiesLending.LoanIssuanceFlow.Lender
+import com.secLendModel.flow.securitiesLending.LoanIssuanceFlow.Initiator
+import com.secLendModel.flow.securitiesLending.LoanIssuanceFlow.Acceptor
 import com.secLendModel.flow.securitiesLending.LoanUpdateFlow.Updator
 import com.secLendModel.flow.securitiesLending.LoanUpdateFlow.UpdateAcceptor
 import com.secLendModel.flow.securitiesLending.LoanTerminationFlow.Terminator
@@ -67,8 +67,8 @@ fun main(args: Array<String>) {
             startFlowPermission<SecuritiesIssueFlow>(),
             startFlowPermission<OwnershipTransferFlow>(),
             startFlowPermission<SecuritiesPreparationFlow>(),
-            startFlowPermission<Borrower>(),
-            startFlowPermission<Lender>(),
+            startFlowPermission<Initiator>(),
+            startFlowPermission<Acceptor>(),
             startFlowPermission<Seller>(),
             startFlowPermission<Buyer>(),
             startFlowPermission<Updator>(),
@@ -135,14 +135,16 @@ fun main(args: Array<String>) {
         val id = loanSecurities(bRPC, aRPC)
         val id2 = loanSecurities(aRPC, bRPC)
         val id3 = loanSecuritiesOtherDirection(aRPC, bRPC)
-        updateMargin(id, aRPC)
-        updateMargin(id2, bRPC)
-        updateMargin(id3, aRPC)
+        val id4 = loanSecuritiesOtherDirection(bRPC, aRPC)
+        val id5 = loanSecuritiesOtherDirection(aRPC, bRPC)
+        //updateMargin(id, aRPC)
+        //updateMargin(id2, bRPC)
+        //updateMargin(id3, aRPC)
 
         //Borrower hardcoded to be the loan terminator at the moment
-        terminateLoan(id, bRPC)
-        terminateLoan(id2, aRPC)
-        terminateLoan(id3, aRPC)
+        //terminateLoan(id, bRPC)
+        //terminateLoan(id2, aRPC)
+        //terminateLoan(id3, aRPC)
 
         println("ALL TXNS SUBMITTED")
         waitForAllNodesToFinish()
@@ -255,7 +257,7 @@ fun loanSecurities(borrower: CordaRPCOps, lender: CordaRPCOps): UniqueIdentifier
     val loanTerms = LoanTerms(CODES[stockIndex], figure, sharePrice, lender.nodeIdentity().legalIdentity, borrower.nodeIdentity().legalIdentity, margin,
             rebate, length)
 
-    val linearId = borrower.startFlow(::Borrower, loanTerms).returnValue.getOrThrow()
+    val linearId = borrower.startFlow(::Initiator, loanTerms).returnValue.getOrThrow()
     println("Loan Finalised: ${figure} shares in ${CODES[stockIndex]} at ${sharePrice} each loaned to borrower '" +
             "${borrower.nodeIdentity().legalIdentity}' by lender '${lender.nodeIdentity().legalIdentity}' at a margin of ${margin}")
     return linearId
@@ -276,7 +278,7 @@ fun loanSecuritiesOtherDirection(borrower: CordaRPCOps, lender: CordaRPCOps): Un
     val loanTerms = LoanTerms(CODES[stockIndex], figure, sharePrice, lender.nodeIdentity().legalIdentity, borrower.nodeIdentity().legalIdentity, margin,
             rebate, length)
 
-    val linearId = lender.startFlow(::Borrower, loanTerms).returnValue.getOrThrow()
+    val linearId = lender.startFlow(::Initiator, loanTerms).returnValue.getOrThrow()
     println("Loan Finalised: ${figure} shares in ${CODES[stockIndex]} at ${sharePrice} each loaned to borrower '" +
             "${borrower.nodeIdentity().legalIdentity}' by lender '${lender.nodeIdentity().legalIdentity}' at a margin of ${margin}")
     return linearId

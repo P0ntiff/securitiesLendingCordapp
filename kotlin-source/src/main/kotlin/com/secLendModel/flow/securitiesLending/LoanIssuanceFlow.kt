@@ -34,20 +34,17 @@ object LoanIssuanceFlow {
     @StartableByRPC
     @InitiatingFlow
     //TODO: Don't hardcode borrower as the initiator (perhaps make a superflow to initiate borrower or lender, depending on what role the initiator and acceptor play)
-    open class Borrower(val loanTerms : LoanTerms) : FlowLogic<UniqueIdentifier>() {
+    open class Initiator(val loanTerms : LoanTerms) : FlowLogic<UniqueIdentifier>() {
         @Suspendable
         override fun call(): UniqueIdentifier {
             val notary = serviceHub.networkMapCache.notaryNodes.single().notaryIdentity
-
+            val counterParty = loanIssuanceChecks().getCounterParty(loanTerms, serviceHub.myInfo.legalIdentity)
             //STEP 1: Negotiation
             //Negotiate the borrower's desired terms of the loan with the lender
             val agreedTerms = subFlow(LoanAgreementFlow.Borrower(loanTerms))
-            if (loanIssuanceChecks().isLender(loanTerms,serviceHub.myInfo.legalIdentity)){
-                send(loanTerms.borrower, agreedTerms)
-            }
-            else{ //We are borrower
-                send(loanTerms.lender, agreedTerms)
-            }
+            send(counterParty, agreedTerms)
+
+
             //Now that the two parties have come to agreement on terms to use, begin to build the transaction
             val builder = TransactionType.General.Builder(notary = notary)
 
@@ -61,19 +58,20 @@ object LoanIssuanceFlow {
                 } catch (e: InsufficientBalanceException) {
                     throw SecurityException("Insufficient holding: ${e.message}", e)
                 }
-                println("Securities Added ${agreedTerms.code} with Quantity ${agreedTerms.quantity} ")
-                send(agreedTerms.borrower,ptx)
+                println("Securities Added Initiator ${agreedTerms.code} with Quantity ${agreedTerms.quantity} at price ${agreedTerms.stockPrice} ")
+                send(counterParty, ptx)
             }
             else{ //We are the borrower
                 val (ptx, cashSigningPubKeys) = serviceHub.vaultService.generateSpend(builder,
                         Amount(((agreedTerms.stockPrice.quantity * agreedTerms.quantity) * (1.0 + agreedTerms.margin)).toLong(), CURRENCY),
                         AnonymousParty(agreedTerms.lender.owningKey)
                 )
-                send(agreedTerms.lender, ptx)
+                println("Cash Added on Initiator Side ${((agreedTerms.stockPrice.quantity * agreedTerms.quantity) * (1.0 + agreedTerms.margin))} ")
+                send(counterParty, ptx)
             }
 
             //STEP 6: Check other party has put in the securities and securityLoan as outputs and signed the txn
-            val signTransactionFlow = object : SignTransactionFlow(agreedTerms.lender) {
+            val signTransactionFlow = object : SignTransactionFlow(counterParty) {
                 //TODO: Edit this checkTransaction to be more generalized
                 override fun checkTransaction(stx: SignedTransaction)  = requireThat {
                   //  "Lender must send us the right amount of securities" using
@@ -97,8 +95,8 @@ object LoanIssuanceFlow {
         }
     }
 
-    @InitiatedBy(Borrower::class)
-    open class Lender(val borrower : Party) : FlowLogic<SignedTransaction>() {
+    @InitiatedBy(Initiator::class)
+    open class Acceptor(val counterParty : Party) : FlowLogic<SignedTransaction>() {
         @Suspendable
         override fun call() : SignedTransaction {
             val myKey = serviceHub.myInfo.legalIdentity.owningKey
@@ -106,8 +104,8 @@ object LoanIssuanceFlow {
 
             //STEP 3: Connect to borrower / initiator
             //TODO: Make this stronger, check these agreed terms really are the agreed terms (i.e from LoanAgreementFlow)
-            val agreedTerms = receive<LoanTerms>(borrower).unwrap { it }
-            val builder = receive<TransactionBuilder>(borrower).unwrap {
+            val agreedTerms = receive<LoanTerms>(counterParty).unwrap { it }
+            val builder = receive<TransactionBuilder>(counterParty).unwrap {
                 //TODO: Add checks for both security and cash state depending on which party we are
                 //Check cash states have been put in to the agreed amount
                 //if (it.outputStates().map { it.data }.sumCashBy(AnonymousParty(myKey)).withoutIssuer().quantity.toInt()
@@ -120,31 +118,28 @@ object LoanIssuanceFlow {
 
             //STEP 4: Put in security states as inputs and outputs
             //Check which party in the deal we are
+            val tx: TransactionBuilder
             if (loanIssuanceChecks().isLender(agreedTerms,serviceHub.myInfo.legalIdentity)){
                 //We are lender -> should have recieved cash, adding in stock
-                val (tx, keysForSigning) = try {
-                    subFlow(SecuritiesPreparationFlow(builder, agreedTerms.code, agreedTerms.quantity, agreedTerms.borrower))
+                tx = try {
+                    subFlow(SecuritiesPreparationFlow(builder, agreedTerms.code, agreedTerms.quantity, agreedTerms.borrower)).first
                 } catch (e: InsufficientBalanceException) {
                     throw SecurityException("Insufficient holding: ${e.message}", e)
                 }
-                println("Securities Added ${agreedTerms.code} with Quantity ${agreedTerms.quantity} ")
-                //STEP 5: Generate securityLoan state as output state and send back to borrower
-                val ptx = SecurityLoan().generateIssue(tx, agreedTerms, agreedTerms.borrower, notary)
-                val stx = serviceHub.signInitialTransaction(ptx)
-                val fullySignedTX = subFlow(CollectSignaturesFlow(stx))
-                return subFlow(FinalityFlow(fullySignedTX)).single()
+
             }
             else{ //We are the borrower -> shuold have received stock, adding in cash
-                val (tx, cashSigningPubKeys) = serviceHub.vaultService.generateSpend(builder,
+                 tx = serviceHub.vaultService.generateSpend(builder,
                         Amount(((agreedTerms.stockPrice.quantity * agreedTerms.quantity) * (1.0 + agreedTerms.margin)).toLong(), CURRENCY),
-                        AnonymousParty(agreedTerms.lender.owningKey)
-                )
-                //STEP 5: Generate securityLoan state as output state and send back to borrower
-                val ptx = SecurityLoan().generateIssue(tx, agreedTerms, agreedTerms.lender, notary)
-                val stx = serviceHub.signInitialTransaction(ptx)
-                val fullySignedTX = subFlow(CollectSignaturesFlow(stx))
-                return subFlow(FinalityFlow(fullySignedTX)).single()
+                        AnonymousParty(agreedTerms.lender.owningKey)).first
             }
+            println("Cash Added on Acceptor ${((agreedTerms.stockPrice.quantity * agreedTerms.quantity) * (1.0 + agreedTerms.margin))} ")
+            //STEP 5: Generate securityLoan state as output state and send back to borrower
+            val ptx = SecurityLoan().generateIssue(tx, agreedTerms, notary)
+            val stx = serviceHub.signInitialTransaction(ptx)
+            val fullySignedTX = subFlow(CollectSignaturesFlow(stx))
+            return subFlow(FinalityFlow(fullySignedTX)).single()
+
         }
     }
 
@@ -153,6 +148,15 @@ object LoanIssuanceFlow {
         fun isLender(loanTerms: LoanTerms, me: Party): Boolean{
             val lender = loanTerms.lender
             return (me == lender)
+        }
+
+        fun getCounterParty(loanTerms: LoanTerms, me: Party): Party{
+            if (me == loanTerms.lender){
+                return loanTerms.borrower
+            }
+            else{
+                return loanTerms.lender
+            }
         }
 
 
