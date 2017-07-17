@@ -14,8 +14,10 @@ import net.corda.core.transactions.SignedTransaction
 import net.corda.core.transactions.TransactionBuilder
 import net.corda.core.transactions.WireTransaction
 import net.corda.core.utilities.unwrap
+import net.corda.flows.CollectSignaturesFlow
 import net.corda.flows.FinalityFlow
 import net.corda.flows.ResolveTransactionsFlow
+import net.corda.flows.SignTransactionFlow
 
 /**
  *  Flow to create a TXN between lender and borrower with the following structure:
@@ -51,37 +53,29 @@ object LoanIssuanceFlow {
                     Amount(((agreedTerms.stockPrice.quantity * agreedTerms.quantity) * (1.0 + agreedTerms.margin)).toLong(), CURRENCY),
                     AnonymousParty(agreedTerms.lender.owningKey)
             )
+            send(agreedTerms.lender, ptx)
 
             //STEP 6: Check other party has put in the securities and securityLoan as outputs and signed the txn
-            val halfSignedTransaction = sendAndReceive<SignedTransaction>(agreedTerms.lender, ptx).unwrap {
-                val wtx: WireTransaction = it.verifySignatures(myKey, notary.owningKey)
-                //Check the other party has put me (the borrower) as the new owner of the correct quantity of the agreed security
-                if (wtx.outputs.map { it.data }.filterIsInstance<SecurityClaim.State>().filter { it.owner.owningKey == myKey && it.code == agreedTerms.code }
-                        .sumBy { it.quantity } != (agreedTerms.quantity)) {
-                    throw FlowException("Lender is not lending us the right amount of securities")
+            val signTransactionFlow = object : SignTransactionFlow(agreedTerms.lender) {
+                override fun checkTransaction(stx: SignedTransaction)  = requireThat {
+                    "Lender must send us the right amount of securities" using
+                            (stx.tx.outputs.map { it.data }.filterIsInstance<SecurityClaim.State>().filter
+                            { it.owner.owningKey == myKey && it.code == agreedTerms.code }
+                                    .sumBy { it.quantity } == (agreedTerms.quantity))
+                    val secLoan = stx.tx.outputs.map { it.data }.filterIsInstance<SecurityLoan.State>().single()
+                    "Lender must have issued us a loan with the agreed terms" using
+                            ((secLoan.quantity == agreedTerms.quantity) &&
+                            (secLoan.code == agreedTerms.code) &&
+                            (secLoan.stockPrice == agreedTerms.stockPrice) &&
+                            (secLoan.lender == agreedTerms.lender) &&
+                            (secLoan.borrower == serviceHub.myInfo.legalIdentity) &&
+                            (secLoan.terms.margin == agreedTerms.margin) &&
+                            (secLoan.terms.rebate == agreedTerms.rebate))
                 }
-                //Check the other party has issued a loan as output
-                val secLoan = wtx.outputs.map { it.data }.filterIsInstance<SecurityLoan.State>().single()
-                if ((secLoan.quantity != agreedTerms.quantity) ||
-                        (secLoan.code != agreedTerms.code) ||
-                        (secLoan.stockPrice != agreedTerms.stockPrice) ||
-                        (secLoan.lender != agreedTerms.lender) ||
-                        (secLoan.borrower != serviceHub.myInfo.legalIdentity) ||
-                        (secLoan.terms.margin != agreedTerms.margin) ||
-                        (secLoan.terms.rebate != agreedTerms.rebate)) {
-                    throw FlowException("Lender has not correctly issued a loan with the terms that were agreed upon")
-                }
-                subFlow(ResolveTransactionsFlow(wtx, agreedTerms.lender))
-
-                it
             }
 
-            //STEP 7: Sign on our end
-            val ourSignature = serviceHub.createSignature(halfSignedTransaction, myKey)
-            val unnotarisedSTX = halfSignedTransaction + ourSignature
-            val finishedSTX = subFlow(FinalityFlow(unnotarisedSTX, setOf(agreedTerms.lender))).single()
-            return finishedSTX.tx.outputs.map { it.data }.filterIsInstance<SecurityLoan.State>().single().linearId
-
+            //STEP 7: Sign on our end and return
+            return subFlow(signTransactionFlow).tx.outputs.map { it.data }.filterIsInstance<SecurityLoan.State>().single().linearId
         }
     }
 
@@ -91,6 +85,7 @@ object LoanIssuanceFlow {
         override fun call() : SignedTransaction {
             val myKey = serviceHub.myInfo.legalIdentity.owningKey
             val notary = serviceHub.networkMapCache.notaryNodes.single().notaryIdentity
+
             //STEP 3: Connect to borrower / initiator
             //TODO: Make this stronger, check these agreed terms really are the agreed terms (i.e from LoanAgreementFlow)
             val agreedTerms = receive<LoanTerms>(borrower).unwrap { it }
@@ -113,9 +108,8 @@ object LoanIssuanceFlow {
             //STEP 5: Generate securityLoan state as output state and send back to borrower
             val ptx = SecurityLoan().generateIssue(tx, agreedTerms, borrower, notary)
             val stx = serviceHub.signInitialTransaction(ptx)
-            send(borrower, stx)
-
-            return stx
+            val fullySignedTX = subFlow(CollectSignaturesFlow(stx))
+            return subFlow(FinalityFlow(fullySignedTX)).single()
         }
     }
 

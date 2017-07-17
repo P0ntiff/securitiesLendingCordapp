@@ -16,7 +16,6 @@ import net.corda.core.node.services.vault.QueryCriteria
  */
 
 @StartableByRPC
-
 class LoanRetrievalFlow(val linearID : UniqueIdentifier) : FlowLogic<StateAndRef<SecurityLoan.State>>() {
     @Suspendable
     override fun call() : StateAndRef<SecurityLoan.State> {

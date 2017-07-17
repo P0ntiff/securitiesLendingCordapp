@@ -7,9 +7,11 @@ import com.secLendModel.flow.securities.TradeFlow.Buyer
 import com.secLendModel.flow.SecuritiesPreparationFlow
 import com.secLendModel.flow.securitiesLending.LoanIssuanceFlow.Borrower
 import com.secLendModel.flow.securitiesLending.LoanIssuanceFlow.Lender
+import com.secLendModel.flow.securitiesLending.LoanUpdateFlow.Updator
+import com.secLendModel.flow.securitiesLending.LoanUpdateFlow.UpdateAcceptor
+import com.secLendModel.flow.securitiesLending.LoanTerminationFlow.Terminator
+import com.secLendModel.flow.securitiesLending.LoanTerminationFlow.TerminationAcceptor
 import com.secLendModel.flow.securitiesLending.LoanTerms
-import com.secLendModel.flow.securitiesLending.LoanUpdateFlow.Initiator
-import com.secLendModel.flow.securitiesLending.LoanUpdateFlow.Acceptor
 import net.corda.core.contracts.Amount
 import net.corda.core.contracts.GBP
 import net.corda.core.contracts.UniqueIdentifier
@@ -69,8 +71,10 @@ fun main(args: Array<String>) {
             startFlowPermission<Lender>(),
             startFlowPermission<Seller>(),
             startFlowPermission<Buyer>(),
-            startFlowPermission<Initiator>(),
-            startFlowPermission<Acceptor>()
+            startFlowPermission<Updator>(),
+            startFlowPermission<UpdateAcceptor>(),
+            startFlowPermission<Terminator>(),
+            startFlowPermission<TerminationAcceptor>()
     )
     val user = User("user1", "test", permissions = permissions)
     driver(portAllocation = portAllocation) {
@@ -134,6 +138,11 @@ fun main(args: Array<String>) {
         updateMargin(id, aRPC)
         updateMargin(id2, bRPC)
         updateMargin(id3, aRPC)
+
+        //Borrower hardcoded to be the loan terminator at the moment
+        terminateLoan(id, bRPC)
+        terminateLoan(id2, aRPC)
+        terminateLoan(id3, aRPC)
 
         println("ALL TXNS SUBMITTED")
         waitForAllNodesToFinish()
@@ -255,8 +264,14 @@ fun loanSecurities(borrower: CordaRPCOps, lender: CordaRPCOps): UniqueIdentifier
 fun updateMargin(id: UniqueIdentifier, initiator: CordaRPCOps): UniqueIdentifier {
     val rand = Random()
     val newMargin : Double = (rand.nextInt(8 + 1 - 2) + 2).toDouble() / 100
-    val updatedID = initiator.startFlow(::Initiator, id, newMargin).returnValue.getOrThrow()
+    val updatedID = initiator.startFlow(::Updator, id, newMargin).returnValue.getOrThrow()
     println("Margin updated on loan with old ID: '${id}' and  newID: '${updatedID}'")
     return updatedID
 }
 
+
+fun terminateLoan(id: UniqueIdentifier, initiator: CordaRPCOps) {
+    initiator.startFlow(::Terminator, id).returnValue.getOrThrow()
+
+    println("Loan with ID '$id' terminated")
+}

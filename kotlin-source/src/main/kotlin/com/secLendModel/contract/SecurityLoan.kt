@@ -119,9 +119,14 @@ class SecurityLoan : Contract {
                 var cashStatesTally: Long = 0
                 var securityStatesTally = 0
                 var secLoanStates = 0
+
                 tx.outputs.forEach {
-                    if (it is Cash.State) { cashStatesTally += it.amount.quantity.toInt() }
-                    if (it is SecurityClaim.State && it.code == secLoan.code) { securityStatesTally += it.quantity}
+                    if (it is Cash.State && it.owner == secLoan.borrower) {
+                        cashStatesTally += it.amount.quantity
+                    }
+                    if (it is SecurityClaim.State && it.code == secLoan.code && it.owner == secLoan.lender) {
+                        securityStatesTally += it.quantity
+                    }
                     if (it is SecurityLoan.State) {secLoanStates += 1}
                 }
                 "Cash states in the output sum to the value of the loan + margin" using (Amount(cashStatesTally, CURRENCY) ==
