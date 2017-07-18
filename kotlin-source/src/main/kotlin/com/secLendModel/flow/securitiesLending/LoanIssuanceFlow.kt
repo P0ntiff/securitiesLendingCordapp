@@ -132,6 +132,8 @@ object LoanIssuanceFlow {
             //subFlow(ResolveTransactionsFlow(stx, counterParty))
             send(counterParty, stx)
             return waitForLedgerCommit(stx.id)
+
+            //For implementation with CollectSignaturesFlow see old commit: #1f680fb
             //val fullySignedTX = subFlow(CollectSignaturesFlow(stx))
             //return subFlow(FinalityFlow(fullySignedTX)).single()
         }
