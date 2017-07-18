@@ -54,6 +54,7 @@ val STOCKS = arrayListOf("GBST Holdings Ltd", "Commonwealth Bank of Australia")/
 val CURRENCIES = setOf(ServiceInfo(ServiceType.corda.getSubType("issuer.GBP")),
         ServiceInfo(ServiceType.corda.getSubType("issuer.USD")),
         ServiceInfo(ServiceType.corda.getSubType("cash")))
+
 //Current currency in use
 val CURRENCY = GBP
 
