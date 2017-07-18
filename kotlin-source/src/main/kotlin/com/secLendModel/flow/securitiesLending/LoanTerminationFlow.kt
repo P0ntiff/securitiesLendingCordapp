@@ -14,9 +14,11 @@ import net.corda.core.identity.AnonymousParty
 import net.corda.core.identity.Party
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.transactions.TransactionBuilder
+import net.corda.core.transactions.WireTransaction
 import net.corda.core.utilities.unwrap
 import net.corda.flows.CollectSignaturesFlow
 import net.corda.flows.FinalityFlow
+import net.corda.flows.ResolveTransactionsFlow
 import net.corda.flows.SignTransactionFlow
 
 /**
@@ -65,17 +67,21 @@ object LoanTerminationFlow {
                     throw SecurityException("Insufficient holding: ${e.message}", e)
                 }
             }
-            send(counterParty, ptx)
+            val stx = sendAndReceive<SignedTransaction>(counterParty, ptx).unwrap {
+                val wtx: WireTransaction = it.verifySignatures(serviceHub.myInfo.legalIdentity.owningKey,
+                        serviceHub.networkMapCache.notaryNodes.single().notaryIdentity.owningKey)
+                //Check txn dependency chain ("resolution")
+                subFlow(ResolveTransactionsFlow(wtx, counterParty))
 
-            //STEP 4: Check the other party has put in the securities/collateral they should be returning
-            val signTransactionFlow = object : SignTransactionFlow(counterParty) {
-                override fun checkTransaction(stx: SignedTransaction)  = requireThat {
-                    //TODO: Check our company is happy with this termination
-                }
+                it
             }
+            val unnotarisedTX = serviceHub.addSignature(stx, serviceHub.myInfo.legalIdentity.owningKey)
+            val finishedTX = subFlow(FinalityFlow(unnotarisedTX, setOf(counterParty))).single()
+            //return finishedTX.tx.outputs.map { it.data }.filterIsInstance<SecurityLoan.State>().single().linearId
+
 
             //STEP 8: Sign and finalise transaction in both parties' vaults
-            subFlow(signTransactionFlow)
+            //subFlow(signTransactionFlow)
 
             return Unit
         }
@@ -120,8 +126,7 @@ object LoanTerminationFlow {
 
             //STEP 7: Send this tx back to the borrower
             val stx = serviceHub.signInitialTransaction(tx)
-            val fullySignedTX = subFlow(CollectSignaturesFlow(stx))
-            subFlow(FinalityFlow(fullySignedTX)).single()
+            send(counterParty, stx)
 
             return Unit
         }
