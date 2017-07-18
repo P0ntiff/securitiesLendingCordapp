@@ -22,6 +22,7 @@ import net.corda.core.transactions.WireTransaction
 import net.corda.core.utilities.unwrap
 import net.corda.flows.CollectSignaturesFlow
 import net.corda.flows.FinalityFlow
+import net.corda.flows.ResolveTransactionsFlow
 import net.corda.flows.SignTransactionFlow
 import java.text.DecimalFormat
 
@@ -62,15 +63,21 @@ object LoanUpdateFlow {
             //STEP 4 Send TxBuilder with loanStates (input and output) and possibly cash to acceptor party
             //Find out who our counterParty is (either lender or borrower)
             val counterParty = getCounterParty(stateToLoanTerms(secLoan.state.data), serviceHub.myInfo.legalIdentity)
-            send(counterParty, builder)
+            //send(counterParty, builder)
 
              //STEP 7 Receive back signed tx and finalize this update to the loan
-            val signTransactionFlow = object : SignTransactionFlow(counterParty) {
-                override fun checkTransaction(stx: SignedTransaction) = requireThat {
-                    //TODO: Check company restraints/parameters here
-                }
+            val stx = sendAndReceive<SignedTransaction>(counterParty, builder).unwrap {
+                val wtx: WireTransaction = it.verifySignatures(serviceHub.myInfo.legalIdentity.owningKey,
+                        serviceHub.networkMapCache.notaryNodes.single().notaryIdentity.owningKey)
+                //Check txn dependency chain ("resolution")
+                subFlow(ResolveTransactionsFlow(wtx, counterParty))
+
+                it
             }
-            return subFlow(signTransactionFlow).tx.outputs.map { it.data }.filterIsInstance<SecurityLoan.State>().single().linearId
+            val unnotarisedTX = serviceHub.addSignature(stx, serviceHub.myInfo.legalIdentity.owningKey)
+            val finishedTX = subFlow(FinalityFlow(unnotarisedTX, setOf(counterParty))).single()
+            return finishedTX.tx.outputs.map { it.data }.filterIsInstance<SecurityLoan.State>().single().linearId
+           // return subFlow(signTransactionFlow).tx.outputs.map { it.data }.filterIsInstance<SecurityLoan.State>().single().linearId
         }
     }
 
@@ -98,8 +105,9 @@ object LoanUpdateFlow {
 
             //STEP 6: Sign Tx and send back to initiator
             val signedTX : SignedTransaction = serviceHub.signInitialTransaction(builder)
-            val fullySignedTX = subFlow(CollectSignaturesFlow(signedTX))
-            subFlow(FinalityFlow(fullySignedTX)).single()
+            send(counterParty, signedTX)
+            //val fullySignedTX = subFlow(CollectSignaturesFlow(signedTX))
+            //subFlow(FinalityFlow(fullySignedTX)).single()
             return Unit
         }
 

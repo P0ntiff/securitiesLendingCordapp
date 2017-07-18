@@ -42,13 +42,15 @@ val CENTRALBANK = X500Name("CN=BoE,O=BoE,L=London,C=UK")
 val NOTARY = X500Name("CN=Notary Service,O=R3,OU=corda,L=Zurich,C=CH,OU=corda.notary.validating")
 val ARNOLD = X500Name("CN=Alice Corp,O=Alice Corp,L=Madrid,C=ES")
 val BARRY = X500Name("CN=Bob Plc,O=Bob Plc,L=Rome,C=IT")
+val COLIN = X500Name("CN=Colin Plc,O=Colin Plc,L=Paris,C=FR")
 
 //Shares to be on issue by exchange
 val MARKET = setOf(ServiceInfo(ServiceType.corda.getSubType("issuer.RIO")),
         ServiceInfo(ServiceType.corda.getSubType("issuer.GBT")),
-        ServiceInfo(ServiceType.corda.getSubType("issuer.CBA")))
-val CODES = arrayListOf("GBT", "CBA")//, "RIO", "BP")
-val STOCKS = arrayListOf("GBST Holdings Ltd", "Commonwealth Bank of Australia")//, "Rio Tinto Ltd", "British Petroleum")
+        ServiceInfo(ServiceType.corda.getSubType("issuer.CBA")),
+        ServiceInfo(ServiceType.corda.getSubType("issuer.BP")))
+val CODES = arrayListOf("GBT", "CBA", "RIO", "BP")
+val STOCKS = arrayListOf("GBST Holdings Ltd", "Commonwealth Bank of Australia", "Rio Tinto Ltd", "British Petroleum")
 
 //Currencies to be on issue by central bank
 val CURRENCIES = setOf(ServiceInfo(ServiceType.corda.getSubType("issuer.GBP")),
@@ -84,6 +86,8 @@ fun main(args: Array<String>) {
                 advertisedServices = setOf(ServiceInfo(ServiceType.corda.getSubType("cash"))))
         val barry = startNode(BARRY, rpcUsers = arrayListOf(user),
                 advertisedServices = setOf(ServiceInfo(ServiceType.corda.getSubType("cash"))))
+        val colin = startNode(COLIN, rpcUsers = arrayListOf(user),
+                advertisedServices = setOf(ServiceInfo(ServiceType.corda.getSubType("cash"))))
         val exchange = startNode(EXCHANGE, rpcUsers = arrayListOf(user),
                 advertisedServices = MARKET)
         val centralBank = startNode(CENTRALBANK, rpcUsers = arrayListOf(user),
@@ -92,10 +96,11 @@ fun main(args: Array<String>) {
         val notaryNode = notary.get()
         val arnoldNode = arnold.get()
         val barryNode = barry.get()
+        val colinNode = colin.get()
         val exchangeNode = exchange.get()
         val centralNode = centralBank.get()
 
-        arrayOf(notaryNode, arnoldNode, barryNode, exchangeNode, centralNode).forEach {
+        arrayOf(notaryNode, arnoldNode, barryNode, colinNode, exchangeNode, centralNode).forEach {
             println("${it.nodeInfo.legalIdentity} started on ${it.configuration.rpcAddress}")
         }
 
@@ -104,6 +109,9 @@ fun main(args: Array<String>) {
 
         val bClient = barryNode.rpcClientToNode()
         val bRPC = bClient.start(user.username, user.password).proxy
+
+        val cClient = colinNode.rpcClientToNode()
+        val cRPC = cClient.start(user.username, user.password).proxy
 
         val eClient = exchangeNode.rpcClientToNode()
         val eRPC = eClient.start(user.username, user.password).proxy
@@ -114,8 +122,10 @@ fun main(args: Array<String>) {
         println("TXNS INITIATED")
         issueCash(cbRPC, aRPC, notaryNode.nodeInfo.notaryIdentity)
         issueCash(cbRPC, bRPC, notaryNode.nodeInfo.notaryIdentity)
+        issueCash(cbRPC, cRPC, notaryNode.nodeInfo.notaryIdentity)
         issueEquity(eRPC, aRPC, notaryNode.nodeInfo.notaryIdentity)
         issueEquity(eRPC, bRPC, notaryNode.nodeInfo.notaryIdentity)
+        issueEquity(eRPC, cRPC, notaryNode.nodeInfo.notaryIdentity)
 
         //Send some assets around the ledger
         moveCash(aRPC, bRPC)
@@ -132,6 +142,9 @@ fun main(args: Array<String>) {
         tradeEquity(aRPC, bRPC)
         tradeEquity(bRPC, aRPC)
 
+        tradeEquity(bRPC, cRPC)
+        tradeEquity(cRPC, aRPC)
+
         //Loan issuance and margin update transactions
         //a borrows from b, and a initiates the deal
         val id = loanSecurities(aRPC, bRPC, true)
@@ -142,17 +155,25 @@ fun main(args: Array<String>) {
         //b borrows from a, and a initiates the deal
         val id4 = loanSecurities(bRPC, aRPC, false)
 
+        val id5 = loanSecurities(cRPC, aRPC, true)
+        val id6 = loanSecurities(bRPC, cRPC, false)
+
         updateMargin(id, aRPC)
         updateMargin(id2, bRPC)
         updateMargin(id3, aRPC)
-
-        //The party passed in initiates the loan termination
-        //Borrowers terminate
+        updateMargin(id5, cRPC)
+        updateMargin(id6, cRPC)
+//
+//        //The party passed in initiates the loan termination
+//        //Borrowers terminate
         terminateLoan(id, aRPC)
         terminateLoan(id4, bRPC)
-        //Lenders terminate
+//        //Lenders terminate
         terminateLoan(id2, aRPC)
         terminateLoan(id3, bRPC)
+
+        terminateLoan(id5, cRPC)
+        terminateLoan(id6, cRPC)
 
         println("ALL TXNS SUBMITTED")
         waitForAllNodesToFinish()

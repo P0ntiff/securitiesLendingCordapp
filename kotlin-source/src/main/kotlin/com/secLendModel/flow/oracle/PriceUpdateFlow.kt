@@ -14,7 +14,7 @@ import java.util.*
 //Returns a Pair of (stockPrice, transactionBuilder) where the stockPrice is the officially signed
 //price of the stock and the transactionBuilder contains the oracle's signature
 
-//TODO: Rethink whether we need a state w/ signature and issuance tx's to store stockPrice or not
+//TODO: Rethink whether we need a state w/ signature and issue command to store stockPrice or not
 
 open class PriceUpdateFlow(val code : String,
                            val partiesInvolved : List<Party>,

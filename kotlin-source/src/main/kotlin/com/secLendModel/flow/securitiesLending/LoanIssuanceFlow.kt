@@ -14,9 +14,11 @@ import net.corda.core.identity.AnonymousParty
 import net.corda.core.identity.Party
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.transactions.TransactionBuilder
+import net.corda.core.transactions.WireTransaction
 import net.corda.core.utilities.unwrap
 import net.corda.flows.CollectSignaturesFlow
 import net.corda.flows.FinalityFlow
+import net.corda.flows.ResolveTransactionsFlow
 import net.corda.flows.SignTransactionFlow
 
 /**
@@ -61,29 +63,38 @@ object LoanIssuanceFlow {
                         Amount(((agreedTerms.stockPrice.quantity * agreedTerms.quantity) * (1.0 + agreedTerms.margin)).toLong(), CURRENCY),
                         AnonymousParty(agreedTerms.lender.owningKey)).first
             }
-            send(counterParty, ptx)
+            val stx = sendAndReceive<SignedTransaction>(counterParty, ptx).unwrap {
+                val wtx: WireTransaction = it.verifySignatures(serviceHub.myInfo.legalIdentity.owningKey, notary.owningKey)
+                //Check txn dependency chain ("resolution")
+                subFlow(ResolveTransactionsFlow(wtx, counterParty))
 
-            //STEP 6: Check other party has put in the securities/collateral and the securityLoan state.
-            val signTransactionFlow = object : SignTransactionFlow(counterParty) {
-                //TODO: Edit this checkTransaction to be more generalized
-                override fun checkTransaction(stx: SignedTransaction)  = requireThat {
-                        //Our only requirment is that the issued loan matches the agreed Terms
-                        val secLoan = stx.tx.outputs.map { it.data }.filterIsInstance<SecurityLoan.State>().single()
-                        "Lender must have issued us a loan with the agreed terms" using
-                                ((secLoan.quantity == agreedTerms.quantity) &&
-                                        (secLoan.code == agreedTerms.code) &&
-                                        (secLoan.stockPrice == agreedTerms.stockPrice) &&
-                                        (secLoan.lender == agreedTerms.lender) &&
-                                        (secLoan.borrower == agreedTerms.borrower) &&
-                                        (secLoan.terms.margin == agreedTerms.margin) &&
-                                        (secLoan.terms.rebate == agreedTerms.rebate))
-
-
-                }
+                it
             }
 
+            //STEP 6: Check other party has put in the securities/collateral and the securityLoan state.
+//            val signTransactionFlow = object : SignTransactionFlow(counterParty) {
+//                //TODO: Edit this checkTransaction to be more generalized
+//                override fun checkTransaction(stx: SignedTransaction)  = requireThat {
+//                        //Our only requirment is that the issued loan matches the agreed Terms
+//                        val secLoan = stx.tx.outputs.map { it.data }.filterIsInstance<SecurityLoan.State>().single()
+//                        "Lender must have issued us a loan with the agreed terms" using
+//                                ((secLoan.quantity == agreedTerms.quantity) &&
+//                                        (secLoan.code == agreedTerms.code) &&
+//                                        (secLoan.stockPrice == agreedTerms.stockPrice) &&
+//                                        (secLoan.lender == agreedTerms.lender) &&
+//                                        (secLoan.borrower == agreedTerms.borrower) &&
+//                                        (secLoan.terms.margin == agreedTerms.margin) &&
+//                                        (secLoan.terms.rebate == agreedTerms.rebate))
+//
+//
+//                }
+//            }
+
+            val unnotarisedTX = serviceHub.addSignature(stx, serviceHub.myInfo.legalIdentity.owningKey)
+            val finishedTX = subFlow(FinalityFlow(unnotarisedTX, setOf(counterParty))).single()
+            return finishedTX.tx.outputs.map { it.data }.filterIsInstance<SecurityLoan.State>().single().linearId
             //STEP 7: Sign on our end and return
-            return subFlow(signTransactionFlow).tx.outputs.map { it.data }.filterIsInstance<SecurityLoan.State>().single().linearId
+            //return subFlow(signTransactionFlow).tx.outputs.map { it.data }.filterIsInstance<SecurityLoan.State>().single().linearId
         }
     }
 
@@ -101,7 +112,7 @@ object LoanIssuanceFlow {
             //STEP 4: Put in security states/collateral as inputs and securityLoan as output
             //Check which party in the deal we are
             val tx : TransactionBuilder
-            if (isLender(agreedTerms, serviceHub.myInfo.legalIdentity)){
+            if (isLender(agreedTerms, serviceHub.myInfo.legalIdentity)) {
                 //We are lender -> should have recieved cash, adding in stock
                 tx = try {
                     subFlow(SecuritiesPreparationFlow(builder, agreedTerms.code, agreedTerms.quantity, agreedTerms.borrower)).first
@@ -109,7 +120,7 @@ object LoanIssuanceFlow {
                     throw SecurityException("Insufficient holding: ${e.message}", e)
                 }
             }
-            else{ //We are the borrower -> should have received stock, adding in cash
+            else { //We are the borrower -> should have received stock, so adding in cash
                  tx = serviceHub.vaultService.generateSpend(builder,
                         Amount(((agreedTerms.stockPrice.quantity * agreedTerms.quantity) * (1.0 + agreedTerms.margin)).toLong(), CURRENCY),
                         AnonymousParty(agreedTerms.lender.owningKey)).first
@@ -117,9 +128,12 @@ object LoanIssuanceFlow {
 
             //STEP 5: Generate securityLoan state as output state and send back to borrower
             val ptx = SecurityLoan().generateIssue(tx, agreedTerms, notary)
-            val stx = serviceHub.signInitialTransaction(ptx)
-            val fullySignedTX = subFlow(CollectSignaturesFlow(stx))
-            return subFlow(FinalityFlow(fullySignedTX)).single()
+            val stx = serviceHub.signInitialTransaction(ptx, serviceHub.myInfo.legalIdentity.owningKey)
+            //subFlow(ResolveTransactionsFlow(stx, counterParty))
+            send(counterParty, stx)
+            return waitForLedgerCommit(stx.id)
+            //val fullySignedTX = subFlow(CollectSignaturesFlow(stx))
+            //return subFlow(FinalityFlow(fullySignedTX)).single()
         }
     }
 }
