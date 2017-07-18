@@ -2,6 +2,7 @@ package com.secLendModel.flow.oracle
 
 import co.paralleluniverse.fibers.Suspendable
 import com.secLendModel.CURRENCY
+import com.sun.org.apache.xpath.internal.operations.Bool
 import net.corda.contracts.Fix
 import net.corda.contracts.FixOf
 import net.corda.core.contracts.Amount
@@ -42,13 +43,13 @@ object OracleFlow {
      */
     @StartableByRPC
     @InitiatingFlow
-    class Updater(val tx: TransactionBuilder, val code: String, val oracle: Party) : FlowLogic<Unit> {
+    class Updater(val tx: TransactionBuilder, val code: String, val oracle: Party) {
 
-        @Suspendable
-        override fun call() {
-            val oracleData = sendAndReceive<Pair<String, Amount<Currency>>>(oracle, code)
-            tx.addCommand(stockPrice, oracle.owningKey)
-        }
+        //@Suspendable
+        //override fun call() {
+            //val oracleData = sendAndRe<Pair<String, Amount<Currency>>>(oracle, code)
+            //tx.addCommand(stockPrice, oracle.owningKey)
+        //}
     }
 }
 
