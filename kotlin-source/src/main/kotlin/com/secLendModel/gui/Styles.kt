@@ -2,9 +2,6 @@ package com.secLendModel.gui
 
 import tornadofx.*
 
-/**
- * Created by beng on 18/07/2017.
- */
 class Styles : Stylesheet() {
     val zip by cssclass()
 

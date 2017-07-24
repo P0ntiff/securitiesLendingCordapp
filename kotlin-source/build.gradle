@@ -43,6 +43,7 @@ dependencies {
     compile "net.corda:corda-core:$corda_release_version"
     compile "net.corda:corda-finance:$corda_release_version"
     compile "net.corda:corda-jackson:$corda_release_version"
+    compile "net.corda:corda-jfx:$corda_release_version"
     compile "net.corda:corda-rpc:$corda_release_version"
     compile "net.corda:corda-webserver-impl:$corda_release_version"
     compile "net.corda:corda-test-utils:$corda_release_version"
@@ -141,13 +142,6 @@ task runTemplateClientRPC(type: JavaExec) {
     main = 'com.template.client.TemplateClientRPCKt'
     args 'localhost:10006'
 }
-
-task runExplorer(type: JavaExec) {
-    classpath = sourceSets.main.runtimeClasspath
-    main = 'com.secLendModel.gui.LoanAppKt'
-}
-
-
 
 tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).all {
     kotlinOptions {

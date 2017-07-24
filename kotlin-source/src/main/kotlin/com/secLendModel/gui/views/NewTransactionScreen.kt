@@ -1,12 +1,14 @@
-package com.secLendModel.gui
+package com.secLendModel.gui.views
 
+import com.secLendModel.gui.model.Loan
+import com.secLendModel.gui.model.LoanDetails
 import org.controlsfx.control.Notifications
 import tornadofx.*
 
 
 class NewTransactionScreen : View() {
     override val root = Form()
-    val loan = Loan()
+    val loan = Loan("Alice", "Bob", 78.56.toLong(), "CBA", 8800, LoanDetails(0.05, 0.01, 30))
 
     init {
         title = "New Loan"
