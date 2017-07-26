@@ -13,6 +13,7 @@ import net.corda.core.crypto.DigitalSignature
 import net.corda.core.crypto.MerkleTreeException
 import net.corda.core.crypto.keys
 import net.corda.core.flows.FlowLogic
+import net.corda.core.flows.InitiatedBy
 import net.corda.core.flows.InitiatingFlow
 import net.corda.core.flows.StartableByRPC
 import net.corda.core.identity.Party
@@ -24,6 +25,7 @@ import net.corda.core.serialization.SingletonSerializationToken
 import net.corda.core.serialization.SingletonSerializeAsToken
 import net.corda.core.transactions.FilteredTransaction
 import net.corda.core.transactions.TransactionBuilder
+import net.corda.core.utilities.unwrap
 import org.apache.commons.io.IOUtils
 import java.math.BigDecimal
 import java.security.PublicKey
@@ -37,21 +39,38 @@ import javax.annotation.concurrent.ThreadSafe
  */
 data class stockPrice(val value: Pair<String,Amount<Currency>>) : CommandData
 
-object OracleFlow {
+
+//TODO: Confirm this is like FixSignHandler and FixQueryHandler classes in tutorial
+object oracleFlow {
     /**
      * Flow for querying the oracle and getting a price back
      */
-    @StartableByRPC
-    @InitiatingFlow
-    class Updater(val tx: TransactionBuilder, val code: String, val oracle: Party) {
 
-        //@Suspendable
-        //override fun call() {
-            //val oracleData = sendAndRe<Pair<String, Amount<Currency>>>(oracle, code)
-            //tx.addCommand(stockPrice, oracle.owningKey)
-        //}
+    @InitiatedBy(PriceUpdateFlow.PriceQueryFlow::class)
+    class QueryHandler(val otherParty: Party, val code: String): FlowLogic<Unit>() {
+
+        @Suspendable
+        override fun call() {
+            //Recieve the request for oracle Data from PriceUpdateFlow
+            val request = receive<Pair<String, Amount<Currency>>>(otherParty).unwrap { it }
+            val oracle = serviceHub.cordaService(Oracle::class.java)
+            val oracleData = oracle.query(code)
+            //Send the oracle data to the otherParty in the loan
+            send(otherParty, oracleData)
+        }
+    }
+
+    @InitiatedBy(PriceUpdateFlow.PriceSignFlow::class)
+    class SignHandler (val otherParty: Party) : FlowLogic<Unit>() {
+
+        @Suspendable
+        override fun call() {
+            //val request = receive<>()
+            send(otherParty, "NOTHING")
+        }
     }
 }
+
 
 
 
@@ -68,7 +87,8 @@ class Oracle(val identity: Party, private val signingKey: PublicKey, val service
     val priceList = addDefaultPrices()
 
     companion object {
-        @JvmField
+        //TODO ask ben about this JvmField property
+        //@JvmField
         val type = ServiceType.corda.getSubType("stock_prices")
     }
 
@@ -100,6 +120,7 @@ class Oracle(val identity: Party, private val signingKey: PublicKey, val service
         }
 
     }
+
 
     @Suspendable
     fun query(code: String): Amount<Currency> {
