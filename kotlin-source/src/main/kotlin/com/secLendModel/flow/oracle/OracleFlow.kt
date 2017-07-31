@@ -52,7 +52,8 @@ object oracleFlow {
         @Suspendable
         override fun call() {
             //Recieve the request for oracle Data from PriceUpdateFlow
-            val request = receive<Pair<String, Amount<Currency>>>(otherParty).unwrap { it }
+            val request = receive<Amount<Currency>>(otherParty).unwrap { it }
+            //Query the oracle and get the data we need
             val oracle = serviceHub.cordaService(Oracle::class.java)
             val oracleData = oracle.query(code)
             //Send the oracle data to the otherParty in the loan
@@ -65,8 +66,10 @@ object oracleFlow {
 
         @Suspendable
         override fun call() {
-            //val request = receive<>()
-            send(otherParty, "NOTHING")
+            val request = receive<FilteredTransaction>(otherParty).unwrap { it }
+            val oracle = serviceHub.cordaService(Oracle::class.java)
+            val signRequest = oracle.sign(request)
+            send(otherParty,signRequest);
         }
     }
 }

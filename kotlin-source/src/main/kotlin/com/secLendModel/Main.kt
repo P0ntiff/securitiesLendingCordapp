@@ -44,14 +44,15 @@ val NOTARY = X500Name("CN=Notary Service,O=R3,OU=corda,L=Zurich,C=CH,OU=corda.no
 val ARNOLD = X500Name("CN=Alice Corp,O=Alice Corp,L=Madrid,C=ES")
 val BARRY = X500Name("CN=Bob Plc,O=Bob Plc,L=Rome,C=IT")
 val COLIN = X500Name("CN=Colin Plc,O=Colin Plc,L=Paris,C=FR")
+val ORACLE = X500Name("CN=Oracle SP,O=Oracle SP,L=Brisbane,C=AU")
 
 //Shares to be on issue by exchange
 val MARKET = setOf(ServiceInfo(ServiceType.corda.getSubType("issuer.RIO")),
         ServiceInfo(ServiceType.corda.getSubType("issuer.GBT")),
         ServiceInfo(ServiceType.corda.getSubType("issuer.CBA")),
         ServiceInfo(ServiceType.corda.getSubType("issuer.BP")))
-val CODES = arrayListOf("GBT", "CBA", "RIO", "BP")
-val STOCKS = arrayListOf("GBST Holdings Ltd", "Commonwealth Bank of Australia", "Rio Tinto Ltd", "British Petroleum")
+val CODES = listOf("GBT", "CBA", "RIO", "BP")
+val STOCKS = listOf("GBST Holdings Ltd", "Commonwealth Bank of Australia", "Rio Tinto Ltd", "British Petroleum")
 
 //Currencies to be on issue by central bank
 val CURRENCIES = setOf(ServiceInfo(ServiceType.corda.getSubType("issuer.GBP")),
@@ -83,16 +84,17 @@ fun main(args: Array<String>) {
     val user = User("user1", "test", permissions = permissions)
     driver(portAllocation = portAllocation) {
         val notary = startNode(NOTARY, advertisedServices = setOf(ServiceInfo(ValidatingNotaryService.type)))
-        val arnold = startNode(ARNOLD, rpcUsers = arrayListOf(user),
+        val arnold = startNode(ARNOLD, rpcUsers = listOf(user),
                 advertisedServices = setOf(ServiceInfo(ServiceType.corda.getSubType("cash"))))
-        val barry = startNode(BARRY, rpcUsers = arrayListOf(user),
+        val barry = startNode(BARRY, rpcUsers = listOf(user),
                 advertisedServices = setOf(ServiceInfo(ServiceType.corda.getSubType("cash"))))
 //        val colin = startNode(COLIN, rpcUsers = arrayListOf(user),
 //                advertisedServices = setOf(ServiceInfo(ServiceType.corda.getSubType("cash"))))
-        val exchange = startNode(EXCHANGE, rpcUsers = arrayListOf(user),
+        val exchange = startNode(EXCHANGE, rpcUsers = listOf(user),
                 advertisedServices = MARKET)
-        val centralBank = startNode(CENTRALBANK, rpcUsers = arrayListOf(user),
+        val centralBank = startNode(CENTRALBANK, rpcUsers = listOf(user),
                 advertisedServices = CURRENCIES)
+        val oracle = startNode(ORACLE, rpcUsers = listOf(user), advertisedServices = setOf(ServiceInfo(ServiceType.getServiceType("net.corda.examples","primes_oracle"))))
 
         val notaryNode = notary.get()
         val arnoldNode = arnold.get()
@@ -100,8 +102,9 @@ fun main(args: Array<String>) {
 //        val colinNode = colin.get()
         val exchangeNode = exchange.get()
         val centralNode = centralBank.get()
+        val oracleNode = oracle.get()
 
-        arrayOf(notaryNode, arnoldNode, barryNode, exchangeNode, centralNode).forEach {
+        arrayOf(notaryNode, arnoldNode, barryNode, exchangeNode, centralNode, oracleNode).forEach {
             println("${it.nodeInfo.legalIdentity} started on ${it.configuration.rpcAddress}")
         }
 

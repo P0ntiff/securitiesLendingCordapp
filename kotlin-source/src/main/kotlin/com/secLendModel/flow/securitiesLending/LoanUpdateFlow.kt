@@ -3,6 +3,8 @@ package com.secLendModel.flow.securitiesLending
 import co.paralleluniverse.fibers.Suspendable
 import com.secLendModel.CURRENCY
 import com.secLendModel.contract.SecurityLoan
+import com.secLendModel.flow.oracle.Oracle
+import com.secLendModel.flow.oracle.PriceUpdateFlow
 import com.secLendModel.flow.securitiesLending.LoanChecks.cashRequired
 import com.secLendModel.flow.securitiesLending.LoanChecks.getCounterParty
 import com.secLendModel.flow.securitiesLending.LoanChecks.stateToLoanTerms
@@ -16,6 +18,7 @@ import net.corda.core.identity.Party
 import net.corda.core.node.services.Vault
 import net.corda.core.node.services.queryBy
 import net.corda.core.node.services.vault.QueryCriteria
+import net.corda.core.transactions.FilteredTransaction
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.transactions.TransactionBuilder
 import net.corda.core.transactions.WireTransaction
@@ -36,15 +39,27 @@ object LoanUpdateFlow {
     @StartableByRPC
     @InitiatingFlow
     class Updator(val linearID: UniqueIdentifier,
+                    //val partialMerkleTx: FilteredTransaction,
                     val newMargin: Double) : FlowLogic<UniqueIdentifier>() {
         @Suspendable
         override fun call() : UniqueIdentifier {
+            //TODO: UpdateFlow should now also change the stockPrice listed on the loan, since this is always used to update the margin
             //STEP1: Get Loan that is being updated -> retrieving using unique LinearID
             val secLoan = subFlow(LoanRetrievalFlow(linearID))
-
-            //STEP 2: Create Transaction with the loanState as input and updated LoanState as output
             val borrower = secLoan.state.data.borrower
             val lender = secLoan.state.data.lender
+
+            //TODO: Check with Ben when we wish to include this implementation and test -> query oracle to get new price. From this calculate the new margin
+            //val priceTx = TransactionBuilder()
+            //TODO: Change lender party here to the oracle -> need some help accessing oracle and adding it as a service in the main file
+            //val priceQuery = subFlow(PriceUpdateFlow(secLoan.state.data.code, listOf(lender,borrower),lender,priceTx))
+            //val newPrice = priceQuery.first.quantity
+            //Oracles signature is checked within price update flow, so checking here is not neccesary
+            //Get the new margin based off the ratio of new to old stock price
+            //val newMargin2 = secLoan.state.data.terms.margin * (newPrice/secLoan.state.data.stockPrice.quantity)
+
+
+            //STEP 2: Create Transaction with the loanState as input and updated LoanState as output
             val builder = TransactionType.General.Builder(notary = serviceHub.networkMapCache.notaryNodes.single().notaryIdentity)
             SecurityLoan().generateUpdate(builder, newMargin, secLoan, lender, borrower)
 
