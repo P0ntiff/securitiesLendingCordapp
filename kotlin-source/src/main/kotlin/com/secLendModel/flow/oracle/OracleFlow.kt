@@ -160,6 +160,7 @@ class Oracle(val identity: Party, private val signingKey: PublicKey, val service
             }
         }
 
+
         val leaves = ftx.filteredLeaves
         if (!leaves.checkWithFun(::check))
             throw IllegalArgumentException()

@@ -5,6 +5,7 @@ import com.secLendModel.flow.securities.SecuritiesIssueFlow
 import com.secLendModel.flow.securities.TradeFlow.Seller
 import com.secLendModel.flow.securities.TradeFlow.Buyer
 import com.secLendModel.flow.SecuritiesPreparationFlow
+import com.secLendModel.flow.oracle.PriceUpdateFlow
 import com.secLendModel.flow.securitiesLending.LoanIssuanceFlow.Initiator
 import com.secLendModel.flow.securitiesLending.LoanIssuanceFlow.Acceptor
 import com.secLendModel.flow.securitiesLending.LoanUpdateFlow.Updator
@@ -79,9 +80,11 @@ fun main(args: Array<String>) {
             startFlowPermission<Updator>(),
             startFlowPermission<UpdateAcceptor>(),
             startFlowPermission<Terminator>(),
-            startFlowPermission<TerminationAcceptor>()
+            startFlowPermission<TerminationAcceptor>(),
+            startFlowPermission<PriceUpdateFlow>()
     )
     val user = User("user1", "test", permissions = permissions)
+    //TODO: Driver is causing a program crash
     driver(portAllocation = portAllocation) {
         val notary = startNode(NOTARY, advertisedServices = setOf(ServiceInfo(ValidatingNotaryService.type)))
         val arnold = startNode(ARNOLD, rpcUsers = listOf(user),
@@ -94,7 +97,8 @@ fun main(args: Array<String>) {
                 advertisedServices = MARKET)
         val centralBank = startNode(CENTRALBANK, rpcUsers = listOf(user),
                 advertisedServices = CURRENCIES)
-        val oracle = startNode(ORACLE, rpcUsers = listOf(user), advertisedServices = setOf(ServiceInfo(ServiceType.getServiceType("net.corda.examples","primes_oracle"))))
+        //TODO: Fix/Check oracle service type
+        //val oracle = startNode(ORACLE, rpcUsers = listOf(user), advertisedServices = setOf(ServiceInfo()))
 
         val notaryNode = notary.get()
         val arnoldNode = arnold.get()
@@ -102,9 +106,9 @@ fun main(args: Array<String>) {
 //        val colinNode = colin.get()
         val exchangeNode = exchange.get()
         val centralNode = centralBank.get()
-        val oracleNode = oracle.get()
+        //val oracleNode = oracle.get()
 
-        arrayOf(notaryNode, arnoldNode, barryNode, exchangeNode, centralNode, oracleNode).forEach {
+        arrayOf(notaryNode, arnoldNode, barryNode, exchangeNode, centralNode).forEach {
             println("${it.nodeInfo.legalIdentity} started on ${it.configuration.rpcAddress}")
         }
 

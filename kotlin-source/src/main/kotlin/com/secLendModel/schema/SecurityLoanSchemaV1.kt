@@ -42,6 +42,9 @@ object SecurityLoanSchemaV1 : MappedSchema(schemaFamily = SecurityLoanSchema.jav
             @Column(name = "price")
             var price: Int,
 
+            @Column(name = "current_price")
+            var current_price: Int,
+
             @Column(name = "linearID")
             var id: String,
 

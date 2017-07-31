@@ -3,6 +3,7 @@ package com.secLendModel.flow.oracle
 import com.secLendModel.CURRENCY
 import io.atomix.copycat.protocol.QueryRequest
 import net.corda.core.contracts.Amount
+import net.corda.core.contracts.Command
 import net.corda.core.crypto.DigitalSignature
 import net.corda.core.flows.FlowLogic
 import net.corda.core.flows.InitiatingFlow
@@ -29,7 +30,7 @@ open class PriceUpdateFlow(val code : String,
         val stockPrice = stockPrice(Pair(code,price))
         tx.addCommand(stockPrice,oracle.owningKey)
         //Sign and confirm signatures for the tx
-        //TODO: this MTX line is sort of hacked together, figure out what to do here.....Tutorial version doesnt work
+        //TODO: Create our own filtering function to check the sttached signature is from oracle, for now we just accept
         val mtx = tx.toWireTransaction().buildFilteredTransaction(filtering = Predicate{true})
         val signature = subFlow(PriceSignFlow(oracle, mtx, tx))
         tx.addSignatureUnchecked(signature)
@@ -53,7 +54,6 @@ open class PriceUpdateFlow(val code : String,
     @InitiatingFlow
     class PriceSignFlow(val oracle : Party, val partialMerkleTx: FilteredTransaction, val tx: TransactionBuilder) : FlowLogic<DigitalSignature.LegallyIdentifiable>() {
         override fun call() : DigitalSignature.LegallyIdentifiable {
-            //TODO: Check logic here -> PriceSignFlow should recieve a filteredTx and sign it, not sure how this works though
             val response = sendAndReceive<DigitalSignature.LegallyIdentifiable>(oracle,partialMerkleTx).unwrap {
                 //Check that it was actually the oracle that signed
                 check(it.signer == oracle)

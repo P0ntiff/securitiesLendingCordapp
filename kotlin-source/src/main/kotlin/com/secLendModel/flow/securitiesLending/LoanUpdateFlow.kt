@@ -49,19 +49,20 @@ object LoanUpdateFlow {
             val borrower = secLoan.state.data.borrower
             val lender = secLoan.state.data.lender
 
+            /*** Experimental Section -> Updating price automatically using oracle ***/
             //TODO: Check with Ben when we wish to include this implementation and test -> query oracle to get new price. From this calculate the new margin
-            //val priceTx = TransactionBuilder()
+            val priceTx = TransactionBuilder()
             //TODO: Change lender party here to the oracle -> need some help accessing oracle and adding it as a service in the main file
-            //val priceQuery = subFlow(PriceUpdateFlow(secLoan.state.data.code, listOf(lender,borrower),lender,priceTx))
-            //val newPrice = priceQuery.first.quantity
+            val priceQuery = subFlow(PriceUpdateFlow(secLoan.state.data.code, listOf(lender,borrower),lender ,priceTx))
+            val newPrice = priceQuery.first
             //Oracles signature is checked within price update flow, so checking here is not neccesary
             //Get the new margin based off the ratio of new to old stock price
-            //val newMargin2 = secLoan.state.data.terms.margin * (newPrice/secLoan.state.data.stockPrice.quantity)
-
+            val newMargin2 = secLoan.state.data.terms.margin * (newPrice.quantity/secLoan.state.data.stockPrice.quantity)
+            /*** End Experimental Section ***/
 
             //STEP 2: Create Transaction with the loanState as input and updated LoanState as output
             val builder = TransactionType.General.Builder(notary = serviceHub.networkMapCache.notaryNodes.single().notaryIdentity)
-            SecurityLoan().generateUpdate(builder, newMargin, secLoan, lender, borrower)
+            SecurityLoan().generateUpdate(builder, newPrice, newMargin2, secLoan, lender, borrower)
 
             //STEP 3: Calculate change in margin, add cash if required. If not required, will be added by acceptor in STEP X
             val changeMargin = DecimalFormat(".##").format(newMargin - secLoan.state.data.terms.margin).toDouble()
