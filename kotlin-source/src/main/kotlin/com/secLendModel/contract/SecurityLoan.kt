@@ -39,6 +39,7 @@ class SecurityLoan : Contract {
     data class State(val quantity: Int,
                      val code: String,
                      val stockPrice: Amount<Currency>,
+                     val currentStockPrice: Amount<Currency>,
                      val lender: Party,
                      val borrower: Party,
                      val terms: Terms,
@@ -73,6 +74,7 @@ class SecurityLoan : Contract {
                         quantity = this.quantity,
                         //price with 2 decimal places
                         price = this.stockPrice.quantity.toInt(),
+                        current_price = this.currentStockPrice.quantity.toInt(),
                         id = this.linearId.toString(),
                         //Loan term values also saved to vault
                         length = this.terms.lengthOfLoan,
@@ -140,6 +142,7 @@ class SecurityLoan : Contract {
             }
 
             is Commands.Update -> requireThat {
+                //TODO: add support for changing the stockprice as well as the margin
                 //Update the loan margin
                 "Only one input loan should be present" using (tx.inputs.filterIsInstance<State>().size == 1)
                 "Only one output loan should be present" using (tx.outputs.filterIsInstance<State>().size == 1)
@@ -147,7 +150,7 @@ class SecurityLoan : Contract {
                 val inputLoan = tx.inputs.filterIsInstance<State>().single()
                 val outputLoan = tx.outputs.filterIsInstance<State>().single()
                 "Linear ID should match" using (inputLoan.linearId == outputLoan.linearId)
-                "Loans should match, besides margin" using ((inputLoan.stockPrice == outputLoan.stockPrice)
+                "Loans should match, besides margin and currentStockPrice" using ((inputLoan.stockPrice == outputLoan.stockPrice)
                         &&(inputLoan.borrower == outputLoan.borrower)
                         &&(inputLoan.code == outputLoan.code)
                         &&(inputLoan.lender == outputLoan.lender)
@@ -168,7 +171,7 @@ class SecurityLoan : Contract {
     fun generateIssue(tx: TransactionBuilder,
                       loanTerms: LoanTerms,
                       notary: Party): TransactionBuilder{
-        val state = TransactionState(State(loanTerms.quantity, loanTerms.code, loanTerms.stockPrice, loanTerms.lender, loanTerms.borrower,
+        val state = TransactionState(State(loanTerms.quantity, loanTerms.code, loanTerms.stockPrice, loanTerms.stockPrice, loanTerms.lender, loanTerms.borrower,
                 Terms(loanTerms.lengthOfLoan, loanTerms.margin, loanTerms.rebate)), notary)
         tx.addOutputState(state)
         //Tx signed by the lender
@@ -188,13 +191,14 @@ class SecurityLoan : Contract {
     }
 
     fun generateUpdate(tx: TransactionBuilder,
-                     marginUpdate: Double,
-                     secLoan: StateAndRef<SecurityLoan.State>,
-                     lender: Party,
-                     borrower: Party): TransactionBuilder{
+                       priceUpdate: Amount<Currency>,
+                       marginUpdate: Double,
+                       secLoan: StateAndRef<SecurityLoan.State>,
+                       lender: Party,
+                       borrower: Party): TransactionBuilder{
         tx.addInputState(secLoan)
-        //Copy the input state and create a new output state with a changed margin
-        tx.addOutputState(TransactionState(secLoan.state.data.copy(terms = secLoan.state.data.terms.copy(margin = marginUpdate)), secLoan.state.notary))
+        //Copy the input state and create a new output state with a changed margin and a changed currentStockPrice
+        tx.addOutputState(TransactionState(secLoan.state.data.copy(currentStockPrice = priceUpdate,terms = secLoan.state.data.terms.copy(margin = marginUpdate)), secLoan.state.notary))
         tx.addCommand(SecurityLoan.Commands.Update(), lender.owningKey, borrower.owningKey)
         return tx
     }
