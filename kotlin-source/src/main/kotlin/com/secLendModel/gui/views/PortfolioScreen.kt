@@ -1,6 +1,6 @@
 package com.secLendModel.gui.views
 
-import com.secLendModel.gui.controller.LoginController
+import com.secLendModel.gui.controller.VaultController
 import com.secLendModel.gui.model.Loan
 import com.secLendModel.gui.model.LoanDetails
 import com.secLendModel.gui.model.SecuritiesLendingModel
@@ -28,11 +28,8 @@ data class Claim(
 )
 
 class PortfolioScreen : View("Portfolio") {
-    val loginController: LoginController by inject()
-
-    val myIdentity = getModel<NetworkIdentityModel>().myIdentity
     val cashStates by observableList(ContractStateModel::cashStates)
-    //val myIdentity by observableList(NetworkIdentityModel::myIdentity)
+    val myIdentity by observableValue(NetworkIdentityModel::myIdentity)
     val claimStates by observableList(SecuritiesLendingModel::claimStates)
     val claims = claimStates.map {
         Claim(it.state.data.code,
@@ -42,21 +39,19 @@ class PortfolioScreen : View("Portfolio") {
 
     override val root = tableview(claims) {
         //DEBUG
-        cashStates.map { println(it) }
+        //cashStates.map { println(it) }
         println("My identity is $myIdentity")
-        claims.map { println(it) }
+        claims.forEach { println("Claim is : $it") }
         //END DEBUG
 
         setPrefSize(800.0, 600.0)
         isEditable = false
 
-        label()
         column("ASX Code", Claim::code).useTextField(DefaultStringConverter())
         column("Quantity", Claim::quantity).useTextField(IntegerStringConverter())
 
         columnResizePolicy = SmartResize.POLICY
     }
-
 }
 
 
@@ -78,11 +73,11 @@ class PortfolioScreen : View("Portfolio") {
 //        column("Price", Loan::price).useTextField(LongStringConverter())
 //        column("Quantity", Loan::quantity).useTextField(IntegerStringConverter())
 //
-////        rowExpander(expandOnDoubleClick = true) {
-////            paddingLeft = expanderColumn.width
-////            tableview
-////
-////        }
+//        rowExpander(expandOnDoubleClick = true) {
+//            paddingLeft = expanderColumn.width
+//            tableview
+//
+//        }
 //
 //
 //        columnResizePolicy = SmartResize.POLICY
