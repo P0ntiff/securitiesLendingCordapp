@@ -37,8 +37,6 @@ open class PriceUpdateFlow(val code : String,
         return Pair(price, tx)
     }
 
-
-
     @InitiatingFlow
     class PriceQueryFlow(val oracle : Party, val code: String) : FlowLogic<Amount<Currency>>() {
         override fun call() : Amount<Currency> {
@@ -63,6 +61,5 @@ open class PriceUpdateFlow(val code : String,
             }
             return response
         }
-
     }
 }
