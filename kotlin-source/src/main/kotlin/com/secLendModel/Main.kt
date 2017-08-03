@@ -80,8 +80,8 @@ fun main(args: Array<String>) {
             startFlowPermission<Updator>(),
             startFlowPermission<UpdateAcceptor>(),
             startFlowPermission<Terminator>(),
-            startFlowPermission<TerminationAcceptor>(),
-            startFlowPermission<PriceUpdateFlow>()
+            startFlowPermission<TerminationAcceptor>()
+            //startFlowPermission<PriceUpdateFlow>()
     )
     val user = User("user1", "test", permissions = permissions)
     //TODO: Driver is causing a program crash
