@@ -1,9 +1,7 @@
 package com.secLendModel.flow.oracle
 
-import com.secLendModel.CURRENCY
-import io.atomix.copycat.protocol.QueryRequest
+import co.paralleluniverse.fibers.Suspendable
 import net.corda.core.contracts.Amount
-import net.corda.core.contracts.Command
 import net.corda.core.crypto.DigitalSignature
 import net.corda.core.flows.FlowLogic
 import net.corda.core.flows.InitiatingFlow
@@ -18,29 +16,29 @@ import java.util.function.Predicate
 //Called from a flow that requires an update to margin or stockPrice
 //Returns a Pair of (stockPrice, transactionBuilder) where the stockPrice is the officially signed
 //price of the stock and the transactionBuilder contains the oracle's signature
-
-open class PriceUpdateFlow(val code : String,
-                           val partiesInvolved : List<Party>,
-                           val oracle : Party,
+open class PriceRequestFlow(val code : String,
                            val tx : TransactionBuilder) : FlowLogic<Pair<Amount<Currency>, TransactionBuilder>>() {
-
+    @Suspendable
     override fun call() : Pair<Amount<Currency>, TransactionBuilder> {
-        val price =  subFlow(PriceQueryFlow(oracle, code))
+        val oracle = serviceHub.networkMapCache.getNodesWithService(PriceType.type).single()
+        val oracleService = oracle.serviceIdentities(PriceType.type).single()
+        val price =  subFlow(PriceQueryFlow(oracleService, code))
         //stockPrice command data is added to the tx -> contains the code and current ticker price
-        val stockPrice = stockPrice(Pair(code,price))
-        tx.addCommand(stockPrice,oracle.owningKey)
+        val stockPrice = stockPrice(Pair(code, price))
+        tx.addCommand(stockPrice, oracleService.owningKey)
         //Sign and confirm signatures for the tx
-        //TODO: Create our own filtering function to check the sttached signature is from oracle, for now we just accept
+        //TODO: Create our own filtering function to check the attached signature is from oracle, for now we just accept
         val mtx = tx.toWireTransaction().buildFilteredTransaction(filtering = Predicate{true})
-        val signature = subFlow(PriceSignFlow(oracle, mtx, tx))
+        val signature = subFlow(PriceSignFlow(oracleService, mtx, tx))
         tx.addSignatureUnchecked(signature)
         return Pair(price, tx)
     }
 
     @InitiatingFlow
     class PriceQueryFlow(val oracle : Party, val code: String) : FlowLogic<Amount<Currency>>() {
+        @Suspendable
         override fun call() : Amount<Currency> {
-            //Send the code we want a price update for to the oracle (This calls OracleFlow.QueryHandler.
+            //Send the code we want a price update for to the oracle (This calls OracleFlow.QueryHandler in response)
             val request = sendAndReceive<Amount<Currency>>(oracle, code).unwrap {
             //TODO: Any required checks go here
                 it
@@ -51,8 +49,9 @@ open class PriceUpdateFlow(val code : String,
 
     @InitiatingFlow
     class PriceSignFlow(val oracle : Party, val partialMerkleTx: FilteredTransaction, val tx: TransactionBuilder) : FlowLogic<DigitalSignature.LegallyIdentifiable>() {
+        @Suspendable
         override fun call() : DigitalSignature.LegallyIdentifiable {
-            val response = sendAndReceive<DigitalSignature.LegallyIdentifiable>(oracle,partialMerkleTx).unwrap {
+            val response = sendAndReceive<DigitalSignature.LegallyIdentifiable>(oracle, partialMerkleTx).unwrap {
                 //Check that it was actually the oracle that signed
                 check(it.signer == oracle)
                 //check that this signature is contained in the tx

@@ -4,7 +4,7 @@ import co.paralleluniverse.fibers.Suspendable
 import com.secLendModel.CURRENCY
 import com.secLendModel.contract.SecurityLoan
 import com.secLendModel.flow.oracle.Oracle
-import com.secLendModel.flow.oracle.PriceUpdateFlow
+import com.secLendModel.flow.oracle.PriceRequestFlow
 import com.secLendModel.flow.securitiesLending.LoanChecks.cashRequired
 import com.secLendModel.flow.securitiesLending.LoanChecks.getCounterParty
 import com.secLendModel.flow.securitiesLending.LoanChecks.stateToLoanTerms
@@ -53,7 +53,7 @@ object LoanUpdateFlow {
             //TODO: Check with Ben when we wish to include this implementation and test -> query oracle to get new price. From this calculate the new margin
             val priceTx = TransactionBuilder()
             //TODO: Change lender party here to the oracle -> need some help accessing oracle and adding it as a service in the main file
-            val priceQuery = subFlow(PriceUpdateFlow(secLoan.state.data.code, listOf(lender,borrower),lender ,priceTx))
+            val priceQuery = subFlow(PriceRequestFlow(secLoan.state.data.code, priceTx))
             val newPrice = priceQuery.first
             //Oracles signature is checked within price update flow, so checking here is not neccesary
             //Get the new margin based off the ratio of new to old stock price

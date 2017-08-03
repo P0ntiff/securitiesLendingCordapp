@@ -29,31 +29,10 @@ sourceSets {
 }
 
 dependencies {
-    //GUI DEPENDENCIES
-    compile 'org.controlsfx:controlsfx:8.40.12'
-
-    //TORNADOFX - NOTE VERSION 1.5.9 hardcoded
-    compile 'no.tornado:tornadofx:1.5.9'
-
-    testCompile 'junit:junit:4.12'
     compile "org.jetbrains.kotlin:kotlin-stdlib-jre8:$kotlin_version"
     compile "org.jetbrains.kotlin:kotlin-stdlib-js:$kotlin_version"
     compileOnly "co.paralleluniverse:capsule:1.0.1"
 
-    //ICON LIBRARY + ReactFX UI Programming
-    compile 'de.jensd:fontawesomefx-fontawesome:4.7.0'
-    compile 'org.reactfx:reactfx:2.0-M5'
-    compile 'org.fxmisc.easybind:easybind:1.0.3'
-
-    //JFX Extras
-    compile 'org.jfxtras:jfxtras-agenda:8.0-r5'
-    compile 'org.jfxtras:jfxtras-font-roboto:8.0-r5'
-    compile 'com.github.mfornos:humanize-icu:1.2.2'
-    compile 'commons-lang:commons-lang:2.6'
-    //com.apple.eawt stub extensions
-    compile 'com.yuvimasory:orange-extensions:1.3.0'
-
-    compile "org.jetbrains.kotlin:kotlin-stdlib-jre8:$kotlin_version"
     testCompile "org.jetbrains.kotlin:kotlin-test:$kotlin_version"
     testCompile "junit:junit:$junit_version"
 
@@ -68,14 +47,7 @@ dependencies {
     runtime "net.corda:corda:$corda_release_version"
     runtime "net.corda:corda-webserver:$corda_release_version"
 
-    // GraphStream: For visualisation (required by TemplateClientRPC app)
-    compile "org.graphstream:gs-core:1.3"
-    compile("org.graphstream:gs-ui:1.3") {
-        exclude group: "bouncycastle"
-    }
 
-    // CorDapp dependencies
-    // Specify your cordapp's dependencies below, including dependent cordapps
 }
 
 tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).all {
