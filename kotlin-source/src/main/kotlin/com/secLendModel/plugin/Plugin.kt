@@ -2,6 +2,7 @@ package com.secLendModel.plugin
 
 import com.secLendModel.contract.SecurityClaim
 import com.secLendModel.contract.SecurityLoan
+import com.secLendModel.flow.oracle.Oracle
 import com.secLendModel.flow.securities.TradeFlow.MarketOffer
 import net.corda.core.contracts.TransactionType
 import net.corda.core.node.CordaPluginRegistry
@@ -18,6 +19,7 @@ class Plugin : CordaPluginRegistry() {
         custom.addToWhitelist(TransactionType.General.Builder::class.java)
         custom.addToWhitelist(Boolean::class.java)
         custom.addToWhitelist(MarketOffer::class.java)
+        custom.addToWhitelist(Oracle::class.java)
         return true
     }
 }
