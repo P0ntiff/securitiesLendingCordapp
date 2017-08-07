@@ -22,7 +22,9 @@ open class PriceRequestFlow(val code : String,
     override fun call() : Pair<Amount<Currency>, TransactionBuilder> {
         val oracle = serviceHub.networkMapCache.getNodesWithService(PriceType.type).single()
         val oracleService = oracle.serviceIdentities(PriceType.type).single()
+        println(oracleService.name)
         val price =  subFlow(PriceQueryFlow(oracleService, code))
+        println(price)
         //stockPrice command data is added to the tx -> contains the code and current ticker price
         val stockPrice = stockPrice(Pair(code, price))
         tx.addCommand(stockPrice, oracleService.owningKey)
@@ -51,14 +53,13 @@ open class PriceRequestFlow(val code : String,
     class PriceSignFlow(val oracle : Party, val partialMerkleTx: FilteredTransaction, val tx: TransactionBuilder) : FlowLogic<DigitalSignature.LegallyIdentifiable>() {
         @Suspendable
         override fun call() : DigitalSignature.LegallyIdentifiable {
-            val response = sendAndReceive<DigitalSignature.LegallyIdentifiable>(oracle, partialMerkleTx).unwrap {
-                //Check that it was actually the oracle that signed
-                check(it.signer == oracle)
-                //check that this signature is contained in the tx
-                tx.checkSignature(it)
-                it
+            val response = sendAndReceive<DigitalSignature.LegallyIdentifiable>(oracle, partialMerkleTx)
+            return response.unwrap { sig ->
+                //check(sig.signer == oracle)
+                //tx.checkSignature(sig)
+                sig
             }
-            return response
+
         }
     }
 }

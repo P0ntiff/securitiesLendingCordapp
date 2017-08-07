@@ -66,8 +66,8 @@ object OracleFlow {
         @Suspendable
         override fun call() {
             val request = receive<FilteredTransaction>(otherParty).unwrap { it }
-            val response = serviceHub.cordaService(Oracle::class.java)
-            send(otherParty, response.sign(request))
+            val oracle = serviceHub.cordaService(Oracle::class.java)
+            send(otherParty, oracle.sign(request))
         }
     }
 }

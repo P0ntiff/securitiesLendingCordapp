@@ -29,6 +29,8 @@ import net.corda.core.serialization.OpaqueBytes
 import net.corda.flows.CashExitFlow
 import net.corda.flows.CashIssueFlow
 import net.corda.flows.CashPaymentFlow
+import net.corda.node.internal.AbstractNode
+import net.corda.node.internal.Node
 import net.corda.node.services.startFlowPermission
 import net.corda.nodeapi.User
 import net.corda.node.services.transactions.ValidatingNotaryService
@@ -114,7 +116,11 @@ class Simulation(options : String?) {
             //TODO: somewhere else on this page.
             //TODO: In the meantime I've posted a question on the slack about it.
 
-            val oracle = startNode(ORACLE, rpcUsers = listOf(specialUser), advertisedServices = setOf(ServiceInfo(PriceType.type)))
+            //TODO: I seem to have narrowed down the issue to the fact that in the Oracle constructor when services.myInfo.serviceIdentity is called, that list is returning empty
+            //So the node is never actually intilizing properly.
+
+            val oracle = startNode(ORACLE, advertisedServices = setOf(ServiceInfo(PriceType.type)))
+            println("${ServiceInfo(PriceType.type)}")
 
             notaryNode = notary.get()
             arnoldNode = arnold.get()
@@ -123,7 +129,11 @@ class Simulation(options : String?) {
             exchangeNode = exchange.get()
             centralNode = centralBank.get()
             oracleNode = oracle.get()
-
+            //Some simple debugging lines
+            println(oracleNode.nodeInfo.advertisedServices.first().info)
+            println(oracleNode.configuration.extraAdvertisedServiceIds)
+            //This is what is reporting as empty when instantiating the node, but its definetely not. Could be something to do with abstractNode
+            println(oracleNode.nodeInfo.serviceIdentities(PriceType.type).first())
             setUpNodes()
 
             simulateTransactions()
