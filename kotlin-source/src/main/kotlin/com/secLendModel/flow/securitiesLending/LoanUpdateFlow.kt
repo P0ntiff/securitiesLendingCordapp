@@ -44,23 +44,19 @@ object LoanUpdateFlow {
                     ) : FlowLogic<UniqueIdentifier>() {
         @Suspendable
         override fun call() : UniqueIdentifier {
-            //TODO: UpdateFlow should now also change the stockPrice listed on the loan, since this is always used to update the margin
             //STEP1: Get Loan that is being updated -> retrieving using unique LinearID
             val secLoan = subFlow(LoanRetrievalFlow(linearID))
             val borrower = secLoan.state.data.borrower
             val lender = secLoan.state.data.lender
 
-            /*** Experimental Section -> Updating price automatically using oracle ***/
-            //TODO: Check with Ben when we wish to include this implementation and test -> query oracle to get new price. From this calculate the new margin
+            //Query oracle for the new stock price
             val priceTx = TransactionBuilder()
-            //TODO: Change lender party here to the oracle -> need some help accessing oracle and adding it as a service in the main file
             val priceQuery = subFlow(PriceRequestFlow(secLoan.state.data.code, priceTx))
             val newPrice = priceQuery.first
             //val newPrice = Amount<Currency>(1000, CURRENCY)
             //Oracles signature is checked within price update flow, so checking here is not neccesary
             //Get the new margin based off the ratio of new to old stock price
             val newMargin = secLoan.state.data.terms.margin * (newPrice.quantity/secLoan.state.data.stockPrice.quantity)
-            /*** End Experimental Section ***/
 
             //STEP 2: Create Transaction with the loanState as input and updated LoanState as output
             val builder = TransactionType.General.Builder(notary = serviceHub.networkMapCache.notaryNodes.single().notaryIdentity)

@@ -19,15 +19,9 @@ import javax.annotation.concurrent.ThreadSafe
 @ThreadSafe
 @CordaService
 class Oracle(val identity: Party, val services: ServiceHub) : SingletonSerializeAsToken() {
-    //TODO: This serviceIdentitiesList is empty and the node actually isnt instantiated
-    //constructor(services: PluginServiceHub) : this(services.myInfo.serviceIdentities(PriceType.type).first(), services)
+    //TODO: This still seems a bit hacky. Seems like we can only have one oracle on the network as it is always just this identity
     constructor(services: PluginServiceHub) : this(services.myInfo.legalIdentity, services)
     val priceList = addDefaultPrices()
-    //This was giving an IO error so for testing/debugging ive changed it
-    //val priceList = setOf<Pair<String, Amount<Currency>>>(Pair("GBT",Amount<Currency>(10000, CURRENCY)), Pair("CBA",Amount<Currency>(8900, CURRENCY)))
-
-    //@JvmField
-    //val type = PriceType.type
 
 
     private fun addDefaultPrices(): Set<Pair<String, Amount<Currency>>> {

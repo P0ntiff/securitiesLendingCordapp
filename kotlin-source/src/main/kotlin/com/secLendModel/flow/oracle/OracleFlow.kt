@@ -40,7 +40,6 @@ import javax.annotation.concurrent.ThreadSafe
 data class stockPrice(val value: Pair<String, Amount<Currency>>) : CommandData
 
 
-//TODO: Confirm this is like FixSignHandler and FixQueryHandler classes in tutorial
 object OracleFlow {
     @InitiatedBy(PriceRequestFlow.PriceQueryFlow::class)
     class QueryHandler(val requester: Party): FlowLogic<Unit>() {
