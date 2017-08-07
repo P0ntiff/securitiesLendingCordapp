@@ -28,6 +28,7 @@ import net.corda.flows.FinalityFlow
 import net.corda.flows.ResolveTransactionsFlow
 import net.corda.flows.SignTransactionFlow
 import java.text.DecimalFormat
+import java.util.*
 
 /** A flow for updating the margin of a given SecurityLoan state -> all other parameters preserved
  *
@@ -38,9 +39,9 @@ import java.text.DecimalFormat
 object LoanUpdateFlow {
     @StartableByRPC
     @InitiatingFlow
-    class Updator(val linearID: UniqueIdentifier,
+    class Updator(val linearID: UniqueIdentifier
                     //val partialMerkleTx: FilteredTransaction,
-                    val newMargin: Double) : FlowLogic<UniqueIdentifier>() {
+                    ) : FlowLogic<UniqueIdentifier>() {
         @Suspendable
         override fun call() : UniqueIdentifier {
             //TODO: UpdateFlow should now also change the stockPrice listed on the loan, since this is always used to update the margin
@@ -55,14 +56,15 @@ object LoanUpdateFlow {
             //TODO: Change lender party here to the oracle -> need some help accessing oracle and adding it as a service in the main file
             val priceQuery = subFlow(PriceRequestFlow(secLoan.state.data.code, priceTx))
             val newPrice = priceQuery.first
+            //val newPrice = Amount<Currency>(1000, CURRENCY)
             //Oracles signature is checked within price update flow, so checking here is not neccesary
             //Get the new margin based off the ratio of new to old stock price
-            val newMargin2 = secLoan.state.data.terms.margin * (newPrice.quantity/secLoan.state.data.stockPrice.quantity)
+            val newMargin = secLoan.state.data.terms.margin * (newPrice.quantity/secLoan.state.data.stockPrice.quantity)
             /*** End Experimental Section ***/
 
             //STEP 2: Create Transaction with the loanState as input and updated LoanState as output
             val builder = TransactionType.General.Builder(notary = serviceHub.networkMapCache.notaryNodes.single().notaryIdentity)
-            SecurityLoan().generateUpdate(builder, newPrice, newMargin2, secLoan, lender, borrower)
+            SecurityLoan().generateUpdate(builder, newPrice, newMargin, secLoan, lender, borrower)
 
             //STEP 3: Calculate change in margin, add cash if required. If not required, will be added by acceptor in STEP X
             val changeMargin = DecimalFormat(".##").format(newMargin - secLoan.state.data.terms.margin).toDouble()

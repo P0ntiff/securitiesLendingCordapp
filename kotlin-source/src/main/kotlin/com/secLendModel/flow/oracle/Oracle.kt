@@ -10,7 +10,6 @@ import net.corda.core.identity.Party
 import net.corda.core.node.PluginServiceHub
 import net.corda.core.node.ServiceHub
 import net.corda.core.node.services.CordaService
-import net.corda.core.node.services.ServiceType
 import net.corda.core.serialization.SingletonSerializeAsToken
 import net.corda.core.transactions.FilteredTransaction
 import org.apache.commons.io.IOUtils
@@ -23,16 +22,16 @@ class Oracle(val identity: Party, val services: ServiceHub) : SingletonSerialize
     //TODO: This serviceIdentitiesList is empty and the node actually isnt instantiated
     //constructor(services: PluginServiceHub) : this(services.myInfo.serviceIdentities(PriceType.type).first(), services)
     constructor(services: PluginServiceHub) : this(services.myInfo.legalIdentity, services)
-    //val priceList = addDefaultPrices()
+    val priceList = addDefaultPrices()
     //This was giving an IO error so for testing/debugging ive changed it
-    val priceList = setOf<Pair<String, Amount<Currency>>>(Pair("GBT",Amount<Currency>(10000, CURRENCY)), Pair("CBA",Amount<Currency>(8900, CURRENCY)))
+    //val priceList = setOf<Pair<String, Amount<Currency>>>(Pair("GBT",Amount<Currency>(10000, CURRENCY)), Pair("CBA",Amount<Currency>(8900, CURRENCY)))
 
     //@JvmField
     //val type = PriceType.type
 
 
     private fun addDefaultPrices(): Set<Pair<String, Amount<Currency>>> {
-        return  parseFile(IOUtils.toString(Thread.currentThread().contextClassLoader.getResourceAsStream("com/secLendModel/example_prices.txt"), Charsets.UTF_8.name()))
+        return  parseFile(IOUtils.toString(Thread.currentThread().contextClassLoader.getResourceAsStream("example_prices.txt"), Charsets.UTF_8.name()))
     }
 
     //Parse a file with lines containing prices in the form GBT = 100

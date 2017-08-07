@@ -20,18 +20,17 @@ open class PriceRequestFlow(val code : String,
                            val tx : TransactionBuilder) : FlowLogic<Pair<Amount<Currency>, TransactionBuilder>>() {
     @Suspendable
     override fun call() : Pair<Amount<Currency>, TransactionBuilder> {
-        val oracle = serviceHub.networkMapCache.getNodesWithService(PriceType.type).single()
-        val oracleService = oracle.serviceIdentities(PriceType.type).single()
-        println(oracleService.name)
-        val price =  subFlow(PriceQueryFlow(oracleService, code))
-        println(price)
+        //val oracle = serviceHub.networkMapCache.getNodesWithService(PriceType.type).single()
+        //val oracleService = oracle.serviceIdentities(PriceType.type).single()
+        val oracle2 = serviceHub.cordaService(Oracle::class.java)
+        val price =  subFlow(PriceQueryFlow(oracle2.identity, code))
         //stockPrice command data is added to the tx -> contains the code and current ticker price
         val stockPrice = stockPrice(Pair(code, price))
-        tx.addCommand(stockPrice, oracleService.owningKey)
+        tx.addCommand(stockPrice, oracle2.identity.owningKey)
         //Sign and confirm signatures for the tx
         //TODO: Create our own filtering function to check the attached signature is from oracle, for now we just accept
         val mtx = tx.toWireTransaction().buildFilteredTransaction(filtering = Predicate{true})
-        val signature = subFlow(PriceSignFlow(oracleService, mtx, tx))
+        val signature = subFlow(PriceSignFlow(oracle2.identity, mtx, tx))
         tx.addSignatureUnchecked(signature)
         return Pair(price, tx)
     }
@@ -55,8 +54,10 @@ open class PriceRequestFlow(val code : String,
         override fun call() : DigitalSignature.LegallyIdentifiable {
             val response = sendAndReceive<DigitalSignature.LegallyIdentifiable>(oracle, partialMerkleTx)
             return response.unwrap { sig ->
-                //check(sig.signer == oracle)
-                //tx.checkSignature(sig)
+                //println(sig.signer.owningKey)
+                //println(oracle.owningKey)
+                check(sig.signer.owningKey == oracle.owningKey)
+                tx.checkSignature(sig)
                 sig
             }
 

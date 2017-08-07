@@ -407,9 +407,8 @@ class Simulation(options : String?) {
      *
      */
     private fun updateMargin(id: UniqueIdentifier, initiator: CordaRPCOps): UniqueIdentifier {
-        val rand = Random()
-        val newMargin : Double = (rand.nextInt(8 + 1 - 2) + 2).toDouble() / 100
-        val updatedID = initiator.startFlow(::Updator, id, newMargin).returnValue.getOrThrow()
+
+        val updatedID = initiator.startFlow(::Updator, id).returnValue.getOrThrow()
         println("Margin updated on loan with old ID: '${id}' and  newID: '${updatedID}'")
         return updatedID
     }
