@@ -17,3 +17,54 @@ buildscript {
 
     }
 }
+
+apply plugin: 'java'
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+allprojects {
+    apply plugin: 'kotlin'
+    apply plugin: 'java'
+
+    sourceCompatibility = 1.8
+    targetCompatibility = 1.8
+
+    // Use manual resource copying of log4j2.xml rather than source sets.
+    // This prevents problems in IntelliJ with regard to duplicate source roots.
+    processTestResources {
+        from file("$rootDir/config/test/log4j2.xml")
+    }
+
+    tasks.withType(JavaCompile) {
+        options.compilerArgs << "-Xlint:unchecked" << "-Xlint:deprecation" << "-Xlint:-options" << "-parameters"
+    }
+
+    tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).all {
+        kotlinOptions {
+            languageVersion = "1.1"
+            apiVersion = "1.1"
+            jvmTarget = "1.8"
+            javaParameters = true   // Useful for reflection.
+        }
+    }
+
+    group 'com.secLendModel'
+    version "$corda_release_version"
+
+    repositories {
+        mavenLocal()
+        mavenCentral()
+        jcenter()
+        // TODO: remove this once we eliminate Exposed
+        maven {
+            url 'https://dl.bintray.com/kotlin/exposed'
+        }
+        maven { url 'https://jitpack.io' }
+    }
+}
+
+dependencies {
+    compile project(path: ":kotlin-source")
+    compile project(path: ":gui")
+
+}

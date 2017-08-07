@@ -6,7 +6,6 @@ apply plugin: 'net.corda.plugins.cordformation'
 apply plugin: 'maven-publish'
 apply plugin: 'application'
 
-
 repositories {
     mavenLocal()
     jcenter()
@@ -119,7 +118,7 @@ publishing {
     publications {
         jarAndSources(MavenPublication) {
             from components.java
-            artifactId 'cordapp-name-goes-here'
+            artifactId 'secLendModel'
 
             artifact sourceJar
             artifact javadocJar
