@@ -18,6 +18,7 @@ import com.secLendModel.flow.securitiesLending.LoanTerms
 import net.corda.core.contracts.Amount
 import net.corda.core.contracts.GBP
 import net.corda.core.contracts.UniqueIdentifier
+import net.corda.core.contracts.currency
 import net.corda.core.getOrThrow
 import net.corda.core.identity.Party
 import net.corda.core.messaging.CordaRPCOps
@@ -38,6 +39,7 @@ import net.corda.testing.driver.NodeHandle
 import net.corda.testing.driver.PortAllocation
 import net.corda.testing.driver.driver
 import org.bouncycastle.asn1.x500.X500Name
+import java.math.BigDecimal
 import java.util.*
 
 //@JvmField val GBT = Security.getInstance("GBT")
@@ -56,16 +58,27 @@ val MARKET = setOf(ServiceInfo(ServiceType.corda.getSubType("issuer.RIO")),
         ServiceInfo(ServiceType.corda.getSubType("issuer.GBT")),
         ServiceInfo(ServiceType.corda.getSubType("issuer.CBA")),
         ServiceInfo(ServiceType.corda.getSubType("issuer.BP")))
-val CODES = listOf("GBT", "CBA")//, "RIO", "BP")
-val STOCKS = listOf("GBST Holdings Ltd", "Commonwealth Bank of Australia")//, "Rio Tinto Ltd", "British Petroleum")
+val CODES = listOf(
+        "GBT",
+        "CBA",
+        "RIO"
+//        "BP"
+)
+val STOCKS = listOf(
+        "GBST Holdings Ltd Ordinary Fully Paid",
+        "Commonwealth Bank of Australia Ordinary Fully Paid",
+        "Rio Tinto Ltd Ordinary Fully Paid"
+//        "British Petroleum Ordinary Fully PAid")
+)
 
 //Currencies to be on issue by central bank
 val CURRENCIES = setOf(ServiceInfo(ServiceType.corda.getSubType("issuer.GBP")),
         ServiceInfo(ServiceType.corda.getSubType("issuer.USD")),
+        ServiceInfo(ServiceType.corda.getSubType("issuer.AUD")),
         ServiceInfo(ServiceType.corda.getSubType("cash")))
-
 //Current currency in use
-val CURRENCY = GBP
+@JvmField val AUD = currency("AUD")
+val CURRENCY = AUD
 
 fun main(args: Array<String>) {
     Simulation("Place runtime options here")
@@ -86,7 +99,7 @@ class Simulation(options : String?) {
     //lateinit var colinNode : NodeHandle
     lateinit var exchangeNode : NodeHandle
     lateinit var centralNode : NodeHandle
-    lateinit var oracleNode : NodeHandle
+    //lateinit var oracleNode : NodeHandle
 
     val parties = ArrayList<Pair<Party, CordaRPCOps>>()
     val stockMarkets = ArrayList<Pair<Party, CordaRPCOps>>()
@@ -105,16 +118,14 @@ class Simulation(options : String?) {
 
             //Special Users (i.e asset issuers and oracles)
             val notary = startNode(NOTARY, advertisedServices = setOf(ServiceInfo(ValidatingNotaryService.type)))
+            //Stock issuer and stock price oracle
             val exchange = startNode(EXCHANGE, rpcUsers = arrayListOf(specialUser),
-                    advertisedServices = MARKET)
+                    advertisedServices = MARKET.plus(ServiceInfo(PriceType.type)))
+            //Cash issuer
             val centralBank = startNode(CENTRALBANK, rpcUsers = arrayListOf(specialUser),
                     advertisedServices = CURRENCIES)
-            //TODO: Check oracle service type is correct
-            //TODO: I seem to have narrowed down the issue to the fact that in the Oracle constructor when services.myInfo.serviceIdentity is called, that list is returning empty
-            //So the node is never actually intilizing properly.
-
-            val oracle = startNode(ORACLE, advertisedServices = setOf(ServiceInfo(PriceType.type)))
-            println("${ServiceInfo(PriceType.type)}")
+            //val oracle = startNode(ORACLE, advertisedServices = setOf(ServiceInfo(PriceType.type)))
+            //println("${ServiceInfo(PriceType.type)}")
 
             notaryNode = notary.get()
             arnoldNode = arnold.get()
@@ -122,12 +133,12 @@ class Simulation(options : String?) {
             //colinNode = colin.get()
             exchangeNode = exchange.get()
             centralNode = centralBank.get()
-            oracleNode = oracle.get()
+//            oracleNode = oracle.get()
             //Some simple debugging lines
-            println(oracleNode.nodeInfo.advertisedServices.first().info)
-            println(oracleNode.configuration.extraAdvertisedServiceIds)
+//            println(oracleNode.nodeInfo.advertisedServices.first().info)
+//            println(oracleNode.configuration.extraAdvertisedServiceIds)
             //This is what is reporting as empty when instantiating the node, but its definetely not. Could be something to do with abstractNode
-            println(oracleNode.nodeInfo.serviceIdentities(PriceType.type).first())
+//            println(oracleNode.nodeInfo.serviceIdentities(PriceType.type).first())
             setUpNodes()
 
             simulateTransactions()
@@ -146,10 +157,13 @@ class Simulation(options : String?) {
             issueEquity(stockMarket, it.second, notaryNode.nodeInfo.notaryIdentity)
         }
 
-        //Test they can move stock and cash to another owner, and test they can DVP trade stock
+        //Test they can move stock and cash to another owner
         parties.forEach {
             moveCash(it.second)
             moveEquity(it.second)
+        }
+        //Test they can DVP trade stock
+        parties.forEach {
             tradeEquity(it.second)
             tradeEquity(it.second)
         }
@@ -200,7 +214,7 @@ class Simulation(options : String?) {
         stockMarkets.add((eRPC.nodeIdentity().legalIdentity to eRPC))
         cashIssuers.add((cbRPC.nodeIdentity().legalIdentity to cbRPC))
 
-        arrayOf(notaryNode, arnoldNode, barryNode, exchangeNode, centralNode, oracleNode).forEach {
+        arrayOf(notaryNode, arnoldNode, barryNode, exchangeNode, centralNode).forEach {
             println("${it.nodeInfo.legalIdentity} started on ${it.configuration.rpcAddress}")
         }
     }
@@ -242,12 +256,12 @@ class Simulation(options : String?) {
      */
     private fun moveCash(sender : CordaRPCOps) {
         val rand = Random()
-        val dollaryDoos = (rand.nextInt(150 + 1 - 50) + 50).toLong() * 1000
-        val amount = Amount(dollaryDoos, CURRENCY)
+        val dollaryDoos = BigDecimal((rand.nextInt(100 + 1 - 1) + 1) * 10000)
+        val amount = Amount.fromDecimal(dollaryDoos, CURRENCY)
         val randomRecipient = parties.filter { it.first != sender.nodeIdentity().legalIdentity }[rand.nextInt(parties.size - 1)].first
 
         sender.startTrackedFlow(::CashPaymentFlow, amount, randomRecipient).returnValue.getOrThrow()
-        println("Cash Payment: $dollaryDoos units of $CURRENCY sent to ${randomRecipient} from ${sender.nodeIdentity().legalIdentity}")
+        println("Cash Payment: ${dollaryDoos} units of $CURRENCY sent to ${randomRecipient} from ${sender.nodeIdentity().legalIdentity}")
     }
 
     /** Selects a random stock (with a random quantity) for the sender to sell "for free" (i.e receives nothing in return from the recipient).
@@ -257,7 +271,7 @@ class Simulation(options : String?) {
     private fun moveEquity(sender : CordaRPCOps) {
         val rand = Random()
         val stockIndex = rand.nextInt(CODES.size)
-        val figure = (rand.nextInt(150 + 1 - 50) + 50)
+        val figure = (rand.nextInt(100 + 1 - 10) + 10) * 10
         val randomRecipient = parties.filter { it.first != sender.nodeIdentity().legalIdentity }[rand.nextInt(parties.size - 1)].first
 
         sender.startTrackedFlow(::OwnershipTransferFlow, CODES[stockIndex], figure, randomRecipient).returnValue.getOrThrow()
@@ -271,11 +285,12 @@ class Simulation(options : String?) {
      */
     private fun issueCash(centralBank : CordaRPCOps, recipient : CordaRPCOps, notaryNode : Party) {
         val rand = Random()
-        val dollaryDoos = (rand.nextInt(150 + 1 - 50) + 50).toLong() * 1000000
-        val amount = Amount(dollaryDoos, CURRENCY)
+        //Issue an amount between 1 million and 10 million
+        val dollaryDoos = BigDecimal((rand.nextInt(100 + 1 - 10) + 10) * 1000000)
+        val amount = Amount.fromDecimal(dollaryDoos, CURRENCY)
 
         centralBank.startTrackedFlow(::CashIssueFlow, amount, OpaqueBytes.of(1), recipient.nodeIdentity().legalIdentity, notaryNode).returnValue.getOrThrow()
-        println("Cash Issue: ${dollaryDoos} units of $CURRENCY issued to ${recipient.nodeIdentity().legalIdentity}")
+        println("Cash Issue: ${amount} units of $CURRENCY issued to ${recipient.nodeIdentity().legalIdentity}")
     }
 
     /** Grants holdings of each security issued on the ledger to a party on the ledger.
@@ -286,7 +301,7 @@ class Simulation(options : String?) {
     private fun issueEquity(exchange : CordaRPCOps, recipient : CordaRPCOps, notaryNode : Party) {
         val rand = Random()
         for (code in CODES) {
-            val figure = (rand.nextInt(150 + 1 - 50) + 50) * 100
+            val figure = (rand.nextInt(600 + 1 - 50) + 50) * 1000
 
             exchange.startTrackedFlow(::SecuritiesIssueFlow,
                     code,
@@ -305,14 +320,18 @@ class Simulation(options : String?) {
     private fun tradeEquity(seller : CordaRPCOps) {
         val rand = Random()
         val stockIndex = rand.nextInt(CODES.size - 0) + 0
-        val figure = (rand.nextInt(150 + 1 - 50) + 50)
+        //Quantity between 1,000 and 10,000 shares
+        val quantity = (rand.nextInt(1000 + 1 - 100) + 100) * 10
 
-        val dollaryDoos = (rand.nextInt(150 + 1 - 50) + 50).toLong() * 100
-        val sharePrice = Amount(dollaryDoos, CURRENCY)
+        //Price between $50.00 and $110.00  per share (decimal)
+        val dollaryDoos : BigDecimal = BigDecimal((rand.nextInt(11000 + 1 - 5000) + 5000) / 100)
+        println(dollaryDoos)
+        val sharePrice = Amount.fromDecimal(dollaryDoos, CURRENCY)
+        println(sharePrice)
         val randomBuyer = parties.filter { it.first != seller.nodeIdentity().legalIdentity }[rand.nextInt(parties.size - 1)].first
-
-        seller.startFlow(::Seller, CODES[stockIndex], figure, sharePrice, randomBuyer).returnValue.getOrThrow()
-        println("Trade Finalised: ${figure} shares in ${CODES[stockIndex]} at ${sharePrice} each sold to buyer '" +
+        println(" IN FLOW ")
+        seller.startFlow(::Seller, CODES[stockIndex], quantity, sharePrice, randomBuyer).returnValue.getOrThrow()
+        println("Trade Finalised: ${quantity} shares in ${CODES[stockIndex]} at ${sharePrice} each sold to buyer '" +
                 "${randomBuyer}' by seller '${seller.nodeIdentity().legalIdentity}'")
     }
 
@@ -401,7 +420,6 @@ class Simulation(options : String?) {
      *
      */
     private fun updateMargin(id: UniqueIdentifier, initiator: CordaRPCOps): UniqueIdentifier {
-
         val updatedID = initiator.startFlow(::Updator, id).returnValue.getOrThrow()
         println("Margin updated on loan with old ID: '${id}' and  newID: '${updatedID}'")
         return updatedID

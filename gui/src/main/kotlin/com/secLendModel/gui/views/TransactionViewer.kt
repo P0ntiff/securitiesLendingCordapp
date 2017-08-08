@@ -1,7 +1,11 @@
 package com.secLendModel.gui.views
 
+import com.secLendModel.CODES
+import com.secLendModel.STOCKS
 import com.secLendModel.contract.SecurityClaim
 import com.secLendModel.contract.SecurityLoan
+import com.secLendModel.flow.securitiesLending.LoanChecks.getCounterParty
+import com.secLendModel.flow.securitiesLending.LoanChecks.stateToLoanTerms
 import de.jensd.fx.glyphs.fontawesome.FontAwesomeIcon
 import javafx.beans.binding.Bindings
 import javafx.beans.value.ObservableValue
@@ -264,13 +268,14 @@ class TransactionViewer : CordaView("Transactions") {
                             graphic = identicon(contractState.ref.txhash, 30.0)
                             tooltip = identiconToolTip(contractState.ref.txhash)
                             gridpaneConstraints { columnSpan = 2 }
+
                         }
                     }
                     val data = contractState.state.data
                     when (data) {
                         is Cash.State -> {
                             row {
-                                label("Amount :") { gridpaneConstraints { hAlignment = HPos.RIGHT } }
+                                label("Quantity :") { gridpaneConstraints { hAlignment = HPos.RIGHT } }
                                 label(AmountFormatter.boring.format(data.amount.withoutIssuer()))
                             }
                             row {
@@ -293,12 +298,12 @@ class TransactionViewer : CordaView("Transactions") {
                         }
                         is SecurityClaim.State -> {
                             row {
-                                label("Stock Code : ") { gridpaneConstraints { hAlignment = HPos.RIGHT } }
-                                label(data.code) { gridpaneConstraints { hAlignment = HPos.RIGHT } }
+                                label("Instrument : ") { gridpaneConstraints { hAlignment = HPos.RIGHT } }
+                                label(STOCKS[CODES.indexOf(data.code)])
                             }
                             row {
-                                label("Quantity : ") { gridpaneConstraints {  hAlignment = HPos.RIGHT } }
-                                label(data.quantity.toString()) { gridpaneConstraints { hAlignment = HPos.RIGHT } }
+                                label("Quantity : ") { gridpaneConstraints { hAlignment = HPos.RIGHT } }
+                                label(AmountFormatter.formatStock(data.quantity))
                             }
                             row {
                                 label("Owner :") { gridpaneConstraints { hAlignment = HPos.RIGHT } }
@@ -307,20 +312,28 @@ class TransactionViewer : CordaView("Transactions") {
                         }
                         is SecurityLoan.State -> {
                             row {
-                                label("Stock Code : ") { gridpaneConstraints { hAlignment = HPos.RIGHT } }
-                                label(data.code)
+                                label("Instrument : ") { gridpaneConstraints { hAlignment = HPos.RIGHT } }
+                                label(STOCKS[CODES.indexOf(data.code)])
                             }
                             row {
                                 label("Quantity : ") { gridpaneConstraints { hAlignment = HPos.RIGHT } }
-                                label(data.quantity.toString())
+                                label(AmountFormatter.formatStock(data.quantity))
                             }
                             row {
-                                label("Lender :") { gridpaneConstraints { hAlignment = HPos.RIGHT } }
-                                label(data.lender.toString())
+                                label("Type :") { gridpaneConstraints { hAlignment = HPos.RIGHT } }
+                                label {
+                                    if (data.borrower == myIdentity.value?.legalIdentity) {
+                                        text = "Stock Borrow"
+                                    } else if (data.lender == myIdentity.value?.legalIdentity) {
+                                        text = "Stock Loan"
+                                    } else {
+                                        text = "Unresolved role in stock loan"
+                                    }
+                                }
                             }
                             row {
-                                label("Borrower :") { gridpaneConstraints { hAlignment = HPos.RIGHT } }
-                                label(data.borrower.toString())
+                                label("CounterParty :") { gridpaneConstraints { hAlignment = HPos.RIGHT } }
+                                label(getCounterParty(stateToLoanTerms(data), myIdentity.value!!.legalIdentity).toString())
                             }
                         }
                     // TODO : Generic view using reflection?
