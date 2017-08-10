@@ -5,3 +5,8 @@ enum class CashTransaction(val partyNameA: String, val partyNameB: String?) {
     Pay("Payer", "Payee"),
     Exit("Issuer Bank", null);
 }
+
+enum class EquitiesTransaction(val partyNameA: String, val partyNameB: String?) {
+    Buy("Buyer", "Seller"),
+    Sell("Seller", "Buyer")
+}

@@ -19,6 +19,11 @@ object AmountFormatter {
             return builder
         }
     }
+
+    val intFormatter = object : Formatter<Int> {
+        override fun format(value: Int) = formatStock(value)
+    }
+
     fun formatStock(value: Int) = String.format("%,d", value.toLong())
     fun formatPercentage(value : Double) = String.format("%d", (value * 100).toLong()) + "%"
 }
