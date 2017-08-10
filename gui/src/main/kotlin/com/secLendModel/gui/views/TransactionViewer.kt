@@ -190,7 +190,7 @@ class TransactionViewer : CordaView("Transactions") {
 
             expander = rowExpander {
                 add(ContractStatesView(it).root)
-                prefHeight = 400.0
+                //prefHeight = 400.0
             }.apply {
                 // Column stays the same size, but we don't violate column restricted resize policy for the whole table view.
                 // It removes that irritating column at the end of table that does nothing.
@@ -242,7 +242,9 @@ class TransactionViewer : CordaView("Transactions") {
             val signatureData = transaction.tx.transaction.sigs.map { it.by }
             // Bind count to TitlePane
             inputPane.text = "Input (${transaction.inputs.resolved.count()})"
+            inputs.prefHeight = 600.0
             outputPane.text = "Output (${transaction.outputs.count()})"
+            outputs.prefHeight = 600.0
             signaturesPane.text = "Signatures (${signatureData.count()})"
 
             inputs.cellCache { getCell(it) }
@@ -279,6 +281,14 @@ class TransactionViewer : CordaView("Transactions") {
                                 label(AmountFormatter.boring.format(data.amount.withoutIssuer()))
                             }
                             row {
+                                label("Owner :") { gridpaneConstraints { hAlignment = HPos.RIGHT } }
+                                val owner = data.owner
+                                val nodeInfo = getModel<NetworkIdentityModel>().lookup(owner.owningKey)
+                                label(nodeInfo.map { it?.legalIdentity?.let { PartyNameFormatter.short.format(it.name) } ?: "???" }) {
+                                    tooltip(data.owner.owningKey.toBase58String())
+                                }
+                            }
+                            row {
                                 label("Issuer :") { gridpaneConstraints { hAlignment = HPos.RIGHT } }
                                 val anonymousIssuer: AbstractParty = data.amount.token.issuer.party
                                 val issuer: AbstractParty = anonymousIssuer.resolveIssuer().value ?: anonymousIssuer
@@ -287,14 +297,7 @@ class TransactionViewer : CordaView("Transactions") {
                                     tooltip(anonymousIssuer.owningKey.toBase58String())
                                 }
                             }
-                            row {
-                                label("Owner :") { gridpaneConstraints { hAlignment = HPos.RIGHT } }
-                                val owner = data.owner
-                                val nodeInfo = getModel<NetworkIdentityModel>().lookup(owner.owningKey)
-                                label(nodeInfo.map { it?.legalIdentity?.let { PartyNameFormatter.short.format(it.name) } ?: "???" }) {
-                                    tooltip(data.owner.owningKey.toBase58String())
-                                }
-                            }
+
                         }
                         is SecurityClaim.State -> {
                             row {
@@ -307,10 +310,32 @@ class TransactionViewer : CordaView("Transactions") {
                             }
                             row {
                                 label("Owner :") { gridpaneConstraints { hAlignment = HPos.RIGHT } }
-                                label(data.owner.toString())
+                                label(PartyNameFormatter.short.format(data.owner.nameOrNull()!!))
                             }
+                            row {
+                                label("Issuer :") { gridpaneConstraints { hAlignment = HPos.RIGHT } }
+                                val anonymousIssuer: AbstractParty = data.issuance.party
+                                val issuer: AbstractParty = anonymousIssuer.resolveIssuer().value ?: anonymousIssuer
+                                // TODO: Anonymous should probably be italicised or similar
+                                label(issuer.nameOrNull()?.let { PartyNameFormatter.short.format(it) } ?: "Anonymous") {
+                                    tooltip(anonymousIssuer.owningKey.toBase58String())
+                                }
+                            }
+
                         }
                         is SecurityLoan.State -> {
+                            row {
+                                label("Type : ") { gridpaneConstraints { hAlignment = HPos.RIGHT } }
+                                label {
+                                    if (data.borrower == myIdentity.value?.legalIdentity) {
+                                        text = "Stock Borrow"
+                                    } else if (data.lender == myIdentity.value?.legalIdentity) {
+                                        text = "Stock Loan"
+                                    } else {
+                                        text = "Stock loan with unresolved role"
+                                    }
+                                }
+                            }
                             row {
                                 label("Instrument : ") { gridpaneConstraints { hAlignment = HPos.RIGHT } }
                                 label(STOCKS[CODES.indexOf(data.code)])
@@ -320,20 +345,16 @@ class TransactionViewer : CordaView("Transactions") {
                                 label(AmountFormatter.formatStock(data.quantity))
                             }
                             row {
-                                label("Type :") { gridpaneConstraints { hAlignment = HPos.RIGHT } }
-                                label {
-                                    if (data.borrower == myIdentity.value?.legalIdentity) {
-                                        text = "Stock Borrow"
-                                    } else if (data.lender == myIdentity.value?.legalIdentity) {
-                                        text = "Stock Loan"
-                                    } else {
-                                        text = "Unresolved role in stock loan"
-                                    }
-                                }
+                                label("Counter Party : ") { gridpaneConstraints { hAlignment = HPos.RIGHT } }
+                                label(PartyNameFormatter.short.format(getCounterParty(stateToLoanTerms(data), myIdentity.value!!.legalIdentity).name))
                             }
                             row {
-                                label("CounterParty :") { gridpaneConstraints { hAlignment = HPos.RIGHT } }
-                                label(getCounterParty(stateToLoanTerms(data), myIdentity.value!!.legalIdentity).toString())
+                                label("Price Per Share : ") { gridpaneConstraints { hAlignment = HPos.RIGHT } }
+                                label(AmountFormatter.boring.format(data.currentStockPrice))
+                            }
+                            row {
+                                label("Margin : ") { gridpaneConstraints { hAlignment = HPos.RIGHT } }
+                                label(AmountFormatter.formatPercentage(data.terms.margin))
                             }
                         }
                     // TODO : Generic view using reflection?

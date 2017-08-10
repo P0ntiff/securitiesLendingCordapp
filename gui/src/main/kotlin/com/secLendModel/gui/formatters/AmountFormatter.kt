@@ -15,11 +15,10 @@ object AmountFormatter {
     val boring = object : Formatter<Amount<Currency>> {
         override fun format(value: Amount<Currency>): String {
             var df : DecimalFormat = DecimalFormat("#, ###.00")
-            val builder : String = df.format(value.toDecimal()) + value.token.toString()
+            val builder : String = "$" + df.format(value.toDecimal()) + value.token.toString()
             return builder
         }
     }
     fun formatStock(value: Int) = String.format("%,d", value.toLong())
-
-
+    fun formatPercentage(value : Double) = String.format("%d", (value * 100).toLong()) + "%"
 }

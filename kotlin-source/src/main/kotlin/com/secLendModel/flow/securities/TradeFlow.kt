@@ -159,13 +159,9 @@ object TradeFlow {
 **/
             /*********************************************************************************************************/
             progressTracker.currentStep = INPUTTING
-            println("Stock price ${stockPrice} times stock quantity ${BigDecimal(quantity)}")
-            println("Decimal stock price is ${stockPrice.toDecimal()}")
             val totalCash = Amount.fromDecimal(stockPrice.toDecimal() * BigDecimal(quantity), CURRENCY)
-            println(totalCash)
-            println(stockPrice.toDecimal() * BigDecimal(quantity))
-            println(totalCash.quantity)
-            println("Cash in bank : " + serviceHub.vaultService.cashBalances.values.sumOrNull().toString())
+            //println(totalCash)
+            //println("Cash in bank : " + serviceHub.vaultService.cashBalances.values.sumOrNull().toString())
             val (ptx, cashSigningPubKeys) = serviceHub.vaultService.
                     generateSpend(builder,
                     totalCash,
