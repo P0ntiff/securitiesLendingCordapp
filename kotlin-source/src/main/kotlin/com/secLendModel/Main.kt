@@ -109,16 +109,7 @@ class Simulation(options : String?) {
                     advertisedServices = MARKET)
             val centralBank = startNode(CENTRALBANK, rpcUsers = arrayListOf(specialUser),
                     advertisedServices = CURRENCIES)
-            //TODO: Check oracle service type is correct
-            //TODO: Raymond I'm not sure how to implement the Oracle class (i.e Oracle.kt) as an installable "CordaService" yet
-            //TODO: I believe the "Oracle does not exist" IllegalArgumentException occurs because .cordaService can't find any instance of an Oracle actually running
-            //TODO: https://docs.corda.net/oracles.html#testing says that the method to scan and install oracles is only implemented on MockNode, but the solution could be
-            //TODO: somewhere else on this page.
-            //TODO: In the meantime I've posted a question on the slack about it.
-
-            //TODO: I seem to have narrowed down the issue to the fact that in the Oracle constructor when services.myInfo.serviceIdentity is called, that list is returning empty
-            //So the node is never actually intilizing properly.
-
+            //TODO: Merge oracle node and exchange node so a single node can both issue stock and update prices
             val oracle = startNode(ORACLE, advertisedServices = setOf(ServiceInfo(PriceType.type)))
             println("${ServiceInfo(PriceType.type)}")
 

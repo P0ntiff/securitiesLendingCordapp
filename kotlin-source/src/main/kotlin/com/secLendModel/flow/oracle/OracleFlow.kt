@@ -67,6 +67,7 @@ object OracleFlow {
             val request = receive<FilteredTransaction>(otherParty).unwrap { it }
             val oracle = serviceHub.cordaService(Oracle::class.java)
             //These calls are no longer used, can change to this method if there was multiple oracles within the network
+            //Leaving them here incase we need to revert back to this
             //val oracle2 = serviceHub.networkMapCache.getNodesWithService(PriceType.type).single()
             //val oracleService = oracle2.serviceIdentities(PriceType.type).single()
             send(otherParty, oracle.sign(request))

@@ -54,8 +54,6 @@ open class PriceRequestFlow(val code : String,
         override fun call() : DigitalSignature.LegallyIdentifiable {
             val response = sendAndReceive<DigitalSignature.LegallyIdentifiable>(oracle, partialMerkleTx)
             return response.unwrap { sig ->
-                //println(sig.signer.owningKey)
-                //println(oracle.owningKey)
                 check(sig.signer.owningKey == oracle.owningKey)
                 tx.checkSignature(sig)
                 sig
