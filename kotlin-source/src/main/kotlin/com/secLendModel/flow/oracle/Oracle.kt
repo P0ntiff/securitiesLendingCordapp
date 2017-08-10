@@ -13,6 +13,7 @@ import net.corda.core.node.services.CordaService
 import net.corda.core.serialization.SingletonSerializeAsToken
 import net.corda.core.transactions.FilteredTransaction
 import org.apache.commons.io.IOUtils
+import java.math.BigDecimal
 import java.util.*
 import javax.annotation.concurrent.ThreadSafe
 
@@ -41,9 +42,10 @@ class Oracle(val identity: Party, val services: ServiceHub) : SingletonSerialize
 
     fun parsePrices(s: String): Pair<String, Amount<Currency>> {
         try {
-            val (key, pair) = s.split("=").map(String::trim)
-            val value = Amount(pair.toLong(), CURRENCY)
-            val returnPair = Pair(key, value)
+            val (key, value) = s.split("=").map(String::trim)
+            val figure = Amount.fromDecimal(BigDecimal(value.toDouble()), CURRENCY)
+            println(figure.toString())
+            val returnPair = Pair(key, figure)
             return returnPair
 
         } catch(e: Exception) {
