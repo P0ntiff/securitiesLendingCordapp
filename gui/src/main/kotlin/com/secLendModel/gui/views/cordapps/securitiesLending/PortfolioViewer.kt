@@ -95,7 +95,7 @@ class PortfolioViewer : CordaView("Equities Portfolio") {
      * A small class describing the graphics of a single state.
      */
     inner class StateRowGraphic(val stateRow: StateRow) : UIComponent() {
-        override val root: Parent by fxml("LoanViewer.fxml")
+        override val root: Parent by fxml("ClaimStateViewer.fxml")
 
         val stateIdValueLabel: Label by fxid()
         val instrumentValueLabel: Label by fxid()
