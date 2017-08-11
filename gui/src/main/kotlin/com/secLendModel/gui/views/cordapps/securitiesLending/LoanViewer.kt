@@ -2,7 +2,16 @@ package com.secLendModel.gui.views.cordapps.securitiesLending
 
 import com.secLendModel.CODES
 import com.secLendModel.STOCKS
-import com.secLendModel.contract.SecurityClaim
+//import com.secLendModel.contract.SecurityClaim
+import com.secLendModel.contract.SecurityLoan
+import com.secLendModel.gui.formatters.AmountFormatter
+import com.secLendModel.gui.formatters.PartyNameFormatter
+import com.secLendModel.gui.identicon.identicon
+import com.secLendModel.gui.identicon.identiconToolTip
+import com.secLendModel.gui.model.CordaView
+import com.secLendModel.gui.model.SecuritiesLendingModel
+import com.secLendModel.gui.ui.*
+import com.secLendModel.gui.views.SearchField
 import com.sun.javafx.collections.ObservableListWrapper
 import de.jensd.fx.glyphs.fontawesome.FontAwesomeIcon
 import de.jensd.fx.glyphs.fontawesome.FontAwesomeIconView
@@ -11,38 +20,26 @@ import javafx.beans.property.SimpleStringProperty
 import javafx.beans.value.ObservableValue
 import javafx.collections.FXCollections
 import javafx.collections.ObservableList
-import javafx.geometry.Insets
 import javafx.scene.Parent
-import javafx.scene.chart.NumberAxis
 import javafx.scene.control.*
 import javafx.scene.input.MouseButton
 import javafx.scene.layout.BorderPane
 import javafx.scene.layout.HBox
 import javafx.scene.layout.Priority
 import javafx.scene.layout.VBox
-import net.corda.client.jfx.model.*
+import net.corda.client.jfx.model.observableList
 import net.corda.client.jfx.utils.*
-import net.corda.contracts.asset.Cash
-import net.corda.core.contracts.Amount
 import net.corda.core.contracts.StateAndRef
-import net.corda.core.contracts.withoutIssuer
-import net.corda.core.crypto.commonName
 import net.corda.core.identity.AbstractParty
-import com.secLendModel.gui.formatters.AmountFormatter
-import com.secLendModel.gui.formatters.PartyNameFormatter
-import com.secLendModel.gui.identicon.identicon
-import com.secLendModel.gui.identicon.identiconToolTip
-import com.secLendModel.gui.model.*
-import com.secLendModel.gui.ui.*
-import com.secLendModel.gui.views.*
-import com.secLendModel.gui.views.resolveIssuer
-import org.fxmisc.easybind.EasyBind
 import tornadofx.*
-import java.time.Instant
 import java.time.LocalDateTime
-import java.util.*
 
-class PortfolioViewer : CordaView("Equities Portfolio") {
+/**
+ * Created by raymondm on 11/08/2017.
+ */
+
+
+class LoanViewer : CordaView("Loan Portfolio") {
     // Inject UI elements.
     override val root: BorderPane by fxml()
     override val icon: FontAwesomeIcon = FontAwesomeIcon.ADDRESS_CARD
@@ -59,8 +56,8 @@ class PortfolioViewer : CordaView("Equities Portfolio") {
     private val claimStatesList: ListView<StateRow> by fxid()
     private val toggleButton by fxid<Button>()
     // Inject observables
-    private val claimStates by observableList(SecuritiesLendingModel::claimStates)
-
+    //private val claimStates by observableList(SecuritiesLendingModel::claimStates)
+    private val loanStates by observableList(SecuritiesLendingModel::loanStates)
     private val selectedNode = claimViewerTable.singleRowSelection().map {
         when (it) {
             is SingleRowSelection.Selected -> it.node
@@ -78,18 +75,18 @@ class PortfolioViewer : CordaView("Equities Portfolio") {
     /**
      * This holds the data for each row in the TreeTable.
      */
-    sealed class ViewerNode(val states: ObservableList<StateAndRef<SecurityClaim.State>>) {
-        class ExchangeNode(val exchange: AbstractParty,
-                         states: ObservableList<StateAndRef<SecurityClaim.State>>) : ViewerNode(states)
+    sealed class ViewerNode(val states: ObservableList<StateAndRef<SecurityLoan.State>>) {
+        class ExchangeNode(val stockcode: String,
+                           states: ObservableList<StateAndRef<SecurityLoan.State>>) : ViewerNode(states)
 
         class QuantityNode(val quantity: ObservableValue<Int>,
-                           states: ObservableList<StateAndRef<SecurityClaim.State>>) : ViewerNode(states)
+                           states: ObservableList<StateAndRef<SecurityLoan.State>>) : ViewerNode(states)
     }
 
     /**
      * Holds data for a single state, to be displayed in the list in the side pane.
      */
-    data class StateRow(val originated: LocalDateTime, val stateAndRef: StateAndRef<SecurityClaim.State>)
+    data class StateRow(val originated: LocalDateTime, val stateAndRef: StateAndRef<SecurityLoan.State>)
 
     /**
      * A small class describing the graphics of a single state.
@@ -104,8 +101,10 @@ class PortfolioViewer : CordaView("Equities Portfolio") {
         val quantityValueLabel: Label by fxid()
 
         init {
-            val quantity = stateRow.stateAndRef.state.data.quantity
-            val resolvedIssuer: AbstractParty = stateRow.stateAndRef.state.data.issuance.party
+            val value = stateRow.stateAndRef.state.data.quantity * stateRow.stateAndRef.state.data.currentStockPrice.quantity
+            val borrower: AbstractParty = stateRow.stateAndRef.state.data.borrower
+            val code: String = stateRow.stateAndRef.state.data.code
+            val lender: AbstractParty = stateRow.stateAndRef.state.data.lender;
 
             stateIdValueLabel.apply {
                 text = stateRow.stateAndRef.ref.toString().substring(0, 16) + "...[${stateRow.stateAndRef.ref.index}]"
@@ -113,12 +112,10 @@ class PortfolioViewer : CordaView("Equities Portfolio") {
                 tooltip = identiconToolTip(stateRow.stateAndRef.ref.txhash)
             }
             instrumentValueLabel.text = STOCKS[CODES.indexOf(stateRow.stateAndRef.state.data.code)]
-            exchangeValueLabel.textProperty().bind(SimpleStringProperty(resolvedIssuer.nameOrNull()?.let {
-                PartyNameFormatter.short.format(it)
-            } ?: "Anonymous"))
-            exchangeValueLabel.apply { tooltip(resolvedIssuer.nameOrNull()?.let { PartyNameFormatter.full.format(it) } ?: "Anonymous") }
+            exchangeValueLabel.textProperty().bind(SimpleStringProperty(lender.nameOrNull().toString()))
+            //exchangeValueLabel.apply { tooltip(code.nameOrNull()?.let { PartyNameFormatter.full.format(it) } ?: "Anonymous") }
             originatedValueLabel.text = stateRow.originated.toString()
-            quantityValueLabel.text = AmountFormatter.formatStock(quantity)
+            quantityValueLabel.text = AmountFormatter.formatStock(value.toInt())
         }
     }
 
@@ -126,14 +123,14 @@ class PortfolioViewer : CordaView("Equities Portfolio") {
     init {
         Bindings.bindContent(splitPane.items, view)
 
-        val searchField = SearchField(claimStates,
+        val searchField = SearchField(loanStates,
                 "Code" to { state, text -> state.state.data.code.contains(text, true) }
         )
         root.top = hbox(5.0) {
-            button("New Equities Trade", FontAwesomeIconView(FontAwesomeIcon.PLUS)) {
+            button("New Loan Update", FontAwesomeIconView(FontAwesomeIcon.PLUS)) {
                 setOnMouseClicked {
                     if (it.button == MouseButton.PRIMARY) {
-                        find<UpdatePortfolio>().show(this@PortfolioViewer.root.scene.window)
+                        find<UpdatePortfolio>().show(this@LoanViewer.root.scene.window)
                     }
                 }
             }
@@ -148,12 +145,12 @@ class PortfolioViewer : CordaView("Equities Portfolio") {
                 /**
                  * First we group the states based on the exchange. [memberStates] is all states holding stock issued by [exchange]
                  */
-                AggregatedList(searchField.filteredData, { it.state.data.issuance.party }) { exchange, memberStates ->
+                AggregatedList(searchField.filteredData, { it.state.data.lender }) { code, memberStates ->
                     /**
-                     * Next we create subgroups based on holding. [memberStates] here is all states holding stock [stock] issued by [exchange] above.
+                     * Next we create subgroups based on holding. [memberStates] here is all states holding stock [stock] above.
                      * Note that these states will not be displayed in the TreeTable, but rather in the side pane if the user clicks on the row.
                      */
-                    val stockNodes = AggregatedList(memberStates, { it.state.data.code }) { stock, memberStates ->
+                    val stockNodes = AggregatedList(memberStates, { it.state.data.code }) { lender, memberStates ->
                         /**
                          * We sum the states in the subgroup, to be displayed in the "Quantity" column
                          */
@@ -169,7 +166,7 @@ class PortfolioViewer : CordaView("Equities Portfolio") {
                     /**
                      * Assemble the Exchange node.
                      */
-                    val treeItem = TreeItem(ViewerNode.ExchangeNode(exchange, memberStates))
+                    val treeItem = TreeItem(ViewerNode.ExchangeNode(code.toString(), memberStates))
 
                     /**
                      * Bind the children in the TreeTable structure.
@@ -199,7 +196,7 @@ class PortfolioViewer : CordaView("Equities Portfolio") {
             val node = it.value.value
             when (node) {
             // TODO: Anonymous should probably be italicised or similar
-                is ViewerNode.ExchangeNode -> SimpleStringProperty(node.exchange .let { PartyNameFormatter.short.format(it.nameOrNull()!!) } ?: "Anonymous")
+                is ViewerNode.ExchangeNode -> SimpleStringProperty(node.stockcode)
                 is ViewerNode.QuantityNode -> node.states.map { it.state.data.code }.first()
             }
         }

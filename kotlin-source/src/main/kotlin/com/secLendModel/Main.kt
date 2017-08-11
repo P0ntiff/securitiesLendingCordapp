@@ -178,10 +178,10 @@ class Simulation(options : String?) {
             updateMargin(id3, it.second)
             updateMargin(id4, it.second)
 
-            terminateLoan(id, it.second)
-            terminateLoan(id2, it.second)
-            terminateLoan(id3, it.second)
-            terminateLoan(id4, it.second)
+            //terminateLoan(id, it.second)
+            //terminateLoan(id2, it.second)
+            //terminateLoan(id3, it.second)
+            //terminateLoan(id4, it.second)
         }
     }
 

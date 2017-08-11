@@ -17,6 +17,7 @@ import com.secLendModel.gui.model.SettingsModel
 import com.secLendModel.gui.views.*
 import com.secLendModel.gui.views.cordapps.cash.CashViewer
 import com.secLendModel.gui.views.cordapps.securitiesLending.PortfolioViewer
+import com.secLendModel.gui.views.cordapps.securitiesLending.LoanViewer
 import org.apache.commons.lang.SystemUtils
 import org.controlsfx.dialog.ExceptionDialog
 import tornadofx.App
@@ -105,6 +106,7 @@ class Main : App(MainView::class) {
             // CordApps Views.
             registerView<CashViewer>()
             registerView<PortfolioViewer>()
+            registerView<LoanViewer>()
             // Tools.
             registerView<Network>()
             registerView<Settings>()
