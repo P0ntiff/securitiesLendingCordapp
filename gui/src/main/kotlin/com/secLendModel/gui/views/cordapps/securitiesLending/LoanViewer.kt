@@ -31,8 +31,10 @@ import net.corda.client.jfx.model.observableList
 import net.corda.client.jfx.utils.*
 import net.corda.core.contracts.StateAndRef
 import net.corda.core.identity.AbstractParty
+import net.corda.core.identity.Party
 import tornadofx.*
 import java.time.LocalDateTime
+import com.secLendModel.gui.views.cordapps.securitiesLending.UpdateLoanView
 
 /**
  * Created by raymondm on 11/08/2017.
@@ -92,19 +94,24 @@ class LoanViewer : CordaView("Loan Portfolio") {
      * A small class describing the graphics of a single state.
      */
     inner class StateRowGraphic(val stateRow: StateRow) : UIComponent() {
-        override val root: Parent by fxml("LoanViewer.fxml")
+        override val root: Parent by fxml("LoanStateViewer.fxml")
 
         val stateIdValueLabel: Label by fxid()
         val instrumentValueLabel: Label by fxid()
-        val exchangeValueLabel: Label by fxid()
-        val originatedValueLabel: Label by fxid()
+        val LenderLabel: Label by fxid()
+        val BorrowerLabel: Label by fxid()
+        val MarginLabel: Label by fxid()
         val quantityValueLabel: Label by fxid()
+        val ValueLabel: Label by fxid()
+        val lastPriceLabel: Label by fxid()
 
         init {
             val value = stateRow.stateAndRef.state.data.quantity * stateRow.stateAndRef.state.data.currentStockPrice.quantity
-            val borrower: AbstractParty = stateRow.stateAndRef.state.data.borrower
-            val code: String = stateRow.stateAndRef.state.data.code
-            val lender: AbstractParty = stateRow.stateAndRef.state.data.lender;
+            val borrower = stateRow.stateAndRef.state.data.borrower
+            val lender = stateRow.stateAndRef.state.data.lender
+            val margin: Double = stateRow.stateAndRef.state.data.terms.margin
+            val quantity = stateRow.stateAndRef.state.data.quantity
+            val lastPrice = stateRow.stateAndRef.state.data.currentStockPrice.quantity
 
             stateIdValueLabel.apply {
                 text = stateRow.stateAndRef.ref.toString().substring(0, 16) + "...[${stateRow.stateAndRef.ref.index}]"
@@ -112,10 +119,12 @@ class LoanViewer : CordaView("Loan Portfolio") {
                 tooltip = identiconToolTip(stateRow.stateAndRef.ref.txhash)
             }
             instrumentValueLabel.text = STOCKS[CODES.indexOf(stateRow.stateAndRef.state.data.code)]
-            exchangeValueLabel.textProperty().bind(SimpleStringProperty(lender.nameOrNull().toString()))
-            //exchangeValueLabel.apply { tooltip(code.nameOrNull()?.let { PartyNameFormatter.full.format(it) } ?: "Anonymous") }
-            originatedValueLabel.text = stateRow.originated.toString()
-            quantityValueLabel.text = AmountFormatter.formatStock(value.toInt())
+            LenderLabel.text = PartyNameFormatter.short.format(lender.name)
+            BorrowerLabel.text = PartyNameFormatter.short.format(borrower.name)
+            ValueLabel.text = AmountFormatter.formatStock(value.toInt())
+            quantityValueLabel.text = quantity.toString()
+            MarginLabel.text = margin.toString()
+            lastPriceLabel.text = lastPrice.toString()
         }
     }
 
@@ -130,7 +139,7 @@ class LoanViewer : CordaView("Loan Portfolio") {
             button("New Loan Update", FontAwesomeIconView(FontAwesomeIcon.PLUS)) {
                 setOnMouseClicked {
                     if (it.button == MouseButton.PRIMARY) {
-                        find<UpdatePortfolio>().show(this@LoanViewer.root.scene.window)
+                        find<UpdateLoanView>().show(this@LoanViewer.root.scene.window)
                     }
                 }
             }
@@ -145,12 +154,12 @@ class LoanViewer : CordaView("Loan Portfolio") {
                 /**
                  * First we group the states based on the exchange. [memberStates] is all states holding stock issued by [exchange]
                  */
-                AggregatedList(searchField.filteredData, { it.state.data.lender }) { code, memberStates ->
+                AggregatedList(searchField.filteredData, { it.state.data.lender }) { lender, memberStates ->
                     /**
                      * Next we create subgroups based on holding. [memberStates] here is all states holding stock [stock] above.
                      * Note that these states will not be displayed in the TreeTable, but rather in the side pane if the user clicks on the row.
                      */
-                    val stockNodes = AggregatedList(memberStates, { it.state.data.code }) { lender, memberStates ->
+                    val stockNodes = AggregatedList(memberStates, { it.state.data.code }) { loans, memberStates ->
                         /**
                          * We sum the states in the subgroup, to be displayed in the "Quantity" column
                          */
@@ -166,7 +175,7 @@ class LoanViewer : CordaView("Loan Portfolio") {
                     /**
                      * Assemble the Exchange node.
                      */
-                    val treeItem = TreeItem(ViewerNode.ExchangeNode(code.toString(), memberStates))
+                    val treeItem = TreeItem(ViewerNode.ExchangeNode(PartyNameFormatter.short.format(lender.name), memberStates))
 
                     /**
                      * Bind the children in the TreeTable structure.

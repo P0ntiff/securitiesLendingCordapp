@@ -5,14 +5,21 @@
 <GridPane vgap="5" hgap="5" xmlns="http://javafx.com/javafx/8.0.76-ea" xmlns:fx="http://javafx.com/fxml/1">
     <Label text="State ID"/>
     <Label text="Instrument" GridPane.rowIndex="1"/>
-    <Label text="Exchange" GridPane.rowIndex="2"/>
-    <Label text="Originated" wrapText="true" GridPane.rowIndex="3"/>
-    <Label text="Quantity" wrapText="true" GridPane.rowIndex="4"/>
+    <Label text="Lender" GridPane.rowIndex="2"/>
+    <Label text="Borrower" wrapText="true" GridPane.rowIndex="3"/>
+    <Label text="Margin" wrapText="true" GridPane.rowIndex="4"/>
+    <Label text="Quantity" wrapText="true" GridPane.rowIndex="5"/>
+    <Label text="Last Price" wrapText="true" GridPane.rowIndex="6"/>
+    <Label text="Total Value" wrapText="true" GridPane.rowIndex="7"/>
 
     <Label fx:id="stateIdValueLabel" text="39043-329090-390091" GridPane.columnIndex="1"/>
     <Label fx:id="instrumentValueLabel" text="Ordinary Shares" wrapText="true" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
-    <Label fx:id="exchangeValueLabel" styleClass="counterparty" text="C-03820 HSBC GROUP PLC" GridPane.columnIndex="1"
+    <Label fx:id="LenderLabel" styleClass="counterparty" text="C-03820 HSBC GROUP PLC" GridPane.columnIndex="1"
            GridPane.rowIndex="2"/>
-    <Label fx:id="originatedValueLabel" text="2018-04-27 11:34 UTC" GridPane.columnIndex="1" GridPane.rowIndex="3"/>
-    <Label fx:id="quantityValueLabel" text="0" wrapText="true" GridPane.columnIndex="1" GridPane.rowIndex="4"/>
+    <Label fx:id="BorrowerLabel" styleClass="counterparty" text="C-03820 HSBC GROUP PLC" GridPane.columnIndex="1"
+           GridPane.rowIndex="3"/>
+    <Label fx:id="MarginLabel" text="2018-04-27 11:34 UTC" GridPane.columnIndex="1" GridPane.rowIndex="4"/>
+    <Label fx:id="quantityValueLabel" text="0" wrapText="true" GridPane.columnIndex="1" GridPane.rowIndex="5"/>
+    <Label fx:id="lastPriceLabel" text="0" wrapText="true" GridPane.columnIndex="1" GridPane.rowIndex="6"/>
+    <Label fx:id="ValueLabel" text="0" wrapText="true" GridPane.columnIndex="1" GridPane.rowIndex="7"/>
 </GridPane>
