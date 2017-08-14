@@ -2,6 +2,7 @@ package com.secLendModel.gui.views.cordapps.securitiesLending
 
 import com.google.common.base.Splitter
 import com.secLendModel.contract.SecurityLoan
+import com.secLendModel.flow.securitiesLending.LoanTerminationFlow
 import com.secLendModel.flow.securitiesLending.LoanUpdateFlow
 import com.secLendModel.gui.formatters.PartyNameFormatter
 import com.secLendModel.gui.model.*
@@ -26,6 +27,7 @@ import net.corda.client.jfx.utils.map
 import net.corda.client.jfx.utils.unique
 import net.corda.core.contracts.*
 import net.corda.core.flows.FlowException
+import net.corda.core.flows.FlowLogic
 import net.corda.core.getOrThrow
 import net.corda.core.identity.AbstractParty
 import net.corda.core.identity.Party
@@ -81,27 +83,51 @@ class UpdateLoanView : Fragment() {
     private val supportedCurrencies by observableList(ReportingCurrencyModel::supportedCurrencies)
     private val loanTypes by observableList(IssuerModel::loanType)
 
-    //private val currencyItems = ChosenList(transactionTypeCB.valueProperty().map {
-    //when (it) {
-    //LoanTransactions.UpdateMargin -> supportedCurrencies
-    //LoanTransactions.Terminate -> supportedCurrencies
-    //else -> FXCollections.emptyObservableList()
-    //}
-    //})
 
     fun show(window: Window): Unit {
-        newTransactionDialog(window).showAndWait().ifPresent { command ->
+        newTransactionDialog(window).showAndWait().ifPresent { command: Unit ->
             val dialog = Alert(Alert.AlertType.INFORMATION).apply {
                 headerText = null
                 contentText = "Transaction Started."
-                dialogPane.isDisable = true
+                dialogPane.isDisable = false
                 initOwner(window)
                 show()
             }
-        }
-    }
+            runAsync {
 
-    private fun newTransactionDialog(window: Window) = Dialog<FlowHandle<UniqueIdentifier>>().apply {
+            }.ui {
+                val type = when (command is Unit) {
+                    true -> "Transaction Finished"
+                    false -> "Transactino Started"
+                }
+                dialog.alertType = Alert.AlertType.INFORMATION
+                dialog.dialogPane.isDisable = false
+                dialog.dialogPane.content = gridpane {
+                    padding = Insets(10.0, 40.0, 10.0, 20.0)
+                    vgap = 10.0
+                    hgap = 10.0
+                    row { label(type) { font = Font.font(font.family, FontWeight.EXTRA_BOLD, font.size + 2) } }
+
+                }
+                dialog.dialogPane.scene.window.sizeToScene()
+                }.setOnFailed {
+                    val ex = it.source.exception
+                    when (ex) {
+                        is FlowException -> {
+                            dialog.alertType = Alert.AlertType.ERROR
+                            dialog.contentText = ex.message
+                        }
+                        else -> {
+                            dialog.close()
+                            ExceptionDialog(ex).apply { initOwner(window) }.showAndWait()
+                        }
+                    }
+                }
+            }
+        }
+
+
+    private fun newTransactionDialog(window: Window) = Dialog<Unit>().apply {
         dialogPane = root
         initOwner(window)
         setResultConverter {
@@ -110,12 +136,18 @@ class UpdateLoanView : Fragment() {
             when (it) {
                 executeButton -> when (transactionTypeCB.value) {
                     LoanTransactions.Terminate -> {
-                        null
-                        //CashFlowCommand.IssueCash(Amount.fromDecimal(amount.value, currencyChoiceBox.value), issueRef, partyBChoiceBox.value.legalIdentity, notaries.first().notaryIdentity)
+                            rpcProxy.value?.startFlow(LoanTerminationFlow::Terminator, partyBChoiceBox.value.state.data.linearId)
+
                     }
-                    LoanTransactions.UpdateMargin -> rpcProxy.value?.startFlow(LoanUpdateFlow::Updator, partyBChoiceBox.value.state.data.linearId)
-                        //CashFlowCommand.PayCash(Amount.fromDecimal(amount.value, currencyChoiceBox.value), partyBChoiceBox.value.legalIdentity)
-                    else -> null
+                    LoanTransactions.UpdateMargin ->{
+                        rpcProxy.value?.startFlow(LoanUpdateFlow::Updator, partyBChoiceBox.value.state.data.linearId)
+                    }
+                    LoanTransactions.UpdateAll -> {
+                        partyBChoiceBox.items.forEach {
+                            rpcProxy.value?.startFlow(LoanUpdateFlow::Updator, it.state.data.linearId) as FlowHandle<Unit>
+                        }
+                    }
+
                }
                 else -> null
             }
@@ -128,6 +160,7 @@ class UpdateLoanView : Fragment() {
         val notariesNotNullBinding = Bindings.createBooleanBinding({ notaries.isNotEmpty() }, arrayOf(notaries))
         val enableProperty = myIdentity.isNotNull().and(rpcProxy.isNotNull()).and(notariesNotNullBinding)
         root.disableProperty().bind(enableProperty.not())
+        //refresh loan states
 
         // Transaction Types Choice Box
         transactionTypeCB.items = loanTypes
@@ -149,19 +182,19 @@ class UpdateLoanView : Fragment() {
                         "\n Margin: " + it.state.data.terms.margin +
                         "\n Current SP: " + it.state.data.currentStockPrice.quantity}
         }
-
-
-
             // Validate inputs.
             val formValidCondition = arrayOf(
                     //myIdentity.isNotNull(),
                     transactionTypeCB.valueProperty().isNotNull,
                     partyBChoiceBox.visibleProperty().not().or(partyBChoiceBox.valueProperty().isNotNull)
+
             ).reduce(BooleanBinding::and)
 
             // Enable execute button when form is valid.
             root.buttonTypes.add(executeButton)
+            //Use correct for validation
             root.lookupButton(executeButton).disableProperty().bind(formValidCondition.not())
+
         }
     }
 

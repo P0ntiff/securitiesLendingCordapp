@@ -57,14 +57,18 @@ object LoanUpdateFlow {
             //val newPrice = Amount<Currency>(1000, CURRENCY)
             //Oracles signature is checked within price update flow, so checking here is not neccesary
             //Get the new margin based off the ratio of new to old stock price
-            val newMargin = secLoan.state.data.terms.margin * (newPrice.quantity/secLoan.state.data.stockPrice.quantity)
 
+            val newMargin = DecimalFormat(".##").format(secLoan.state.data.terms.margin * ((newPrice.quantity.toDouble()/secLoan.state.data.currentStockPrice.quantity.toDouble()))).toDouble()
+            println("New Price ${newPrice.quantity}, Old Price ${secLoan.state.data.currentStockPrice.quantity}, ratio${(newPrice.quantity/secLoan.state.data.currentStockPrice.quantity)}")
+            println("New Margin is $newMargin")
+            println("Old margin is ${secLoan.state.data.terms.margin}")
             //STEP 2: Create Transaction with the loanState as input and updated LoanState as output
             val builder = TransactionType.General.Builder(notary = serviceHub.networkMapCache.notaryNodes.single().notaryIdentity)
+            //TODO: Problem arises here. newMargin is rounded down here, whereas in the calculation for change margin its rounded up
             SecurityLoan().generateUpdate(builder, newPrice, newMargin, secLoan, lender, borrower)
-
             //STEP 3: Calculate change in margin, add cash if required. If not required, will be added by acceptor in STEP X
             val changeMargin = DecimalFormat(".##").format(newMargin - secLoan.state.data.terms.margin).toDouble()
+            println("Change margin is $changeMargin")
             val cashToAdd = (secLoan.state.data.quantity * secLoan.state.data.stockPrice.quantity * Math.abs(changeMargin)).toLong()
             //Check if cash required, send to counterparty if it is
             if (cashRequired(serviceHub.myInfo.legalIdentity, borrower, lender, changeMargin)) {

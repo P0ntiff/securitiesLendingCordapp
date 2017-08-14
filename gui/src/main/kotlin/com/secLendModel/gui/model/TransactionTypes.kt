@@ -12,5 +12,6 @@ enum class EquitiesTransaction(val partyNameA: String, val partyNameB: String?) 
 }
 enum class LoanTransactions(val partyNameA: String, val partyNameB: String?) {
     Terminate("Me", "Loan"),
-    UpdateMargin("Me", "Loan")
+    UpdateMargin("Me", "Loan"),
+    UpdateAll("Me", "Loan")
 }
