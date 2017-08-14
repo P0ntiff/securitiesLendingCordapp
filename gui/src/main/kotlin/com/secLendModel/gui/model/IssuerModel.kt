@@ -30,6 +30,8 @@ class IssuerModel {
             listOf(CashTransaction.Pay).observable()
     })
 
+    val loanType = LoanTransactions.values().asList().observable()
+
     private fun NodeInfo.isIssuerNode() = advertisedServices.any { it.info.type.id.matches(ISSUER_SERVICE_TYPE) }
 
     private fun NodeInfo.issuerCurrency() = if (isIssuerNode()) {
