@@ -20,6 +20,7 @@ import javafx.scene.layout.GridPane
 import javafx.scene.text.Font
 import javafx.scene.text.FontWeight
 import javafx.stage.Window
+import kotlinx.html.attributes.booleanEncode
 import net.corda.client.jfx.model.*
 import net.corda.client.jfx.utils.ChosenList
 import net.corda.client.jfx.utils.isNotNull
@@ -83,6 +84,12 @@ class UpdateLoanView : Fragment() {
     private val supportedCurrencies by observableList(ReportingCurrencyModel::supportedCurrencies)
     private val loanTypes by observableList(IssuerModel::loanType)
 
+    //private val loanItems = ChosenList(transactionTypeCB.valueProperty().map {
+        //when (it) {
+          //  LoanTransactions.UpdateAll ->
+        //    else -> loanTypes
+      //  }
+    //})
 
     fun show(window: Window): Unit {
         newTransactionDialog(window).showAndWait().ifPresent { command: Unit ->
@@ -139,7 +146,7 @@ class UpdateLoanView : Fragment() {
                             rpcProxy.value?.startFlow(LoanTerminationFlow::Terminator, partyBChoiceBox.value.state.data.linearId)
 
                     }
-                    LoanTransactions.UpdateMargin ->{
+                    LoanTransactions.Update ->{
                         rpcProxy.value?.startFlow(LoanUpdateFlow::Updator, partyBChoiceBox.value.state.data.linearId)
                     }
                     LoanTransactions.UpdateAll -> {
@@ -147,12 +154,17 @@ class UpdateLoanView : Fragment() {
                             rpcProxy.value?.startFlow(LoanUpdateFlow::Updator, it.state.data.linearId) as FlowHandle<Unit>
                         }
                     }
+                    //TODO: Add a loan creation button, we can list if we are borrower or lender, terms, etc.
+                    //LoanTransactions.Issue -> {
+                        //partyBChoiceBox.items.forEach {
+                            //Generate loan terms based on the user input
+                            //rpcProxy.value?.startFlow(LoanIssuanceFlow::Initiator, loanTerms) as FlowHandle<Unit>
 
+                    //}
                }
                 else -> null
             }
         }
-        println("Loan Updated with new margin")
     }
 
     init {
@@ -163,7 +175,7 @@ class UpdateLoanView : Fragment() {
         //refresh loan states
 
         // Transaction Types Choice Box
-        transactionTypeCB.items = loanTypes
+        transactionTypeCB.items = listOf(LoanTransactions.Update, LoanTransactions.UpdateAll).observable()
 
         // Party A textfield always display my identity name, not editable.
         //partyATextField.isEditable = false
@@ -190,10 +202,20 @@ class UpdateLoanView : Fragment() {
 
             ).reduce(BooleanBinding::and)
 
+            val formValidUpdateAll = arrayOf(
+                    transactionTypeCB.valueProperty().isNotNull
+            ).reduce(BooleanBinding::and)
             // Enable execute button when form is valid.
             root.buttonTypes.add(executeButton)
             //Use correct for validation
-            root.lookupButton(executeButton).disableProperty().bind(formValidCondition.not())
+            //Add validation based on transactionType
+            println(transactionTypeCB.valueProperty().equals(LoanTransactions.UpdateAll))
+            if (transactionTypeCB.valueProperty().equals(LoanTransactions.UpdateAll)) {
+                println("UPDATE ALL CB")
+                root.lookupButton(executeButton).disableProperty().bind(formValidUpdateAll.not())
+            } else {
+                root.lookupButton(executeButton).disableProperty().bind(formValidCondition.not())
+            }
 
         }
     }

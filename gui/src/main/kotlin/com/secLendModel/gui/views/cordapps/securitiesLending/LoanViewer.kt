@@ -92,6 +92,8 @@ class LoanViewer : CordaView("Loan Portfolio") {
 
     /**
      * A small class describing the graphics of a single state.
+     *
+     * Displayed when a certain loan state is clicked on and gives more informatio about the state.
      */
     inner class StateRowGraphic(val stateRow: StateRow) : UIComponent() {
         override val root: Parent by fxml("LoanStateViewer.fxml")
@@ -111,7 +113,8 @@ class LoanViewer : CordaView("Loan Portfolio") {
             val lender = stateRow.stateAndRef.state.data.lender
             val margin: Double = stateRow.stateAndRef.state.data.terms.margin
             val quantity = stateRow.stateAndRef.state.data.quantity
-            val lastPrice = stateRow.stateAndRef.state.data.currentStockPrice.quantity
+            val lastPrice = stateRow.stateAndRef.state.data.currentStockPrice
+
 
             stateIdValueLabel.apply {
                 text = stateRow.stateAndRef.ref.toString().substring(0, 16) + "...[${stateRow.stateAndRef.ref.index}]"
@@ -122,9 +125,9 @@ class LoanViewer : CordaView("Loan Portfolio") {
             LenderLabel.text = PartyNameFormatter.short.format(lender.name)
             BorrowerLabel.text = PartyNameFormatter.short.format(borrower.name)
             ValueLabel.text = AmountFormatter.formatStock(value.toInt())
-            quantityValueLabel.text = quantity.toString()
-            MarginLabel.text = margin.toString()
-            lastPriceLabel.text = lastPrice.toString()
+            quantityValueLabel.text = AmountFormatter.formatStock(quantity)
+            MarginLabel.text = margin.toString() + "%"
+            lastPriceLabel.text = AmountFormatter.boring.format(lastPrice)
         }
     }
 
@@ -140,6 +143,20 @@ class LoanViewer : CordaView("Loan Portfolio") {
                 setOnMouseClicked {
                     if (it.button == MouseButton.PRIMARY) {
                         find<UpdateLoanView>().show(this@LoanViewer.root.scene.window)
+                    }
+                }
+            }
+            button("New Loan Terminate", FontAwesomeIconView(FontAwesomeIcon.PLUS)) {
+                setOnMouseClicked {
+                    if (it.button == MouseButton.PRIMARY) {
+                        find<TerminateLoanView>().show(this@LoanViewer.root.scene.window)
+                    }
+                }
+            }
+            button("New Loan Issue", FontAwesomeIconView(FontAwesomeIcon.PLUS)) {
+                setOnMouseClicked {
+                    if (it.button == MouseButton.PRIMARY) {
+                        find<IssueLoanView>().show(this@LoanViewer.root.scene.window)
                     }
                 }
             }

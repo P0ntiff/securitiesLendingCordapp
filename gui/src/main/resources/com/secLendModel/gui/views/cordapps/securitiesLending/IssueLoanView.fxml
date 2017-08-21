@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<DialogPane stylesheets="@../../../css/corda.css" xmlns="http://javafx.com/javafx/8.0.76-ea"
+            xmlns:fx="http://javafx.com/fxml/1">
+    <content>
+        <GridPane hgap="10" vgap="10">
+            <!-- Row 0 -->
+            <Label text="Transaction Type : " GridPane.halignment="RIGHT"/>
+            <ChoiceBox fx:id="transactionTypeCB" maxWidth="Infinity" GridPane.columnIndex="1" GridPane.columnSpan="4"
+                       GridPane.hgrow="ALWAYS"/>
+
+
+            <!-- Row 2 -->
+            <Label fx:id="typeLabel" GridPane.halignment="RIGHT" GridPane.rowIndex="3"/>
+            <ChoiceBox fx:id="typeCB" maxWidth="Infinity" GridPane.columnIndex="1" GridPane.columnSpan="4"
+                       GridPane.fillWidth="true" GridPane.hgrow="ALWAYS" GridPane.rowIndex="3"/>
+            <Label fx:id="codeLabel" GridPane.halignment="RIGHT" GridPane.rowIndex="4"/>
+            <ChoiceBox fx:id="codeCB" maxWidth="Infinity" GridPane.columnIndex="1" GridPane.columnSpan="4"
+                       GridPane.fillWidth="true" GridPane.hgrow="ALWAYS" GridPane.rowIndex="4"/>
+            <Label fx:id="amountLabel" GridPane.halignment="RIGHT" GridPane.rowIndex="5"/>
+            <TextField fx:id="amountTextField" maxWidth="Infinity" GridPane.columnIndex="1" GridPane.columnSpan="4"
+                       GridPane.fillWidth="true" GridPane.hgrow="ALWAYS" GridPane.rowIndex="5"/>
+            <Label fx:id="marginLabel" GridPane.halignment="RIGHT" GridPane.rowIndex="6"/>
+            <TextField fx:id="marginTextField" maxWidth="Infinity" GridPane.columnIndex="1" GridPane.columnSpan="4"
+                       GridPane.fillWidth="true" GridPane.hgrow="ALWAYS" GridPane.rowIndex="6"/>
+            <Label fx:id="rebateLabel" GridPane.halignment="RIGHT" GridPane.rowIndex="7"/>
+            <TextField fx:id="rebateTextField" maxWidth="Infinity" GridPane.columnIndex="1" GridPane.columnSpan="4"
+                       GridPane.fillWidth="true" GridPane.hgrow="ALWAYS" GridPane.rowIndex="7"/>
+            <Label fx:id="lengthLabel" GridPane.halignment="RIGHT" GridPane.rowIndex="8"/>
+            <TextField fx:id="lengthTextField" maxWidth="Infinity" GridPane.columnIndex="1" GridPane.columnSpan="4"
+                       GridPane.fillWidth="true" GridPane.hgrow="ALWAYS" GridPane.rowIndex="8"/>
+            <Label fx:id="opposingPartyLabel" GridPane.halignment="RIGHT" GridPane.rowIndex="9"/>
+            <ChoiceBox fx:id="opposingPartyCB" maxWidth="Infinity" GridPane.columnIndex="1" GridPane.columnSpan="4"
+                       GridPane.fillWidth="true" GridPane.hgrow="ALWAYS" GridPane.rowIndex="9"/>
+
+
+
+            <padding>
+                <Insets bottom="20.0" left="30.0" right="30.0" top="30.0"/>
+            </padding>
+        </GridPane>
+    </content>
+</DialogPane>

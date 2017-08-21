@@ -3,6 +3,9 @@ package com.secLendModel.gui.views.cordapps.securitiesLending
 import com.secLendModel.CODES
 import com.secLendModel.STOCKS
 import com.secLendModel.contract.SecurityClaim
+import com.secLendModel.flow.oracle.Oracle
+import com.secLendModel.flow.oracle.PriceRequestFlow
+import com.secLendModel.flow.securitiesLending.LoanUpdateFlow
 import com.sun.javafx.collections.ObservableListWrapper
 import de.jensd.fx.glyphs.fontawesome.FontAwesomeIcon
 import de.jensd.fx.glyphs.fontawesome.FontAwesomeIconView
@@ -36,13 +39,19 @@ import com.secLendModel.gui.model.*
 import com.secLendModel.gui.ui.*
 import com.secLendModel.gui.views.*
 import com.secLendModel.gui.views.resolveIssuer
+import net.corda.core.flows.FlowLogic
+import net.corda.core.messaging.startFlow
+import net.corda.core.transactions.TransactionBuilder
 import org.fxmisc.easybind.EasyBind
 import tornadofx.*
 import java.time.Instant
 import java.time.LocalDateTime
 import java.util.*
+import net.corda.core.flows.FlowLogic.*
 
 class PortfolioViewer : CordaView("Equities Portfolio") {
+    //RPC Proxy
+    private val rpcProxy by observableValue(NodeMonitorModel::proxyObservable)
     // Inject UI elements.
     override val root: BorderPane by fxml()
     override val icon: FontAwesomeIcon = FontAwesomeIcon.ADDRESS_CARD
@@ -157,8 +166,14 @@ class PortfolioViewer : CordaView("Equities Portfolio") {
                         /**
                          * We sum the states in the subgroup, to be displayed in the "Quantity" column
                          */
+                        val tx = TransactionBuilder()
                         val amounts = memberStates.map { it.state.data.quantity }
                         val sumAmount = amounts.foldObservable(0, Int::plus)
+                        //TODO: Get the total worth for this sumAmount and add it next to the sumAmount in the quantity colum
+                        //val price: Pair<Amount<Currency>, TransactionBuilder> = net.corda.core.flows.FlowLogic(PriceRequestFlow(stock, tx))
+
+
+
 
                         /**
                          * Finally assemble the actual TreeTable Currency node.

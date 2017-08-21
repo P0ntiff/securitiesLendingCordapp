@@ -49,7 +49,7 @@ val CENTRALBANK = X500Name("CN=RBA,O=ReserveBankOfAustralia,L=Canberra,C=AU")
 val NOTARY = X500Name("CN=Notary Service,O=R3,OU=corda,L=Zurich,C=CH,OU=corda.notary.validating")
 val ARNOLD = X500Name("CN=Alice Corp,O=Alice Corp,L=Madrid,C=ES")
 val BARRY = X500Name("CN=Bob Plc,O=Bob Plc,L=Rome,C=IT")
-//val COLIN = X500Name("CN=Colin Plc,O=Colin Plc,L=Paris,C=FR")
+val COLIN = X500Name("CN=Colin Plc,O=Colin Plc,L=Paris,C=FR")
 //val ORACLE = X500Name("CN=Oracle SP,O=Oracle SP,L=Brisbane,C=AU")
 
 //Shares to be on issue by exchange
@@ -98,7 +98,7 @@ class Simulation(options : String?) {
     lateinit var notaryNode : NodeHandle
     lateinit var arnoldNode : NodeHandle
     lateinit var barryNode : NodeHandle
-//    lateinit var colinNode : NodeHandle
+    lateinit var colinNode : NodeHandle
     lateinit var exchangeNode : NodeHandle
     lateinit var centralNode : NodeHandle
 //    lateinit var oracleNode : NodeHandle
@@ -115,7 +115,7 @@ class Simulation(options : String?) {
             //Normal Users
             val arnold = startNode(ARNOLD, rpcUsers = arrayListOf(stdUser))
             val barry = startNode(BARRY, rpcUsers = arrayListOf(stdUser))
-            //val colin = startNode(COLIN, rpcUsers = arrayListOf(stdUser))
+            val colin = startNode(COLIN, rpcUsers = arrayListOf(stdUser))
 
             //Special Users (i.e asset issuers and oracles)
             val notary = startNode(NOTARY, advertisedServices = setOf(ServiceInfo(ValidatingNotaryService.type)))
@@ -130,7 +130,7 @@ class Simulation(options : String?) {
             notaryNode = notary.get()
             arnoldNode = arnold.get()
             barryNode = barry.get()
-            //colinNode = colin.get()
+            colinNode = colin.get()
             exchangeNode = exchange.get()
             centralNode = centralBank.get()
 //            oracleNode = oracle.get()
@@ -192,8 +192,8 @@ class Simulation(options : String?) {
         val bClient = barryNode.rpcClientToNode()
         val bRPC = bClient.start(stdUser.username, stdUser.password).proxy
 
-//        val cClient = colinNode.rpcClientToNode()
-//        val cRPC = cClient.start(stdUser.username, stdUser.password).proxy
+        val cClient = colinNode.rpcClientToNode()
+        val cRPC = cClient.start(stdUser.username, stdUser.password).proxy
 
         val eClient = exchangeNode.rpcClientToNode()
         val eRPC = eClient.start(specialUser.username, specialUser.password).proxy
@@ -203,8 +203,8 @@ class Simulation(options : String?) {
 
         parties.addAll(listOf(
                 aRPC.nodeIdentity().legalIdentity to aRPC,
-                bRPC.nodeIdentity().legalIdentity to bRPC)
-//                cRPC.nodeIdentity().legalIdentity to cRPC
+                bRPC.nodeIdentity().legalIdentity to bRPC,
+                cRPC.nodeIdentity().legalIdentity to cRPC)
         )
         stockMarkets.add((eRPC.nodeIdentity().legalIdentity to eRPC))
         cashIssuers.add((cbRPC.nodeIdentity().legalIdentity to cbRPC))

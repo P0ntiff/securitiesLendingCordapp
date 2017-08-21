@@ -354,7 +354,7 @@ class TransactionViewer : CordaView("Transactions") {
                             }
                             row {
                                 label("Margin : ") { gridpaneConstraints { hAlignment = HPos.RIGHT } }
-                                label("%" + data.terms.margin)
+                                label(data.terms.margin.toString() + "%")
                             }
                         }
                     // TODO : Generic view using reflection?
