@@ -5,6 +5,7 @@ import net.corda.core.contracts.Amount
 import net.corda.core.crypto.DigitalSignature
 import net.corda.core.flows.FlowLogic
 import net.corda.core.flows.InitiatingFlow
+import net.corda.core.flows.StartableByRPC
 import net.corda.core.identity.Party
 import net.corda.core.transactions.FilteredTransaction
 import net.corda.core.transactions.TransactionBuilder
@@ -34,7 +35,7 @@ open class PriceRequestFlow(val code : String,
         tx.addSignatureUnchecked(signature)
         return Pair(price, tx)
     }
-
+    @StartableByRPC
     @InitiatingFlow
     class PriceQueryFlow(val oracle : Party, val code: String) : FlowLogic<Amount<Currency>>() {
         @Suspendable

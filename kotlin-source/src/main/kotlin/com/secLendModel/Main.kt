@@ -173,10 +173,10 @@ class Simulation(options : String?) {
             //Borrow stock from a random counter party, where they initiate the deal
             val id4 = borrowSecurities(it.second, false)
 
-            //updateMargin(id, it.second)
-            //updateMargin(id2, it.second)
-            //updateMargin(id3, it.second)
-            //updateMargin(id4, it.second)
+            updateMargin(id, it.second)
+            updateMargin(id2, it.second)
+            updateMargin(id3, it.second)
+            updateMargin(id4, it.second)
 
             //terminateLoan(id, it.second)
             //terminateLoan(id2, it.second)
@@ -192,8 +192,8 @@ class Simulation(options : String?) {
         val bClient = barryNode.rpcClientToNode()
         val bRPC = bClient.start(stdUser.username, stdUser.password).proxy
 
-        val cClient = colinNode.rpcClientToNode()
-        val cRPC = cClient.start(stdUser.username, stdUser.password).proxy
+        //val cClient = colinNode.rpcClientToNode()
+        //val cRPC = cClient.start(stdUser.username, stdUser.password).proxy
 
         val eClient = exchangeNode.rpcClientToNode()
         val eRPC = eClient.start(specialUser.username, specialUser.password).proxy
@@ -203,8 +203,8 @@ class Simulation(options : String?) {
 
         parties.addAll(listOf(
                 aRPC.nodeIdentity().legalIdentity to aRPC,
-                bRPC.nodeIdentity().legalIdentity to bRPC,
-                cRPC.nodeIdentity().legalIdentity to cRPC)
+                bRPC.nodeIdentity().legalIdentity to bRPC)
+                //cRPC.nodeIdentity().legalIdentity to cRPC)
         )
         stockMarkets.add((eRPC.nodeIdentity().legalIdentity to eRPC))
         cashIssuers.add((cbRPC.nodeIdentity().legalIdentity to cbRPC))

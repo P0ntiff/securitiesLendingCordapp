@@ -142,10 +142,6 @@ class UpdateLoanView : Fragment() {
             val issueRef = if (issueRef.value != null) OpaqueBytes.of(issueRef.value) else defaultRef
             when (it) {
                 executeButton -> when (transactionTypeCB.value) {
-                    LoanTransactions.Terminate -> {
-                            rpcProxy.value?.startFlow(LoanTerminationFlow::Terminator, partyBChoiceBox.value.state.data.linearId)
-
-                    }
                     LoanTransactions.Update ->{
                         rpcProxy.value?.startFlow(LoanUpdateFlow::Updator, partyBChoiceBox.value.state.data.linearId)
                     }

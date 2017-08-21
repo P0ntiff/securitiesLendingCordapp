@@ -3,6 +3,7 @@ package com.secLendModel.gui.views.cordapps.securitiesLending
 import com.secLendModel.CURRENCY
 import com.secLendModel.contract.SecurityLoan
 import com.secLendModel.flow.oracle.Oracle
+import com.secLendModel.flow.oracle.PriceRequestFlow
 import com.secLendModel.flow.oracle.PriceType
 import com.secLendModel.flow.securitiesLending.*
 import com.secLendModel.gui.formatters.PartyNameFormatter
@@ -30,8 +31,11 @@ import net.corda.core.flows.FlowException
 import net.corda.core.identity.Party
 import net.corda.core.messaging.FlowHandle
 import net.corda.core.messaging.startFlow
+import net.corda.core.node.ServiceEntry
 import net.corda.core.node.services.ServiceInfo
+import net.corda.core.node.services.ServiceType
 import net.corda.core.serialization.OpaqueBytes
+import net.corda.core.transactions.TransactionBuilder
 import org.controlsfx.dialog.ExceptionDialog
 import tornadofx.*
 
@@ -148,7 +152,11 @@ class IssueLoanView : Fragment() {
                                  lender = opposingPartyCB.value.legalIdentity
                                  borrower = rpcProxy.value!!.nodeIdentity().legalIdentity
                             }
-                            val loanTerms = LoanTerms(codeCB.value, amountTextField.text.toInt(), Amount(300, CURRENCY), lender, borrower,
+                            //Get stock price from the oracle
+                            val oracle = allNodes.filtered { it.advertisedServices.any { it.info.type.equals(PriceType.type) } }
+                            val priceTx = TransactionBuilder()
+                            val priceQuery = rpcProxy.value?.startFlow(PriceRequestFlow::PriceQueryFlow, oracle.first().legalIdentity, codeCB.value )
+                            val loanTerms = LoanTerms(codeCB.value, amountTextField.text.toInt(), priceQuery!!.returnValue.get(), lender, borrower,
                                     marginTextField.text.toDouble(), rebateTextField.text.toDouble(), lengthTextField.text.toInt() )
                             rpcProxy.value?.startFlow(LoanIssuanceFlow::Initiator, loanTerms) as FlowHandle<Unit>
 
@@ -198,6 +206,6 @@ class IssueLoanView : Fragment() {
         //Use correct for validation
         //Add validation based on transactionType
         root.lookupButton(executeButton).disableProperty().bind(formValidCondition.not())
-        
+
     }
 }

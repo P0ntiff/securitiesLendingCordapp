@@ -3,6 +3,7 @@ package com.secLendModel.contract
 import com.secLendModel.CURRENCY
 import com.secLendModel.flow.securitiesLending.LoanTerms
 import com.secLendModel.schema.SecurityLoanSchemaV1
+import net.corda.client.jfx.utils.foldObservable
 import net.corda.contracts.asset.Cash
 import net.corda.core.contracts.*
 import net.corda.core.crypto.SecureHash
@@ -201,6 +202,32 @@ class SecurityLoan : Contract {
         tx.addOutputState(TransactionState(secLoan.state.data.copy(currentStockPrice = priceUpdate,terms = secLoan.state.data.terms.copy(margin = marginUpdate)), secLoan.state.notary))
         tx.addCommand(SecurityLoan.Commands.Update(), lender.owningKey, borrower.owningKey)
         return tx
+    }
+
+    fun generateLoanNet(tx: TransactionBuilder,
+                        lender: Party,
+                        borrower: Party,
+                        secLoanStates: List<StateAndRef<SecurityLoan.State>>,
+                        notary: Party) {
+        //Calculate the net of all the input shares. Borrower is taken as the negative position
+        //Therefor if negative total, then the abs(outputShares) goes to borrower
+        val outputShares = secLoanStates.map {
+            if (it.state.data.borrower == borrower) {
+                -(it.state.data.quantity)
+            } else {
+                it.state.data.quantity
+            }
+        }
+        var outputSharesSum = 0
+        outputShares.forEach { outputSharesSum += it}
+        //Create output state of a single security loan
+        val secLoan = secLoanStates.first()
+        tx.addOutputState(TransactionState(State(Math.abs(outputSharesSum), secLoan.state.data.code, secLoan.state.data.stockPrice, secLoan.state.data.stockPrice,
+                secLoan.state.data.lender, secLoan.state.data.borrower,
+                Terms(secLoan.state.data.terms.lengthOfLoan, secLoan.state.data.terms.margin, secLoan.state.data.terms.rebate)), notary))
+        //TODO: Implement this check within the flow
+        //Otherwise there is no output state, we simply terminate both loans. This is checked in flow
+        //Add commands as required
     }
 
 }
