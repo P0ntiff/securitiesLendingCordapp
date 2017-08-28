@@ -186,9 +186,10 @@ class IssueLoanView : Fragment() {
         marginLabel.text = "Margin: "
         rebateLabel.text = "Rebate: "
         lengthLabel.text = "Length of Loan: "
+        opposingPartyLabel.text = "Opposing Party: "
 
         //Setup avaialble opposing parties
-        opposingPartyLabel.textProperty().bind(transactionTypeCB.valueProperty().map { it?.partyNameB?.let { "$it : " } })
+        //opposingPartyLabel.textProperty().bind(transactionTypeCB.valueProperty().map { it?.partyNameB?.let { "$it : " } })
         opposingPartyCB.apply {
             items = parties.sorted()
             converter = stringConverter { it?.legalIdentity?.let { PartyNameFormatter.short.format(it.name) } ?: "" }

@@ -166,15 +166,15 @@ class SecurityLoan : Contract {
             }
 
             is Commands.Net -> requireThat {
-                "Only one output loan should be present" using (tx.outputs.filterIsInstance<State>().size == 1)
-                "More than one input state should be present" using (tx.inputs.filterIsInstance<State>().size > 1)
+                "Only one output loan should be present" using (tx.outputs.filterIsInstance<SecurityLoan.State>().size == 1)
+                //"More than one input state should be present" using (tx.inputs.filterIsInstance<State>().size > 1)
                 //Check the ID of both loanStates is the same
                 //TODO: Dont simply use the first input loan -> maybe check all loans have same loan terms. (Is this how it normally works with shares?)
-                val inputLoan = tx.inputs.filterIsInstance<State>().first()
-                val outputLoan = tx.outputs.filterIsInstance<State>().single()
-                "Both lender and borrower must have signed both input and output states." using
-                        ((command.signers.toSet() == inputLoan.participants.map { it.owningKey }.toSet()) &&
-                                (command.signers.toSet() == outputLoan.participants.map { it.owningKey }.toSet()))
+                //val inputLoan = tx.inputs.filterIsInstance<State>().first()
+                //val outputLoan = tx.outputs.filterIsInstance<State>().single()
+                //"Both lender and borrower must have signed both input and output states." using
+                        //((command.signers.toSet() == inputLoan.participants.map { it.owningKey }.toSet()) &&
+                           //     (command.signers.toSet() == outputLoan.participants.map { it.owningKey }.toSet()))
 
             }
         }
@@ -222,31 +222,21 @@ class SecurityLoan : Contract {
                         lender: Party,
                         borrower: Party,
                         secLoanStates: List<StateAndRef<SecurityLoan.State>>,
+                        outputSharesSum: Int,
                         notary: Party) {
         //Calculate the net of all the input shares. Borrower is taken as the negative position
         //Therefor if negative total, then the abs(outputShares) goes to borrower
-        val outputShares = secLoanStates.map {
-            if (it.state.data.borrower == borrower) {
-                -(it.state.data.quantity)
-            } else {
-                it.state.data.quantity
-            }
-        }
-        var outputSharesSum = 0
-        outputShares.forEach { outputSharesSum += it}
-        //Create output state of a single security loan
         val secLoan = secLoanStates.first()
         if (outputSharesSum < 0) {
             //More shares are borrowed by borrower then lent by lender, output state is a borrower to borrower
-            tx.addOutputState(TransactionState(State(Math.abs(outputSharesSum), secLoan.state.data.code, secLoan.state.data.stockPrice, secLoan.state.data.stockPrice,
+            tx.addOutputState(TransactionState(State(Math.abs(outputSharesSum), secLoan.state.data.code, secLoan.state.data.currentStockPrice, secLoan.state.data.currentStockPrice,
                     secLoan.state.data.lender, secLoan.state.data.borrower,
                     Terms(secLoan.state.data.terms.lengthOfLoan, secLoan.state.data.terms.margin, secLoan.state.data.terms.rebate)), notary))
         } else {
-            tx.addOutputState(TransactionState(State(Math.abs(outputSharesSum), secLoan.state.data.code, secLoan.state.data.stockPrice, secLoan.state.data.stockPrice,
+            tx.addOutputState(TransactionState(State(Math.abs(outputSharesSum), secLoan.state.data.code, secLoan.state.data.currentStockPrice, secLoan.state.data.currentStockPrice,
                     secLoan.state.data.borrower, secLoan.state.data.lender,
                     Terms(secLoan.state.data.terms.lengthOfLoan, secLoan.state.data.terms.margin, secLoan.state.data.terms.rebate)), notary))
         }
-        //TODO: Implement this check within the flow
         tx.addCommand(SecurityLoan.Commands.Net(), lender.owningKey, borrower.owningKey)
         //Otherwise there is no output state, we simply terminate both loans. This is checked in flow
         //Add commands as required
