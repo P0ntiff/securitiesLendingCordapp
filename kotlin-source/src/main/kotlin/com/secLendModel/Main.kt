@@ -10,6 +10,8 @@ import com.secLendModel.flow.oracle.PriceRequestFlow
 import com.secLendModel.flow.oracle.PriceType
 import com.secLendModel.flow.securitiesLending.LoanIssuanceFlow.Initiator
 import com.secLendModel.flow.securitiesLending.LoanIssuanceFlow.Acceptor
+import com.secLendModel.flow.securitiesLending.LoanNetFlow
+import com.secLendModel.flow.securitiesLending.LoanNetFlow.NetInitiator
 import com.secLendModel.flow.securitiesLending.LoanUpdateFlow.Updator
 import com.secLendModel.flow.securitiesLending.LoanUpdateFlow.UpdateAcceptor
 import com.secLendModel.flow.securitiesLending.LoanTerminationFlow.Terminator
@@ -165,24 +167,38 @@ class Simulation(options : String?) {
         //Test stock borrows and stock loans
         parties.forEach {
             //Loan out stock to a random counter party, where they initiate the deal
-            val id = loanSecurities(it.second, true)
+            //val id = loanSecurities(it.second, true)
             //Loan out stock to a random counter party, where we initiate the deal
-            val id2 = loanSecurities(it.second, false)
+            //val id2 = loanSecurities(it.second, false)
             //Borrow stock from a random counter party, where we initiate the deal
-            val id3 = borrowSecurities(it.second, true)
+            //val id3 = borrowSecurities(it.second, true)
             //Borrow stock from a random counter party, where they initiate the deal
-            val id4 = borrowSecurities(it.second, false)
+            //val id4 = borrowSecurities(it.second, false)
 
-            updateMargin(id, it.second)
-            updateMargin(id2, it.second)
-            updateMargin(id3, it.second)
-            updateMargin(id4, it.second)
+            //updateMargin(id, it.second)
+            //updateMargin(id2, it.second)
+            //updateMargin(id3, it.second)
+            //updateMargin(id4, it.second)
 
             //terminateLoan(id, it.second)
             //terminateLoan(id2, it.second)
             //terminateLoan(id3, it.second)
             //terminateLoan(id4, it.second)
         }
+
+        //Test LoanNetFlow
+        var i = 0;
+        while (i < 5) {
+            val id5 = LoanSecuritySpecific(parties[0].second, true, parties[1].second)
+            val id6 = LoanSecuritySpecific(parties[0].second, true, parties[1].second)
+            val id7 = LoanSecuritySpecific(parties[1].second, true, parties[0].second)
+            val id8 = LoanSecuritySpecific(parties[1].second, true, parties[0].second)
+            val idList = arrayListOf(id5, id6, id7, id8)
+            netLoans(idList, parties[0].second)
+            i++
+        }
+
+
     }
 
     private fun setUpNodes() {
@@ -233,7 +249,9 @@ class Simulation(options : String?) {
             startFlowPermission<Updator>(),
             startFlowPermission<UpdateAcceptor>(),
             startFlowPermission<Terminator>(),
-            startFlowPermission<TerminationAcceptor>()
+            startFlowPermission<TerminationAcceptor>(),
+            startFlowPermission<NetInitiator>(),
+            startFlowPermission<LoanNetFlow.NetAcceptor>()
     )
     private fun allocateOracleRequestPermissions() : Set<String> = setOf(
             startFlowPermission<PriceRequestFlow>(),
@@ -247,6 +265,7 @@ class Simulation(options : String?) {
             startFlowPermission<OracleFlow.QueryHandler>(),
             startFlowPermission<OracleFlow.SignHandler>()
     )
+
 
     /** Grants a cash holding of a digital fiat currency (assumed to be issued by a central bank) to the recipient.
      *  @param centralBank = qualified issuer of digital fiat currency, a node on the network
@@ -370,6 +389,48 @@ class Simulation(options : String?) {
         return stockOnLoan
     }
 
+    /**Selects random stock and quantity to be loaned out to the borrower. These states are not exited yet
+     * and simply shows an example of stock + collateral -> stock(on loan) + collateral(to lender) + securityLoanState
+     *
+     *  @param me = party lending out the securities
+     *  @param BorrowerInitiates = 'true' for borrower to initiate the deal, 'false' for lender to initiate the deal
+     */
+    private fun LoanSecuritySpecific(me: CordaRPCOps, BorrowerInitiates : Boolean, borrower: CordaRPCOps): UniqueIdentifier {
+        val rand = Random()
+        //val stockIndex = rand.nextInt(CODES.size - 0) + 0
+        //Quantity between 10,000 and 50,000 shares
+        val quantity = (rand.nextInt(500 + 1 - 100) + 100) * 100
+        //Price between $50.00 and $110.00  per share (decimal)
+        val dollaryDoos : BigDecimal = BigDecimal((rand.nextDouble() + 0.1) * (rand.nextInt(110 + 1 - 50) + 50))
+        val sharePrice = Amount.fromDecimal(dollaryDoos, CURRENCY)
+        //Percentage
+        val margin : Double = 0.05
+        val rebate : Double = 0.01
+        //Days
+        val length = 30
+        val stockOnLoan : UniqueIdentifier
+        //Pick a random party to be the borrower
+        //val randomBorrower = parties.filter { it.first != me.nodeIdentity().legalIdentity }[rand.nextInt(parties.size - 1)].second
+        //Storage container for loan terms
+        val loanTerms = LoanTerms(CODES[0], quantity, sharePrice,
+                me.nodeIdentity().legalIdentity,
+                borrower.nodeIdentity().legalIdentity,
+                margin, rebate, length)
+        when (BorrowerInitiates) {
+            true -> {
+                //Counter party initiates the deal
+                stockOnLoan = borrower.startFlow(::Initiator, loanTerms).returnValue.getOrThrow()
+            }
+            false -> {
+                //we initiate the deal
+                stockOnLoan = me.startFlow(::Initiator, loanTerms).returnValue.getOrThrow()
+            }
+        }
+        println("Loan Finalised: ${quantity} shares in ${CODES[0]} at ${sharePrice} each loaned to borrower '" +
+                "${borrower.nodeIdentity().legalIdentity}' by lender '${me.nodeIdentity().legalIdentity}' at a margin of ${margin}")
+        return stockOnLoan
+    }
+
     /**Selects random stock and quantity to be loaned out to the borrower
      *  @param me = party borrowing the securities
      *  @param BorrowerInitiates = 'true' for borrower to initiate the deal, 'false' for lender to initiate the deal
@@ -420,6 +481,17 @@ class Simulation(options : String?) {
         val updatedID = initiator.startFlow(::Updator, id).returnValue.getOrThrow()
         println("Margin updated on loan with old ID: '${id}' and  newID: '${updatedID}'")
         return updatedID
+    }
+
+    /**Takes an array of security loan IDs (references to security loans) and nets their position between the two parties
+     * @param id = UniqueIdentifier produced by issuance of a SecurityLoan
+     * @param initiator = the party that wants to update the margin with the counterparty on the loan
+     *
+     */
+    private fun netLoans(ids: List<UniqueIdentifier>, initiator: CordaRPCOps): UniqueIdentifier {
+        val netLoans = initiator.startFlow(::NetInitiator, ids).returnValue.getOrThrow()
+        println("Loans Netted")
+        return netLoans
     }
 
     /**Takes a reference to a SecurityLoan and exits the loan from the ledger, provided both borrower and lender consent.

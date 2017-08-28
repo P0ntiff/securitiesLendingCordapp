@@ -41,27 +41,30 @@ object LoanNetFlow {
     @StartableByRPC
     @InitiatingFlow
     class NetInitiator(val linearIDList: List<UniqueIdentifier>
-            //val partialMerkleTx: FilteredTransaction,
     ) : FlowLogic<UniqueIdentifier>() {
         @Suspendable
         override fun call() : UniqueIdentifier {
             //STEP1: Get Loans that are being merged and add them to the tx
             //TX Builder for states to be added to
             val builder = TransactionType.General.Builder(notary = serviceHub.networkMapCache.notaryNodes.single().notaryIdentity)
-            var securityLoans: List<StateAndRef<SecurityLoan.State>> = ArrayList()
+            val securityLoans: ArrayList<StateAndRef<SecurityLoan.State>> = ArrayList()
             linearIDList.forEach {
                 val secLoan = subFlow(LoanRetrievalFlow(it))
-                securityLoans.plus(secLoan)
+                securityLoans.add(secLoan)
+                builder.addInputState(secLoan)
+                println("Secloan added for net ${secLoan.state.data.code} ${secLoan.state.data.quantity}")
             }
+            println(securityLoans)
+            //Check who is lender of borrower here.
             val lender = securityLoans.first().state.data.lender
             val borrower = securityLoans.first().state.data.borrower
             SecurityLoan().generateLoanNet(builder,lender, borrower, securityLoans,
                     serviceHub.networkMapCache.notaryNodes.single().notaryIdentity)
 
-            //STEP 4 Send TxBuilder with loanStates (input and output) and possibly cash to acceptor party
+            //STEP 4 Send TxBuilder with loanStates (input and output)  to acceptor party
             //Find out who our counterParty is (either lender or borrower)
             val counterParty = LoanChecks.getCounterParty(LoanChecks.stateToLoanTerms(securityLoans.first().state.data), serviceHub.myInfo.legalIdentity)
-            //send(counterParty, builder)
+            send(counterParty, builder)
 
             //STEP 7 Receive back signed tx and finalize this update to the loan
             val stx = sendAndReceive<SignedTransaction>(counterParty, builder).unwrap {
