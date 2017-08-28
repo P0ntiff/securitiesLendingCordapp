@@ -38,7 +38,7 @@ import java.text.DecimalFormat
 object LoanNetFlow {
     @StartableByRPC
     @InitiatingFlow
-    class NetInitiator(val linearIDList: List<UniqueIdentifier>
+    class NetInitiator(val otherParty: Party
     ) : FlowLogic<UniqueIdentifier>() {
         @Suspendable
         override fun call() : UniqueIdentifier {
@@ -46,7 +46,8 @@ object LoanNetFlow {
             //TX Builder for states to be added to
             val builder = TransactionType.General.Builder(notary = serviceHub.networkMapCache.notaryNodes.single().notaryIdentity)
             val securityLoans: ArrayList<StateAndRef<SecurityLoan.State>> = ArrayList()
-
+            //Also get the linear ID list for the other party
+            val linearIDList = subFlow(LoanNetPrepFlow(otherParty))
             //STEP2: Update then terminate loans that are being used to net the position
             linearIDList.forEach {
                 val updatedLoanID = subFlow(LoanUpdateFlow.Updator(it))

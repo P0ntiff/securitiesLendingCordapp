@@ -160,6 +160,14 @@ class LoanViewer : CordaView("Loan Portfolio") {
                     }
                 }
             }
+
+            button("Net Loan Position", FontAwesomeIconView(FontAwesomeIcon.PLUS)) {
+                setOnMouseClicked {
+                    if (it.button == MouseButton.PRIMARY) {
+                        find<NetLoanView>().show(this@LoanViewer.root.scene.window)
+                    }
+                }
+            }
             HBox.setHgrow(searchField.root, Priority.ALWAYS)
             add(searchField.root)
         }

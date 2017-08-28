@@ -191,8 +191,8 @@ class Simulation(options : String?) {
         val id6 = LoanSecuritySpecific(parties[0].second, true, parties[1].second)
         val id7 = LoanSecuritySpecific(parties[1].second, true, parties[0].second)
         val id8 = LoanSecuritySpecific(parties[1].second, true, parties[0].second)
-        val idList = arrayListOf(id5, id6, id7, id8)
-        netLoans(idList, parties[0].second)
+        //val idList = arrayListOf(id5, id6, id7, id8)
+        //netLoans(parties[1].first, parties[0].second)
 
 
 
@@ -485,8 +485,8 @@ class Simulation(options : String?) {
      * @param initiator = the party that wants to update the margin with the counterparty on the loan
      *
      */
-    private fun netLoans(ids: List<UniqueIdentifier>, initiator: CordaRPCOps): UniqueIdentifier {
-        val netLoans = initiator.startFlow(::NetInitiator, ids).returnValue.getOrThrow()
+    private fun netLoans(otherParty: Party, initiator: CordaRPCOps): UniqueIdentifier {
+        val netLoans = initiator.startFlow(::NetInitiator, otherParty).returnValue.getOrThrow()
         println("Loans Netted")
         return netLoans
     }
