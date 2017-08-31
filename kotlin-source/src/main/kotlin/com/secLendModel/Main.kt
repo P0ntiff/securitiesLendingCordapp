@@ -196,6 +196,7 @@ class Simulation(options : String?) {
         val id8 = LoanSecuritySpecific(parties[1].second, true, parties[0].second)
         //val idList = arrayListOf(id5, id6, id7, id8)
         //partialTerminateLoan(id5, parties[0].second, 5)
+        netLoans(parties[1].second.nodeIdentity().legalIdentity, parties[0].second)
 
 
 

@@ -92,6 +92,8 @@ class SecurityLoan : Contract {
     override fun verify(tx: TransactionForContract): Unit {
         val command = tx.commands.requireSingleCommand<SecurityLoan.Commands>()
 
+        //The following are the verify functions for each command available for a security loan
+        //All these 'tests' for a command type must pass for the transactino to be considered valid.
         when (command.value) {
             is Commands.Issue -> requireThat {
                 //Get input and output info
@@ -145,7 +147,6 @@ class SecurityLoan : Contract {
             }
 
             is Commands.Update -> requireThat {
-                //TODO: add support for changing the stockprice as well as the margin
                 //Update the loan margin
                 "Only one input loan should be present" using (tx.inputs.filterIsInstance<State>().size == 1)
                 "Only one output loan should be present" using (tx.outputs.filterIsInstance<State>().size == 1)
@@ -168,14 +169,9 @@ class SecurityLoan : Contract {
 
             is Commands.Net -> requireThat {
                 "Only one output loan should be present" using (tx.outputs.filterIsInstance<SecurityLoan.State>().size == 1)
-                //"More than one input state should be present" using (tx.inputs.filterIsInstance<State>().size > 1)
-                //Check the ID of both loanStates is the same
-                //TODO: Dont simply use the first input loan -> maybe check all loans have same loan terms. (Is this how it normally works with shares?)
-                //val inputLoan = tx.inputs.filterIsInstance<State>().first()
-                //val outputLoan = tx.outputs.filterIsInstance<State>().single()
-                //"Both lender and borrower must have signed both input and output states." using
-                        //((command.signers.toSet() == inputLoan.participants.map { it.owningKey }.toSet()) &&
-                           //     (command.signers.toSet() == outputLoan.participants.map { it.owningKey }.toSet()))
+                val outputLoan = tx.outputs.filterIsInstance<State>().single()
+                "Both lender and borrower must have signed both input and output states." using
+                        ((command.signers.toSet() == outputLoan.participants.map { it.owningKey }.toSet()))
 
             }
 

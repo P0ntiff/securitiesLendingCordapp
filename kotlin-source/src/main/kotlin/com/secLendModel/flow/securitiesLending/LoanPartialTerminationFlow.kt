@@ -40,7 +40,7 @@ object LoanPartialTerminationFlowTerminationFlow {
             val counterParty = LoanChecks.getCounterParty(secLoanTerms, serviceHub.myInfo.legalIdentity)
             send(counterParty, Pair(loanID, amountToTerminate))
 
-            //STEP 2: Prepare the txBuilder for the exit -> add the securityLoan input state
+            //STEP 2: Prepare the txBuilder for the exit -> add the securityLoan input state and the new security output state
             val lender = secLoan.state.data.lender
             val borrower = secLoan.state.data.borrower
             val builder = TransactionType.General.Builder(notary = notary)
@@ -48,7 +48,7 @@ object LoanPartialTerminationFlowTerminationFlow {
 
             //STEP 3: Return either cash or securities, depending on which party we are in the deal.
             val ptx: TransactionBuilder
-            //If we are the lender, then we are returning cash collateral
+            //If we are the lender, then we are returning cash collateral for the correct amount of shares being returned
             if (LoanChecks.isLender(secLoanTerms, serviceHub.myInfo.legalIdentity)) {
                 ptx = serviceHub.vaultService.generateSpend(builder,
                         Amount(((secLoanTerms.stockPrice.quantity * amountToTerminate) * (1.0 + secLoanTerms.margin)).toLong(), CURRENCY),
@@ -72,10 +72,6 @@ object LoanPartialTerminationFlowTerminationFlow {
             val finishedTX = subFlow(FinalityFlow(unnotarisedTX, setOf(counterParty))).single()
             //return finishedTX.tx.outputs.map { it.data }.filterIsInstance<SecurityLoan.State>().single().linearId
 
-
-            //STEP 8: Sign and finalise transaction in both parties' vaults
-            //subFlow(signTransactionFlow)
-
             return Unit
         }
     }
@@ -92,14 +88,7 @@ object LoanPartialTerminationFlowTerminationFlow {
             val amountToTerminate = loanID.second
             //STEP 6:Receive the tx builder and and add the required cash states
             val ptx = receive<TransactionBuilder>(counterParty).unwrap {
-                //TODO: Check we want to settle this loan/the total loan time has elapsed
-//                //Check the securities have been returned to us
-//                if (it.outputStates().map { it.data }.filterIsInstance<SecurityClaim.State>().filter {
-//                    (it.owner.owningKey == serviceHub.myInfo.legalIdentity.owningKey) &&
-//                            (it.code == secLoan.state.data.code)
-//                }.sumBy { it.quantity } != (secLoan.state.data.quantity)) {
-//                    throw FlowException("Borrower is not giving all of the securities back")
-//                }
+                //TODO: Check we want to accept this partial termination
                 it
             }
             val tx: TransactionBuilder
