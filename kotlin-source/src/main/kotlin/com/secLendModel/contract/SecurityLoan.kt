@@ -30,6 +30,7 @@ class SecurityLoan : Contract {
         class Exit: TypeOnlyCommandData(), Commands
         class Update: TypeOnlyCommandData(), Commands
         class Net: TypeOnlyCommandData(), Commands
+        class PartialExit: TypeOnlyCommandData(), Commands
     }
 
     @CordaSerializable
@@ -177,6 +178,35 @@ class SecurityLoan : Contract {
                            //     (command.signers.toSet() == outputLoan.participants.map { it.owningKey }.toSet()))
 
             }
+
+            is Commands.PartialExit -> requireThat{
+                //Exit the loan
+                //Get input and output info
+                val secLoan = tx.inputs.filterIsInstance<SecurityLoan.State>().single()
+                val outputSecLoan = tx.outputs.filterIsInstance<SecurityLoan.State>().single()
+                var cashStatesTally: Long = 0
+                var securityStatesTally = 0
+                var secLoanStates = 0
+
+                tx.outputs.forEach {
+                    if (it is Cash.State && it.owner == secLoan.borrower) {
+                        cashStatesTally += it.amount.quantity
+                    }
+                    if (it is SecurityClaim.State && it.code == secLoan.code && it.owner == secLoan.lender) {
+                        securityStatesTally += it.quantity
+                    }
+                    if (it is SecurityLoan.State) {secLoanStates += 1}
+                }
+                "Cash states in the output sum to the value of the loan + margin" using (Amount(cashStatesTally, CURRENCY) ==
+                        Amount((((secLoan.quantity - outputSecLoan.quantity) * secLoan.stockPrice.quantity) * (1.0 + secLoan.terms.margin)).toLong(), CURRENCY))
+                "Security states in the output must be less than the total quantity of the input loan" using (securityStatesTally < secLoan.quantity)
+                "Secloan state must be present in the output" using (secLoanStates == 1) //secLoan must be consumed as part of tx
+                "Output must contain some states" using (tx.outputs.isNotEmpty())
+                "Input should be signed by both borrow and lender" using (command.signers.toSet()
+                        == secLoan.participants.map{ it.owningKey }.toSet())
+
+            }
+
         }
     }
 
@@ -241,5 +271,22 @@ class SecurityLoan : Contract {
         //Otherwise there is no output state, we simply terminate both loans. This is checked in flow
         //Add commands as required
     }
+
+    fun generatePartialExit(
+            tx: TransactionBuilder,
+            originalSecLoan: StateAndRef<SecurityLoan.State>,
+            newAmount: Int,
+            lender: Party,
+            borrower: Party,
+            notary: Party): TransactionBuilder {
+        //Add the loan state as an input to the exit
+        tx.addInputState(originalSecLoan)
+        tx.addOutputState(TransactionState(State(newAmount, originalSecLoan.state.data.code, originalSecLoan.state.data.currentStockPrice, originalSecLoan.state.data.currentStockPrice,
+                originalSecLoan.state.data.lender, originalSecLoan.state.data.borrower,
+                Terms(originalSecLoan.state.data.terms.lengthOfLoan, originalSecLoan.state.data.terms.margin, originalSecLoan.state.data.terms.rebate)), notary))
+        tx.addCommand(SecurityLoan.Commands.PartialExit(), lender.owningKey, borrower.owningKey)
+        return tx
+    }
+
 
 }

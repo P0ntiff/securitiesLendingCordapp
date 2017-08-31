@@ -15,5 +15,6 @@ enum class LoanTransactions(val partyNameA: String, val partyNameB: String?) {
     Update("Me", "Loan"),
     UpdateAll("Me", "Loan"),
     Issue("Me", "Loan"),
-    Net("Me", "Loan")
+    Net("Me", "Loan"),
+    PartialTerminate("Me", "Loan")
 }

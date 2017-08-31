@@ -12,10 +12,13 @@ import com.secLendModel.flow.securitiesLending.LoanIssuanceFlow.Initiator
 import com.secLendModel.flow.securitiesLending.LoanIssuanceFlow.Acceptor
 import com.secLendModel.flow.securitiesLending.LoanNetFlow
 import com.secLendModel.flow.securitiesLending.LoanNetFlow.NetInitiator
+import com.secLendModel.flow.securitiesLending.LoanPartialTerminationFlowTerminationFlow
 import com.secLendModel.flow.securitiesLending.LoanUpdateFlow.Updator
 import com.secLendModel.flow.securitiesLending.LoanUpdateFlow.UpdateAcceptor
 import com.secLendModel.flow.securitiesLending.LoanTerminationFlow.Terminator
 import com.secLendModel.flow.securitiesLending.LoanTerminationFlow.TerminationAcceptor
+import com.secLendModel.flow.securitiesLending.LoanPartialTerminationFlowTerminationFlow.PartTerminator
+import com.secLendModel.flow.securitiesLending.LoanPartialTerminationFlowTerminationFlow.PartTerminationAcceptor
 import com.secLendModel.flow.securitiesLending.LoanTerms
 import net.corda.core.contracts.Amount
 import net.corda.core.contracts.GBP
@@ -192,7 +195,7 @@ class Simulation(options : String?) {
         val id7 = LoanSecuritySpecific(parties[1].second, true, parties[0].second)
         val id8 = LoanSecuritySpecific(parties[1].second, true, parties[0].second)
         //val idList = arrayListOf(id5, id6, id7, id8)
-        //netLoans(parties[1].first, parties[0].second)
+        //partialTerminateLoan(id5, parties[0].second, 5)
 
 
 
@@ -248,7 +251,9 @@ class Simulation(options : String?) {
             startFlowPermission<Terminator>(),
             startFlowPermission<TerminationAcceptor>(),
             startFlowPermission<NetInitiator>(),
-            startFlowPermission<LoanNetFlow.NetAcceptor>()
+            startFlowPermission<LoanNetFlow.NetAcceptor>(),
+            startFlowPermission<LoanPartialTerminationFlowTerminationFlow.PartTerminator>(),
+            startFlowPermission<LoanPartialTerminationFlowTerminationFlow.PartTerminationAcceptor>()
     )
     private fun allocateOracleRequestPermissions() : Set<String> = setOf(
             startFlowPermission<PriceRequestFlow>(),
@@ -500,6 +505,17 @@ class Simulation(options : String?) {
     private fun terminateLoan(id: UniqueIdentifier, initiator: CordaRPCOps) {
         initiator.startFlow(::Terminator, id).returnValue.getOrThrow()
         println("Loan with ID '$id' terminated")
+    }
+
+    /**Takes a reference to a SecurityLoan and exits the loan from the ledger, provided both borrower and lender consent.
+     * Returns cash collateral to the borrower, and stock holding to the lender.
+     * @param id = UniqueIdentifier produced by issuance of a SecurityLoan
+     * @param initiator = the party that wants to exit/terminate the loan (can be
+     *
+     */
+    private fun partialTerminateLoan(id: UniqueIdentifier, initiator: CordaRPCOps, amountToTerminate: Int) {
+        initiator.startFlow(::PartTerminator, id, amountToTerminate).returnValue.getOrThrow()
+        println("Loan with ID '$id' partiall terminated with amount $amountToTerminate")
     }
 }
 

@@ -48,6 +48,7 @@ object LoanNetFlow {
             val securityLoans: ArrayList<StateAndRef<SecurityLoan.State>> = ArrayList()
             //Also get the linear ID list for the other party
             val linearIDList = subFlow(LoanNetPrepFlow(otherParty))
+
             //STEP2: Update then terminate loans that are being used to net the position
             linearIDList.forEach {
                 val updatedLoanID = subFlow(LoanUpdateFlow.Updator(it))
@@ -61,7 +62,7 @@ object LoanNetFlow {
             //Check who is lender of borrower here.
             val lender = securityLoans.first().state.data.lender
             val borrower = securityLoans.first().state.data.borrower
-            //Calculate the new loan that is required to be generated
+            //Calculate the net amount of shares for this new loan
             val outputShares = securityLoans.map {
                 if (it.state.data.borrower == borrower) {
                     -(it.state.data.quantity)
@@ -71,11 +72,13 @@ object LoanNetFlow {
             }
             var outputSharesSum = 0
             outputShares.forEach { outputSharesSum += it }
+            //Output shaers sum < 0 indicatse that the shares are going from lender to borrower
             if (outputSharesSum < 0) {
                 //If we are the lender, we need to add shares as an input state
                 if (serviceHub.myInfo.legalIdentity == lender) {
                     subFlow(SecuritiesPreparationFlow(builder,securityLoans.first().state.data.code,Math.abs(outputSharesSum),borrower))
                 }
+            //Otherwise shares are going from borrower to lender
             } else {
                 //if we are borrower, we need to add shares as an input state
                 if (serviceHub.myInfo.legalIdentity == borrower) {
@@ -146,8 +149,6 @@ object LoanNetFlow {
                 }
                 it
             }
-
-
 
             //STEP 6: Sign Tx and send back to initiator
             val signedTX: SignedTransaction = serviceHub.signInitialTransaction(builder)

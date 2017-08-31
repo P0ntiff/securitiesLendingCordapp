@@ -2,6 +2,7 @@ package com.secLendModel.gui.views.cordapps.securitiesLending
 
 import com.secLendModel.contract.SecurityLoan
 import com.secLendModel.flow.securitiesLending.LoanTerminationFlow
+import com.secLendModel.flow.securitiesLending.LoanPartialTerminationFlowTerminationFlow
 import com.secLendModel.flow.securitiesLending.LoanUpdateFlow
 import com.secLendModel.gui.formatters.PartyNameFormatter
 import com.secLendModel.gui.model.IssuerModel
@@ -48,8 +49,8 @@ class TerminateLoanView : Fragment() {
     //private val currencyLabel by fxid<Label>()
     //private val currencyChoiceBox by fxid<ChoiceBox<Currency>>()
     //private val availableAmount by fxid<Label>()
-    //private val amountLabel by fxid<Label>()
-    //private val amountTextField by fxid<TextField>()
+    private val amountLabel by fxid<Label>()
+    private val amountTextField by fxid<TextField>()
     //private val amount = SimpleObjectProperty<BigDecimal>()
     private val issueRef = SimpleObjectProperty<Byte>()
     // Inject data
@@ -120,7 +121,9 @@ class TerminateLoanView : Fragment() {
                 executeButton -> when (transactionTypeCB.value) {
                     LoanTransactions.Terminate -> {
                         rpcProxy.value?.startFlow(LoanTerminationFlow::Terminator, secLoanCB.value.state.data.linearId)
-
+                    }
+                    LoanTransactions.PartialTerminate -> {
+                        rpcProxy.value?.startFlow(LoanPartialTerminationFlowTerminationFlow::PartTerminator, secLoanCB.value.state.data.linearId, amountTextField.characters.toString().toInt())
                     }
                 }
                 else -> null
@@ -136,7 +139,7 @@ class TerminateLoanView : Fragment() {
         //refresh loan states
 
         // Transaction Types Choice Box
-        transactionTypeCB.items = listOf(LoanTransactions.Terminate).observable()
+        transactionTypeCB.items = listOf(LoanTransactions.Terminate, LoanTransactions.PartialTerminate).observable()
 
 
         // Loan Selection
@@ -150,6 +153,9 @@ class TerminateLoanView : Fragment() {
                     "\n Margin: " + it.state.data.terms.margin +
                     "\n Current SP: " + it.state.data.currentStockPrice.quantity}
         }
+
+        //Amount input if required
+        amountLabel.text = "Amount to Terminate"
         // Validate inputs.
         val formValidCondition = arrayOf(
                 //myIdentity.isNotNull(),
