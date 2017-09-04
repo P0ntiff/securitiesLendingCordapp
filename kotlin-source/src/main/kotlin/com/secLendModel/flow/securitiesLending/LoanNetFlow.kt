@@ -53,7 +53,9 @@ object LoanNetFlow {
             linearIDList.forEach {
                 val updatedLoanID = subFlow(LoanUpdateFlow.Updator(it))
                 val updatedLoan = subFlow(LoanRetrievalFlow(updatedLoanID))
-                val terminateLoad = subFlow(LoanTerminationFlow.Terminator(updatedLoan.state.data.linearId))
+                //TODO: Rather than terminate here, add the loan as input and merge terminate flow into this.
+                //val terminateLoad = subFlow(LoanTerminationFlow.Terminator(updatedLoan.state.data.linearId))
+                builder.addInputState(updatedLoan)
                 securityLoans.add(updatedLoan)
                 println("Secloan added for net ${updatedLoan.state.data.code} ${updatedLoan.state.data.quantity} price ${updatedLoan.state.data.currentStockPrice}")
             }
@@ -100,6 +102,14 @@ object LoanNetFlow {
                             AnonymousParty(outputState.lender.owningKey)).first
             }
 
+            //TODO: Add securities as needed for input
+            var sumOfShares = 0;
+            securityLoans.forEach {
+                if (it.state.data.borrower == serviceHub.myInfo.legalIdentity) {
+                    //add cash
+                    sumOfShares += it.state.data.quantity
+                }
+            }
 
             //STEP 4 Send TxBuilder with output loan state, and possible input securities or cash states
             //Find out who our counterParty is (either lender or borrower)
@@ -151,6 +161,14 @@ object LoanNetFlow {
             }
 
             //STEP 6: Sign Tx and send back to initiator
+            //TODO: Add securities to simulate loan termination
+            val inputShares = builder.inputStates().filterIsInstance<SecurityLoan.State>()
+            inputShares.forEach {
+                if (it.borrower == serviceHub.myInfo.legalIdentity) {
+                    //add cash
+                    //subFlow(SecuritiesPreparationFlow(builder, it.code, it.quantity, counterParty)).first
+                }
+            }
             val signedTX: SignedTransaction = serviceHub.signInitialTransaction(builder)
             send(counterParty, signedTX)
             return Unit

@@ -145,7 +145,8 @@ class NetLoanView : Fragment() {
         // Loan Selection
         otherPartyCB.apply {
             items = parties.observable()
-            converter = stringConverter { it?.legalIdentity?.let { PartyNameFormatter.short.format(it.name) } ?: "" }
+            converter = stringConverter { it?.legalIdentity?.let {
+                PartyNameFormatter.short.format(it.name) } ?: "" }
         }
         // Validate inputs.
         val formValidCondition = arrayOf(

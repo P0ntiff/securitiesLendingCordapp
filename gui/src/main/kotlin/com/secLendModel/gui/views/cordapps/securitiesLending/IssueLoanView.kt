@@ -191,6 +191,7 @@ class IssueLoanView : Fragment() {
         //Setup avaialble opposing parties
         //opposingPartyLabel.textProperty().bind(transactionTypeCB.valueProperty().map { it?.partyNameB?.let { "$it : " } })
         opposingPartyCB.apply {
+            parties.remove(myIdentity.value)
             items = parties.sorted()
             converter = stringConverter { it?.legalIdentity?.let { PartyNameFormatter.short.format(it.name) } ?: "" }
         }
