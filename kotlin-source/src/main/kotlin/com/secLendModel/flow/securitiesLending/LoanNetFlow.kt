@@ -94,27 +94,32 @@ object LoanNetFlow {
             //Add cash as needed
             val outputLender = outputState.lender
             val outputBorrower = outputState.borrower
+            //TODO: calculate the total amount of collateral from each input loan, make sure that this amount is added as an input from correct party
+            val cashNet = securityLoans.map {
+                if (it.state.data.borrower == borrower) {
+                    //Consider the borrower as negative collateral (i.e they owe collateral)
+                    -(it.state.data.quantity * it.state.data.currentStockPrice.quantity * (1+it.state.data.terms.margin))
+                } else {
+                    //Consider the lender as positive collateral (i.e they are owed collateral)
+                    it.state.data.quantity * it.state.data.currentStockPrice.quantity * (1+it.state.data.terms.margin)
+                }
+            }
+            var cashNetSum = 0.0
+            cashNet.forEach { cashNetSum += it }
+            //If cash net sum is negative, the borrower owed more collateral then the lender owed.
             //if we are borrower, add cash
             if (serviceHub.myInfo.legalIdentity == outputBorrower) {
                     //Add cash
                     serviceHub.vaultService.generateSpend(builder,
-                            Amount(((outputState.stockPrice.quantity * outputState.quantity) * (1.0 + outputState.terms.margin)).toLong(), CURRENCY),
+                            Amount((((outputState.stockPrice.quantity * outputState.quantity) * (1.0 + outputState.terms.margin)-cashNetSum)).toLong(), CURRENCY),
                             AnonymousParty(outputState.lender.owningKey)).first
             }
 
-            //TODO: Add securities as needed for input
-            var sumOfShares = 0;
-            securityLoans.forEach {
-                if (it.state.data.borrower == serviceHub.myInfo.legalIdentity) {
-                    //add cash
-                    sumOfShares += it.state.data.quantity
-                }
-            }
 
-            //STEP 4 Send TxBuilder with output loan state, and possible input securities or cash states
+            //STEP 4 Send TxBuilder with output loan state, and possible input securities or cash states. Also send the net cash position so we dont have to calculate again
             //Find out who our counterParty is (either lender or borrower)
             val counterParty = LoanChecks.getCounterParty(LoanChecks.stateToLoanTerms(securityLoans.first().state.data), serviceHub.myInfo.legalIdentity)
-            send(counterParty, builder)
+            send(counterParty, Pair(builder, cashNetSum))
 
             //STEP 7 Receive back signed tx and finalize this update to the loan
             val stx = sendAndReceive<SignedTransaction>(counterParty, builder).unwrap {
@@ -137,9 +142,9 @@ object LoanNetFlow {
         @Suspendable
         override fun call(): Unit {
             //STEP 5 Receive txBuilder with loanStates and possibly cash from initiator. Add Cash/securities if required
-            val builder = receive<TransactionBuilder>(counterParty).unwrap {
+            val builder = receive<Pair<TransactionBuilder, Double>>(counterParty).unwrap {
                 //Get the output loan state
-                val outputState = it.outputStates().map { it.data }.filterIsInstance<SecurityLoan.State>().single()
+                val outputState = it.first.outputStates().map { it.data }.filterIsInstance<SecurityLoan.State>().single()
                 val outputSharesSum = outputState.quantity
                 val code = outputState.code
                 val outputLender = outputState.lender
@@ -147,13 +152,13 @@ object LoanNetFlow {
                 //Add input stock as needed if we are the lender
                 if (serviceHub.myInfo.legalIdentity == outputLender) {
                     //If we are the lender, we need to add shares as an input state
-                    subFlow(SecuritiesPreparationFlow(it,code,Math.abs(outputSharesSum),outputBorrower))
+                    subFlow(SecuritiesPreparationFlow(it.first,code,Math.abs(outputSharesSum),outputBorrower))
                 } else {
                     //if we are borrower, add cash
                     if (serviceHub.myInfo.legalIdentity == outputBorrower) {
                         //Add cash
-                        serviceHub.vaultService.generateSpend(it,
-                                Amount(((outputState.stockPrice.quantity * outputState.quantity) * (1.0 + outputState.terms.margin)).toLong(), CURRENCY),
+                        serviceHub.vaultService.generateSpend(it.first,
+                                Amount((((outputState.stockPrice.quantity * outputState.quantity) * (1.0 + outputState.terms.margin)-it.second)).toLong(), CURRENCY),
                                 AnonymousParty(outputState.lender.owningKey)).first
                     }
                 }
@@ -162,14 +167,14 @@ object LoanNetFlow {
 
             //STEP 6: Sign Tx and send back to initiator
             //TODO: Add securities to simulate loan termination
-            val inputShares = builder.inputStates().filterIsInstance<SecurityLoan.State>()
+            val inputShares = builder.first.inputStates().filterIsInstance<SecurityLoan.State>()
             inputShares.forEach {
                 if (it.borrower == serviceHub.myInfo.legalIdentity) {
                     //add cash
                     //subFlow(SecuritiesPreparationFlow(builder, it.code, it.quantity, counterParty)).first
                 }
             }
-            val signedTX: SignedTransaction = serviceHub.signInitialTransaction(builder)
+            val signedTX: SignedTransaction = serviceHub.signInitialTransaction(builder.first)
             send(counterParty, signedTX)
             return Unit
         }
