@@ -253,15 +253,16 @@ class SecurityLoan : Contract {
         //Calculate the net of all the input shares. Borrower is taken as the negative position
         //Therefor if negative total, then the abs(outputShares) goes to borrower
         val secLoan = secLoanStates.first()
+        //TODO: rather than using the first share for margin, currently defaulting this to 0.05%. Maybe find a better way to do this i.e loanAgreementFlow
         if (outputSharesSum < 0) {
             //More shares are borrowed by borrower then lent by lender, output state is a borrower to borrower
             tx.addOutputState(TransactionState(State(Math.abs(outputSharesSum), secLoan.state.data.code, secLoan.state.data.currentStockPrice, secLoan.state.data.currentStockPrice,
                     secLoan.state.data.lender, secLoan.state.data.borrower,
-                    Terms(secLoan.state.data.terms.lengthOfLoan, secLoan.state.data.terms.margin, secLoan.state.data.terms.rebate)), notary))
+                    Terms(secLoan.state.data.terms.lengthOfLoan, 0.05, secLoan.state.data.terms.rebate)), notary))
         } else {
             tx.addOutputState(TransactionState(State(Math.abs(outputSharesSum), secLoan.state.data.code, secLoan.state.data.currentStockPrice, secLoan.state.data.currentStockPrice,
                     secLoan.state.data.borrower, secLoan.state.data.lender,
-                    Terms(secLoan.state.data.terms.lengthOfLoan, secLoan.state.data.terms.margin, secLoan.state.data.terms.rebate)), notary))
+                    Terms(secLoan.state.data.terms.lengthOfLoan, 0.05, secLoan.state.data.terms.rebate)), notary))
         }
         tx.addCommand(SecurityLoan.Commands.Net(), lender.owningKey, borrower.owningKey)
         //Otherwise there is no output state, we simply terminate both loans. This is checked in flow

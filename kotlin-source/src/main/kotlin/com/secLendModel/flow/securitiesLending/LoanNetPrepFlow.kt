@@ -22,13 +22,13 @@ import net.corda.core.node.services.vault.QueryCriteria
  */
 
 @StartableByRPC
-class LoanNetPrepFlow(val otherParty: Party) : FlowLogic<List<UniqueIdentifier>>() {
+class LoanNetPrepFlow(val otherParty: Party, val code: String) : FlowLogic<List<UniqueIdentifier>>() {
     @Suspendable
     override fun call() : List<UniqueIdentifier> {
         val criteria = QueryCriteria.VaultQueryCriteria(status = Vault.StateStatus.UNCONSUMED)
         val loanStates = serviceHub.vaultQueryService.queryBy<SecurityLoan.State>(criteria)
         val secLoans = loanStates.states.filter {
-            (it.state.data.lender == otherParty) || (it.state.data.borrower == otherParty) }
+            (((it.state.data.lender == otherParty) || (it.state.data.borrower == otherParty)) && (it.state.data.code == code)) }
         val secLoanIDs: ArrayList<UniqueIdentifier> = arrayListOf()
         secLoans.forEach {
             secLoanIDs.add(it.state.data.linearId)

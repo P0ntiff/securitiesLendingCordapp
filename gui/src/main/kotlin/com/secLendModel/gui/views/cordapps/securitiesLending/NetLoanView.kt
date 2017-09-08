@@ -42,17 +42,9 @@ class NetLoanView : Fragment() {
     //private val partyALabel by fxid<Label>()
     private val otherPartyCB by fxid<ChoiceBox<net.corda.core.node.NodeInfo>>()
     private val otherPartyLabel by fxid<Label>()
-    //private val issuerLabel by fxid<Label>()
-    //private val issuerTextField by fxid<TextField>()
-    //private val issuerChoiceBox by fxid<ChoiceBox<Party>>()
-    //private val issueRefLabel by fxid<Label>()
-    //private val issueRefTextField by fxid<TextField>()
-    //private val currencyLabel by fxid<Label>()
-    //private val currencyChoiceBox by fxid<ChoiceBox<Currency>>()
-    //private val availableAmount by fxid<Label>()
-    //private val amountLabel by fxid<Label>()
-    //private val amountTextField by fxid<TextField>()
-    //private val amount = SimpleObjectProperty<BigDecimal>()
+    private val securityTypeCB by fxid<ChoiceBox<String>>()
+    private val securityTypeLabel by fxid<Label>()
+
     private val issueRef = SimpleObjectProperty<Byte>()
     // Inject data
     private val parties by observableList(NetworkIdentityModel::parties)
@@ -122,7 +114,7 @@ class NetLoanView : Fragment() {
                 executeButton -> when (transactionTypeCB.value) {
                     LoanTransactions.Net -> {
                         val otherParty = otherPartyCB.value.legalIdentity
-                        rpcProxy.value?.startFlow(LoanNetFlow::NetInitiator, otherParty)
+                        rpcProxy.value?.startFlow(LoanNetFlow::NetInitiator, otherParty, securityTypeCB.value)
 
                     }
                 }
@@ -143,16 +135,27 @@ class NetLoanView : Fragment() {
 
 
         // Loan Selection
+        otherPartyLabel.text = "Opposing Party"
         otherPartyCB.apply {
             items = parties.observable()
             converter = stringConverter { it?.legalIdentity?.let {
                 PartyNameFormatter.short.format(it.name) } ?: "" }
         }
+        securityTypeLabel.text = "Security"
+        securityTypeCB.apply {
+            items = listOf<String>(
+                    "GBT",
+                    "CBA",
+                    "RIO",
+                    "NAB"
+            ).observable()
+        }
         // Validate inputs.
         val formValidCondition = arrayOf(
                 //myIdentity.isNotNull(),
                 transactionTypeCB.valueProperty().isNotNull,
-                otherPartyCB.visibleProperty().not().or(otherPartyCB.valueProperty().isNotNull)
+                otherPartyCB.visibleProperty().not().or(otherPartyCB.valueProperty().isNotNull),
+                securityTypeCB.visibleProperty().not().or(otherPartyCB.valueProperty().isNotNull)
 
         ).reduce(BooleanBinding::and)
 

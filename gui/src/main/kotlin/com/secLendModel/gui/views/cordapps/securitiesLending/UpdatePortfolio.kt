@@ -1,6 +1,9 @@
 package com.secLendModel.gui.views.cordapps.securitiesLending
 
 import com.google.common.base.Splitter
+import com.secLendModel.CURRENCY
+import com.secLendModel.flow.securities.TradeFlow
+import com.secLendModel.flow.securitiesLending.LoanNetFlow
 import javafx.beans.binding.Bindings
 import javafx.beans.binding.BooleanBinding
 import javafx.beans.property.SimpleObjectProperty
@@ -30,12 +33,11 @@ import net.corda.core.node.NodeInfo
 import net.corda.core.serialization.OpaqueBytes
 import net.corda.core.then
 import com.secLendModel.gui.formatters.PartyNameFormatter
-import com.secLendModel.gui.model.CashTransaction
-import com.secLendModel.gui.model.IssuerModel
-import com.secLendModel.gui.model.ReportingCurrencyModel
+import com.secLendModel.gui.model.*
 import com.secLendModel.gui.views.bigDecimalFormatter
 import com.secLendModel.gui.views.byteFormatter
 import com.secLendModel.gui.views.stringConverter
+import net.corda.contracts.asset.Cash
 import net.corda.flows.CashFlowCommand
 import net.corda.flows.IssuerFlow.IssuanceRequester
 import org.controlsfx.dialog.ExceptionDialog
@@ -46,23 +48,15 @@ import java.util.*
 class UpdatePortfolio : Fragment() {
     override val root by fxml<DialogPane>()
     // Components
-    private val transactionTypeCB by fxid<ChoiceBox<CashTransaction>>()
-    private val partyATextField by fxid<TextField>()
-    private val partyALabel by fxid<Label>()
-    private val partyBChoiceBox by fxid<ChoiceBox<NodeInfo>>()
-    private val partyBLabel by fxid<Label>()
-    private val issuerLabel by fxid<Label>()
-    private val issuerTextField by fxid<TextField>()
-    private val issuerChoiceBox by fxid<ChoiceBox<Party>>()
-    private val issueRefLabel by fxid<Label>()
-    private val issueRefTextField by fxid<TextField>()
-    private val currencyLabel by fxid<Label>()
-    private val currencyChoiceBox by fxid<ChoiceBox<Currency>>()
-    private val availableAmount by fxid<Label>()
-    private val amountLabel by fxid<Label>()
-    private val amountTextField by fxid<TextField>()
-    private val amount = SimpleObjectProperty<BigDecimal>()
-    private val issueRef = SimpleObjectProperty<Byte>()
+    private val transactionTypeCB by fxid<ChoiceBox<EquitiesTransaction>>()
+    private val otherPartyCB by fxid<ChoiceBox<net.corda.core.node.NodeInfo>>()
+    private val otherPartyLabel by fxid<Label>()
+    private val securityTypeCB by fxid<ChoiceBox<String>>()
+    private val securityTypeLabel by fxid<Label>()
+    private val priceTextField by fxid<TextField>()
+    private val priceLabel by fxid<Label>()
+    private val quantityTextField by fxid<TextField>()
+    private val quantityLabel by fxid<Label>()
     // Inject data
     private val parties by observableList(NetworkIdentityModel::parties)
     private val issuers by observableList(IssuerModel::issuers)
@@ -75,14 +69,6 @@ class UpdatePortfolio : Fragment() {
     private val supportedCurrencies by observableList(ReportingCurrencyModel::supportedCurrencies)
     private val transactionTypes by observableList(IssuerModel::transactionTypes)
 
-    private val currencyItems = ChosenList(transactionTypeCB.valueProperty().map {
-        when (it) {
-            CashTransaction.Pay -> supportedCurrencies
-            CashTransaction.Issue,
-            CashTransaction.Exit -> currencyTypes
-            else -> FXCollections.emptyObservableList()
-        }
-    })
 
     fun show(window: Window): Unit {
         newTransactionDialog(window).showAndWait().ifPresent { command ->
@@ -93,33 +79,21 @@ class UpdatePortfolio : Fragment() {
                 initOwner(window)
                 show()
             }
-            val handle = if (command is CashFlowCommand.IssueCash) {
-                rpcProxy.value!!.startFlow(::IssuanceRequester,
-                        command.amount,
-                        command.recipient,
-                        command.issueRef,
-                        myIdentity.value!!.legalIdentity)
-            } else {
-                command.startFlow(rpcProxy.value!!)
-            }
             runAsync {
-                handle.returnValue.then { dialog.dialogPane.isDisable = false }.getOrThrow()
+
             }.ui {
-                val type = when (command) {
-                    is CashFlowCommand.IssueCash -> "Cash Issued"
-                    is CashFlowCommand.ExitCash -> "Cash Exited"
-                    is CashFlowCommand.PayCash -> "Cash Paid"
+                val type = when (command is Unit) {
+                    true -> "Transaction Finished"
+                    false -> "Transactino Started"
                 }
                 dialog.alertType = Alert.AlertType.INFORMATION
+                dialog.dialogPane.isDisable = false
                 dialog.dialogPane.content = gridpane {
                     padding = Insets(10.0, 40.0, 10.0, 20.0)
                     vgap = 10.0
                     hgap = 10.0
                     row { label(type) { font = Font.font(font.family, FontWeight.EXTRA_BOLD, font.size + 2) } }
-                    row {
-                        label("Transaction ID :") { GridPane.setValignment(this, VPos.TOP) }
-                        label { text = Splitter.fixedLength(16).split("${it.id}").joinToString("\n") }
-                    }
+
                 }
                 dialog.dialogPane.scene.window.sizeToScene()
             }.setOnFailed {
@@ -138,19 +112,21 @@ class UpdatePortfolio : Fragment() {
         }
     }
 
-    private fun newTransactionDialog(window: Window) = Dialog<CashFlowCommand>().apply {
+    private fun newTransactionDialog(window: Window) = Dialog<Unit>().apply {
         dialogPane = root
         initOwner(window)
         setResultConverter {
-            val defaultRef = OpaqueBytes.of(1)
-            val issueRef = if (issueRef.value != null) OpaqueBytes.of(issueRef.value) else defaultRef
             when (it) {
                 executeButton -> when (transactionTypeCB.value) {
-                    CashTransaction.Issue -> {
-                        CashFlowCommand.IssueCash(Amount.fromDecimal(amount.value, currencyChoiceBox.value), issueRef, partyBChoiceBox.value.legalIdentity, notaries.first().notaryIdentity)
+                    EquitiesTransaction.Buy -> {
+                        //TODO: Create a buy flow for equities, currently only sell exists.
+                        rpcProxy.value?.startFlow(TradeFlow::Seller, securityTypeCB.value, quantityTextField.text.toInt(),
+                                Amount(priceTextField.text.toLong() * quantityTextField.text.toLong(), CURRENCY), otherPartyCB.value.legalIdentity)
                     }
-                    CashTransaction.Pay -> CashFlowCommand.PayCash(Amount.fromDecimal(amount.value, currencyChoiceBox.value), partyBChoiceBox.value.legalIdentity)
-                    CashTransaction.Exit -> CashFlowCommand.ExitCash(Amount.fromDecimal(amount.value, currencyChoiceBox.value), issueRef)
+                    EquitiesTransaction.Sell -> {
+                        rpcProxy.value?.startFlow(TradeFlow::Seller, securityTypeCB.value, quantityTextField.text.toInt(),
+                                Amount(priceTextField.text.toLong() * quantityTextField.text.toLong(), CURRENCY), otherPartyCB.value.legalIdentity)
+                    }
                     else -> null
                 }
                 else -> null
@@ -165,68 +141,35 @@ class UpdatePortfolio : Fragment() {
         root.disableProperty().bind(enableProperty.not())
 
         // Transaction Types Choice Box
-        transactionTypeCB.items = transactionTypes
+        transactionTypeCB.items = EquitiesTransaction.values().asList().observable()
 
-        // Party A textfield always display my identity name, not editable.
-        partyATextField.isEditable = false
-        partyATextField.textProperty().bind(myIdentity.map { it?.legalIdentity?.let { PartyNameFormatter.short.format(it.name) } ?: "" })
-        partyALabel.textProperty().bind(transactionTypeCB.valueProperty().map { it?.partyNameA?.let { "$it : " } })
-        partyATextField.visibleProperty().bind(transactionTypeCB.valueProperty().map { it?.partyNameA }.isNotNull())
-
-        // Party B
-        partyBLabel.textProperty().bind(transactionTypeCB.valueProperty().map { it?.partyNameB?.let { "$it : " } })
-        partyBChoiceBox.apply {
-            visibleProperty().bind(transactionTypeCB.valueProperty().map { it?.partyNameB }.isNotNull())
-            items = parties.sorted()
-            converter = stringConverter { it?.legalIdentity?.let { PartyNameFormatter.short.format(it.name) } ?: "" }
+        // Other Party
+        otherPartyLabel.text = "Opposing Party"
+        otherPartyCB.apply {
+            items = parties.observable()
+            converter = stringConverter { it?.legalIdentity?.let {
+                PartyNameFormatter.short.format(it.name) } ?: "" }
         }
-        // Issuer
-        issuerLabel.visibleProperty().bind(transactionTypeCB.valueProperty().isNotNull)
-        issuerChoiceBox.apply {
-            items = issuers.map { it.legalIdentity as Party }.unique().sorted()
-            converter = stringConverter { PartyNameFormatter.short.format(it.name) }
-            visibleProperty().bind(transactionTypeCB.valueProperty().map { it == CashTransaction.Pay })
+        // Security Type
+        securityTypeLabel.text = "Security"
+        securityTypeCB.apply {
+            items = listOf<String>(
+                    "GBT",
+                    "CBA",
+                    "RIO",
+                    "NAB"
+            ).observable()
         }
-        issuerTextField.apply {
-            textProperty().bind(myIdentity.map { it?.legalIdentity?.let { PartyNameFormatter.short.format(it.name) } })
-            visibleProperty().bind(transactionTypeCB.valueProperty().map { it == CashTransaction.Issue || it == CashTransaction.Exit })
-            isEditable = false
-        }
-        // Issue Reference
-        issueRefLabel.visibleProperty().bind(transactionTypeCB.valueProperty().map { it == CashTransaction.Issue || it == CashTransaction.Exit })
-
-        issueRefTextField.apply {
-            textFormatter = byteFormatter().apply { issueRef.bind(this.valueProperty()) }
-            visibleProperty().bind(transactionTypeCB.valueProperty().map { it == CashTransaction.Issue || it == CashTransaction.Exit })
-        }
-        // Currency
-        currencyLabel.visibleProperty().bind(transactionTypeCB.valueProperty().isNotNull)
-        // TODO : Create a currency model to store these values
-        currencyChoiceBox.items = currencyItems
-        currencyChoiceBox.visibleProperty().bind(transactionTypeCB.valueProperty().isNotNull)
-        val issuer = Bindings.createObjectBinding({ if (issuerChoiceBox.isVisible) issuerChoiceBox.value else myIdentity.value?.legalIdentity }, arrayOf(myIdentity, issuerChoiceBox.visibleProperty(), issuerChoiceBox.valueProperty()))
-        availableAmount.visibleProperty().bind(
-                issuer.isNotNull.and(currencyChoiceBox.valueProperty().isNotNull).and(transactionTypeCB.valueProperty().booleanBinding(transactionTypeCB.valueProperty()) { it != CashTransaction.Issue })
-        )
-        availableAmount.textProperty()
-                .bind(Bindings.createStringBinding({
-                    val filteredCash = cash.filtered { it.token.issuer.party as AbstractParty == issuer.value && it.token.product == currencyChoiceBox.value }
-                            .map { it.withoutIssuer() }.sumOrNull()
-                    "${filteredCash ?: "None"} Available"
-                }, arrayOf(currencyChoiceBox.valueProperty(), issuerChoiceBox.valueProperty())))
-        // Amount
-        amountLabel.visibleProperty().bind(transactionTypeCB.valueProperty().isNotNull)
-        amountTextField.textFormatter = bigDecimalFormatter().apply { amount.bind(this.valueProperty()) }
-        amountTextField.visibleProperty().bind(transactionTypeCB.valueProperty().isNotNull)
-
+        // Price
+        priceLabel.text = "Price per security"
+        quantityLabel.text = "Quantity of securities"
         // Validate inputs.
         val formValidCondition = arrayOf(
                 myIdentity.isNotNull(),
                 transactionTypeCB.valueProperty().isNotNull,
-                partyBChoiceBox.visibleProperty().not().or(partyBChoiceBox.valueProperty().isNotNull),
-                issuerChoiceBox.visibleProperty().not().or(issuerChoiceBox.valueProperty().isNotNull),
-                amountTextField.textProperty().isNotEmpty,
-                currencyChoiceBox.valueProperty().isNotNull
+                otherPartyCB.visibleProperty().not().or(otherPartyCB.valueProperty().isNotNull),
+                securityTypeCB.visibleProperty().not().or(securityTypeCB.valueProperty().isNotNull),
+                priceTextField.textProperty().isNotEmpty
         ).reduce(BooleanBinding::and)
 
         // Enable execute button when form is valid.

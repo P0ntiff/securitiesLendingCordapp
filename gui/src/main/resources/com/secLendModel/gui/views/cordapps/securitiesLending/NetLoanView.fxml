@@ -18,6 +18,10 @@
             <ChoiceBox fx:id="otherPartyCB" maxWidth="Infinity" GridPane.columnIndex="1" GridPane.columnSpan="4"
                        GridPane.fillWidth="true" GridPane.hgrow="ALWAYS" GridPane.rowIndex="2"/>
 
+            <Label fx:id="securityTypeLabel" GridPane.halignment="RIGHT" GridPane.rowIndex="3"/>
+            <ChoiceBox fx:id="securityTypeCB" maxWidth="Infinity" GridPane.columnIndex="1" GridPane.columnSpan="4"
+                       GridPane.fillWidth="true" GridPane.hgrow="ALWAYS" GridPane.rowIndex="3"/>
+
 
             <padding>
                 <Insets bottom="20.0" left="30.0" right="30.0" top="30.0"/>

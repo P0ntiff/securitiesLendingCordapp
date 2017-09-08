@@ -170,13 +170,13 @@ class Simulation(options : String?) {
         //Test stock borrows and stock loans
         parties.forEach {
             //Loan out stock to a random counter party, where they initiate the deal
-            //val id = loanSecurities(it.second, true)
+            val id = loanSecurities(it.second, true)
             //Loan out stock to a random counter party, where we initiate the deal
-            //val id2 = loanSecurities(it.second, false)
+            val id2 = loanSecurities(it.second, false)
             //Borrow stock from a random counter party, where we initiate the deal
-            //val id3 = borrowSecurities(it.second, true)
+            val id3 = borrowSecurities(it.second, true)
             //Borrow stock from a random counter party, where they initiate the deal
-            //val id4 = borrowSecurities(it.second, false)
+            val id4 = borrowSecurities(it.second, false)
 
             //updateMargin(id, it.second)
             //updateMargin(id2, it.second)
@@ -196,7 +196,7 @@ class Simulation(options : String?) {
         val id8 = LoanSecuritySpecific(parties[1].second, true, parties[0].second)
         //val idList = arrayListOf(id5, id6, id7, id8)
         //partialTerminateLoan(id5, parties[0].second, 5)
-        netLoans(parties[1].second.nodeIdentity().legalIdentity, parties[0].second)
+        //netLoans(parties[1].second.nodeIdentity().legalIdentity, parties[0].second, "CBA")
 
 
 
@@ -491,8 +491,8 @@ class Simulation(options : String?) {
      * @param initiator = the party that wants to update the margin with the counterparty on the loan
      *
      */
-    private fun netLoans(otherParty: Party, initiator: CordaRPCOps): UniqueIdentifier {
-        val netLoans = initiator.startFlow(::NetInitiator, otherParty).returnValue.getOrThrow()
+    private fun netLoans(otherParty: Party, initiator: CordaRPCOps, code:String): UniqueIdentifier {
+        val netLoans = initiator.startFlow(::NetInitiator, otherParty, code).returnValue.getOrThrow()
         println("Loans Netted")
         return netLoans
     }
