@@ -1,5 +1,9 @@
 package com.secLendModel.flow.securities
 
+/**
+ * Created by raymondm on 11/09/2017.
+ */
+
 import co.paralleluniverse.fibers.Suspendable
 import com.secLendModel.CURRENCY
 import com.secLendModel.flow.SecuritiesPreparationFlow
@@ -19,10 +23,10 @@ import java.math.BigDecimal
 import java.security.PublicKey
 import java.util.*
 
-/** A flow to model DVP Trade of Securities and Cash.
- *  Handles the input of security states in a subflow called SecuritiesPreparationFlow
+/** A flow for handling buying stocks, where the intiator is essentially requesting stock from another party, and adding
+ * cash as part of their offer.
  */
-object TradeFlow {
+object BuyFlow {
     /** This object is serialised to the network and is the first flow message the seller sends to the buyer.
      *  The "initial market offer" --> responded to by a boolean
      * @param code = ASX/Exchange code of stock to be traded
@@ -53,10 +57,10 @@ object TradeFlow {
      */
     @InitiatingFlow
     @StartableByRPC
-    class Seller(val code: String,
+    class Buyer(val code: String,
                  val quantity: Int,
                  val stockPrice: Amount<Currency>,
-                 val buyer: Party,
+                 val seller: Party,
                  override val progressTracker: ProgressTracker = Seller.tracker()) : FlowLogic<SignedTransaction>() {
         constructor(code: String, quantity: Int, stockPrice : Amount<Currency>, buyer: Party) :
                 this(code, quantity, stockPrice, buyer, tracker())
@@ -74,7 +78,7 @@ object TradeFlow {
             val notary = serviceHub.networkMapCache.notaryNodes.single().notaryIdentity
             val ownerKey = serviceHub.legalIdentityKey
 
-            /**********************************************************************************************************/
+            //Prepar the market offer to be sent
             progressTracker.currentStep = PREPARING
             val marketOffer = MarketOffer(
                     code,
@@ -83,37 +87,39 @@ object TradeFlow {
                     ownerKey
             )
 
-            /**********************************************************************************************************/
+            //Send the market offer
             progressTracker.currentStep = PROPOSING
             //Check the other party is interested and ready to participate in this transaction
-            val acceptance = sendAndReceive<Boolean>(buyer, marketOffer)
+            val acceptance = sendAndReceive<Boolean>(seller, marketOffer)
             //TODO: Have a backup plan if confirmation doesn't return True
-            //Input states from vault into transaction and create outputs with recipient as the new owner of the states, along with change sent back to the old owner
+            //Input the required cash state for this trade
             val builder : TransactionBuilder = TransactionType.General.Builder(notary)
             val (tx, keysForSigning) = try {
-                subFlow(SecuritiesPreparationFlow(builder, code, quantity, buyer))
+                serviceHub.vaultService.generateSpend(builder,
+                        Amount((marketOffer.quantity * marketOffer.stockPrice.quantity).toLong(), CURRENCY),
+                        AnonymousParty(seller.owningKey))
             } catch (e: InsufficientBalanceException) {
                 throw SecurityException("Insufficient holding: ${e.message}", e)
             }
-            val spendTX = sendAndReceive<SignedTransaction>(buyer, tx)
+            val spendTX = sendAndReceive<SignedTransaction>(seller, tx)
 
-            /**********************************************************************************************************/
+            //Recieve back the transaction, resolve its dependencies.
             progressTracker.currentStep = RESOLVING
             //Check txn dependencies and verify signature of counterparty
             val unwrappedSTX = spendTX.unwrap {
                 val wtx: WireTransaction = it.verifySignatures(ownerKey, notary.owningKey)
                 //Check txn dependency chain ("resolution")
-                subFlow(ResolveTransactionsFlow(wtx, buyer))
+                subFlow(ResolveTransactionsFlow(wtx, seller))
                 //TODO: Check the amount of cash and equity input, and whether it's what we (the seller) asked for
                 it
             }
 
-            /**********************************************************************************************************/
+            //Finalise the flow using finality flow.
             progressTracker.currentStep = FINALISING
             //Sign with our key
             val ourSignature = serviceHub.createSignature(unwrappedSTX, ownerKey)
             val unnotarisedSTX: SignedTransaction = unwrappedSTX + ourSignature
-            val finishedSTX = subFlow(FinalityFlow(unnotarisedSTX, setOf(buyer))).single()
+            val finishedSTX = subFlow(FinalityFlow(unnotarisedSTX, setOf(seller))).single()
             return finishedSTX
         }
     }
@@ -122,8 +128,8 @@ object TradeFlow {
      *
      * @param seller = party initiating the market offer and invitation to trade
      */
-    @InitiatedBy(Seller::class)
-    class Buyer(val seller: Party) : FlowLogic<SignedTransaction>() {
+    @InitiatedBy(Buyer::class)
+    class Seller(val buyer: Party) : FlowLogic<SignedTransaction>() {
 
         override val progressTracker: ProgressTracker = tracker()
         companion object {
@@ -136,41 +142,35 @@ object TradeFlow {
 
         @Suspendable
         override fun call() : SignedTransaction {
-            /*********************************************************************************************************/
+
+            //Recieve offer from the other party
             progressTracker.currentStep = CONNECTED
             //Receive and unpack the market offer's details
-            val tradeRequest = receive<MarketOffer>(seller).unwrap { it }
+            val tradeRequest = receive<MarketOffer>(buyer).unwrap { it }
             val code = tradeRequest.code
             val quantity = tradeRequest.quantity
             val stockPrice : Amount<Currency> = tradeRequest.stockPrice
             val sellerKey = tradeRequest.sellerKey
             //Let's just accept whatever stock and stockPrice it is for now (i.e return "true" to seller, to represent acceptance)
             //TODO: Check we're interested in buying the security with code 'code', and check price against an acceptable price
-            val builder : TransactionBuilder = sendAndReceive<TransactionBuilder>(seller, true).unwrap { it }
+            val builder : TransactionBuilder = sendAndReceive<TransactionBuilder>(buyer, true).unwrap { it }
             //Assume that the tx has been legitimately filled with equity states by the seller prior to sending
             //TODO: Enforce the above assumption using a similar 'outputs unwrap' method as in the Seller flow above
-/**
-**/
-            /*********************************************************************************************************/
+
+            //Add our securities state
             progressTracker.currentStep = INPUTTING
             val totalCash = Amount.fromDecimal(stockPrice.toDecimal() * BigDecimal(quantity), CURRENCY)
-            val (ptx, cashSigningPubKeys) = serviceHub.vaultService.
-                    generateSpend(builder,
-                    totalCash,
-                    AnonymousParty(sellerKey)
-                    )
+            val (ptx, keysForSigning) = subFlow(SecuritiesPreparationFlow(builder, code, quantity, buyer))
 
-            /*********************************************************************************************************/
+
+            //Sign transaction then send back to the seller
             progressTracker.currentStep = SIGNING_TX
             val currentTime = serviceHub.clock.instant()
             ptx.addTimeWindow(currentTime, 30.seconds)
-            val stx = serviceHub.signInitialTransaction(ptx, cashSigningPubKeys)
-
-            /*********************************************************************************************************/
+            val stx = serviceHub.signInitialTransaction(ptx, keysForSigning)
             progressTracker.currentStep = SENDING_BACK
-            send(seller, stx)
+            send(buyer, stx)
 
-            /*********************************************************************************************************/
             //Wait for ledger to arrive back in out transaction store
             return waitForLedgerCommit(stx.id)
         }

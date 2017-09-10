@@ -54,8 +54,10 @@ object LoanUpdateFlow {
             val priceTx = TransactionBuilder()
             val priceQuery = subFlow(PriceRequestFlow(secLoan.state.data.code, priceTx))
             val newPrice = priceQuery.first
-            //val newPrice = Amount<Currency>(1000, CURRENCY)
-            //Oracles signature is checked within price update flow, so checking here is not neccesary
+            if (newPrice == secLoan.state.data.stockPrice) {
+                println("Prices are the same")
+                throw Exception("Update Not Needed")
+            }
             //Get the new margin based off the ratio of new to old stock price
 
             val newMargin = DecimalFormat(".##").format(secLoan.state.data.terms.margin * ((newPrice.quantity.toDouble()/secLoan.state.data.currentStockPrice.quantity.toDouble()))).toDouble()

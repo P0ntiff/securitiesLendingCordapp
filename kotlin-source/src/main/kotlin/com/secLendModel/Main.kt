@@ -8,6 +8,7 @@ import com.secLendModel.flow.SecuritiesPreparationFlow
 import com.secLendModel.flow.oracle.OracleFlow
 import com.secLendModel.flow.oracle.PriceRequestFlow
 import com.secLendModel.flow.oracle.PriceType
+import com.secLendModel.flow.securities.BuyFlow
 import com.secLendModel.flow.securitiesLending.LoanIssuanceFlow.Initiator
 import com.secLendModel.flow.securitiesLending.LoanIssuanceFlow.Acceptor
 import com.secLendModel.flow.securitiesLending.LoanNetFlow
@@ -158,13 +159,13 @@ class Simulation(options : String?) {
 
         //Test they can move stock and cash to another owner
         parties.forEach {
-            //moveCash(it.second)
-            //moveEquity(it.second)
+            moveCash(it.second)
+            moveEquity(it.second)
         }
         //Test they can DVP trade stock
         parties.forEach {
-            //tradeEquity(it.second)
-            //tradeEquity(it.second)
+            tradeEquity(it.second)
+            tradeEquity(it.second)
         }
 
         //Test stock borrows and stock loans
@@ -242,7 +243,8 @@ class Simulation(options : String?) {
             startFlowPermission<OwnershipTransferFlow>(),
             startFlowPermission<SecuritiesPreparationFlow>(),
             startFlowPermission<PriceRequestFlow.PriceQueryFlow>(),
-            startFlowPermission<PriceRequestFlow.PriceSignFlow>()
+            startFlowPermission<PriceRequestFlow.PriceSignFlow>(),
+            startFlowPermission<BuyFlow.Buyer>()
     )
     private fun allocateSecuritiesLendingPermissions() : Set<String> = setOf(
             startFlowPermission<Initiator>(),

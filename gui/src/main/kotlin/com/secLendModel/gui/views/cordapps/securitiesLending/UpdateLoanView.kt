@@ -138,8 +138,6 @@ class UpdateLoanView : Fragment() {
         dialogPane = root
         initOwner(window)
         setResultConverter {
-            val defaultRef = OpaqueBytes.of(1)
-            val issueRef = if (issueRef.value != null) OpaqueBytes.of(issueRef.value) else defaultRef
             when (it) {
                 executeButton -> when (transactionTypeCB.value) {
                     LoanTransactions.Update ->{
@@ -150,13 +148,7 @@ class UpdateLoanView : Fragment() {
                             rpcProxy.value?.startFlow(LoanUpdateFlow::Updator, it.state.data.linearId) as FlowHandle<Unit>
                         }
                     }
-                    //TODO: Add a loan creation button, we can list if we are borrower or lender, terms, etc.
-                    //LoanTransactions.Issue -> {
-                        //partyBChoiceBox.items.forEach {
-                            //Generate loan terms based on the user input
-                            //rpcProxy.value?.startFlow(LoanIssuanceFlow::Initiator, loanTerms) as FlowHandle<Unit>
 
-                    //}
                }
                 else -> null
             }
@@ -190,6 +182,7 @@ class UpdateLoanView : Fragment() {
                         "\n Margin: " + it.state.data.terms.margin +
                         "\n Current SP: " + it.state.data.currentStockPrice.quantity}
         }
+
             // Validate inputs.
             val formValidCondition = arrayOf(
                     //myIdentity.isNotNull(),
@@ -198,20 +191,12 @@ class UpdateLoanView : Fragment() {
 
             ).reduce(BooleanBinding::and)
 
-            val formValidUpdateAll = arrayOf(
-                    transactionTypeCB.valueProperty().isNotNull
-            ).reduce(BooleanBinding::and)
             // Enable execute button when form is valid.
             root.buttonTypes.add(executeButton)
             //Use correct for validation
             //Add validation based on transactionType
-            println(transactionTypeCB.valueProperty().equals(LoanTransactions.UpdateAll))
-            if (transactionTypeCB.valueProperty().equals(LoanTransactions.UpdateAll)) {
-                println("UPDATE ALL CB")
-                root.lookupButton(executeButton).disableProperty().bind(formValidUpdateAll.not())
-            } else {
-                root.lookupButton(executeButton).disableProperty().bind(formValidCondition.not())
-            }
+            root.lookupButton(executeButton).disableProperty().bind(formValidCondition.not())
+
 
         }
     }

@@ -2,6 +2,7 @@ package com.secLendModel.gui.views.cordapps.securitiesLending
 
 import com.google.common.base.Splitter
 import com.secLendModel.CURRENCY
+import com.secLendModel.flow.securities.BuyFlow
 import com.secLendModel.flow.securities.TradeFlow
 import com.secLendModel.flow.securitiesLending.LoanNetFlow
 import javafx.beans.binding.Bindings
@@ -120,7 +121,7 @@ class UpdatePortfolio : Fragment() {
                 executeButton -> when (transactionTypeCB.value) {
                     EquitiesTransaction.Buy -> {
                         //TODO: Create a buy flow for equities, currently only sell exists.
-                        rpcProxy.value?.startFlow(TradeFlow::Seller, securityTypeCB.value, quantityTextField.text.toInt(),
+                        rpcProxy.value?.startFlow(BuyFlow::Buyer, securityTypeCB.value, quantityTextField.text.toInt(),
                                 Amount(priceTextField.text.toLong() * quantityTextField.text.toLong(), CURRENCY), otherPartyCB.value.legalIdentity)
                     }
                     EquitiesTransaction.Sell -> {
