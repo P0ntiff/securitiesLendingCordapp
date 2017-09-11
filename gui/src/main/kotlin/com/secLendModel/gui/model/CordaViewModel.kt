@@ -1,5 +1,7 @@
 package com.secLendModel.gui.model
 
+import com.secLendModel.gui.views.cordapps.securitiesLending.PortfolioViewer
+import com.secLendModel.gui.views.cordapps.securitiesLending.UpdateLoanView
 import de.jensd.fx.glyphs.fontawesome.FontAwesomeIcon
 import javafx.beans.property.SimpleObjectProperty
 import javafx.collections.ObservableList

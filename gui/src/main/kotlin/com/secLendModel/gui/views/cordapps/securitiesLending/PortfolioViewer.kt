@@ -39,6 +39,10 @@ import com.secLendModel.gui.model.*
 import com.secLendModel.gui.ui.*
 import com.secLendModel.gui.views.*
 import com.secLendModel.gui.views.resolveIssuer
+import javafx.beans.property.ObjectProperty
+import javafx.geometry.Pos
+import javafx.scene.Node
+import net.corda.core.crypto.SecureHash
 import net.corda.core.flows.FlowLogic
 import net.corda.core.messaging.startFlow
 import net.corda.core.transactions.TransactionBuilder
@@ -48,6 +52,7 @@ import java.time.Instant
 import java.time.LocalDateTime
 import java.util.*
 import net.corda.core.flows.FlowLogic.*
+import kotlin.reflect.KFunction1
 
 class PortfolioViewer : CordaView("Equities Portfolio") {
     //RPC Proxy
@@ -55,6 +60,7 @@ class PortfolioViewer : CordaView("Equities Portfolio") {
     // Inject UI elements.
     override val root: BorderPane by fxml()
     override val icon: FontAwesomeIcon = FontAwesomeIcon.ADDRESS_CARD
+    override val widgets = listOf(CordaWidget("Securities", PortfolioWidget(), icon)).observable()
     // Left pane
     private val leftPane: VBox by fxid()
     private val splitPane: SplitPane by fxid()
@@ -67,6 +73,7 @@ class PortfolioViewer : CordaView("Equities Portfolio") {
     private val totalPositionsLabel: Label by fxid()
     private val claimStatesList: ListView<StateRow> by fxid()
     private val toggleButton by fxid<Button>()
+
     // Inject observables
     private val claimStates by observableList(SecuritiesLendingModel::claimStates)
 
@@ -253,6 +260,34 @@ class PortfolioViewer : CordaView("Equities Portfolio") {
 
         toggleButton.setOnAction {
             claimViewerTable.selectionModel.clearSelection()
+        }
+    }
+
+    private class PortfolioWidget : BorderPane() {
+        //private val partiallyResolvedTransactions by observableListReadOnly(TransactionDataModel::partiallyResolvedTransactions)
+        private val claimStates by observableList(SecuritiesLendingModel::claimStates)
+
+        // TODO : Add a scrolling table to show latest transaction.
+        // TODO : Add a chart to show types of transactions.
+        init {
+                right {
+                    label {
+                        val hash = SecureHash.randomSHA256()
+                        graphic = identicon(hash, 30.0)
+                        var totalStock = 0;
+                        println("Claim States size ${claimStates.size}")
+                        claimStates.forEach {
+                            println("Claim State")
+                            totalStock += it.state.data.quantity
+                        }
+                        println("TOTAL STOCK: $totalStock")
+                        textProperty().bind(Bindings.size(claimStates).map(Number::toString))
+                        //textProperty().bind(Bindings.concat(totalStock))
+                        BorderPane.setAlignment(this, Pos.BOTTOM_RIGHT)
+                    }
+                }
+
+
         }
     }
 

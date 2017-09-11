@@ -15,6 +15,7 @@ import net.corda.client.jfx.utils.concatenate
 import net.corda.client.jfx.utils.map
 import com.secLendModel.gui.model.CordaView
 import com.secLendModel.gui.model.CordaViewModel
+import com.secLendModel.gui.model.CordaWidget
 
 class Dashboard : CordaView() {
     override val root: Parent by fxml()
@@ -38,6 +39,7 @@ class Dashboard : CordaView() {
     }
 
     private fun getWidget(view: CordaView): ObservableList<Node> {
+
         return view.widgets.map {
             TitledPane(it.name, it.node).apply {
                 styleClass.addAll(template.styleClass)

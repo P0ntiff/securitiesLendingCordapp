@@ -9,6 +9,7 @@ import com.secLendModel.gui.formatters.PartyNameFormatter
 import com.secLendModel.gui.identicon.identicon
 import com.secLendModel.gui.identicon.identiconToolTip
 import com.secLendModel.gui.model.CordaView
+import com.secLendModel.gui.model.CordaWidget
 import com.secLendModel.gui.model.SecuritiesLendingModel
 import com.secLendModel.gui.ui.*
 import com.secLendModel.gui.views.SearchField
@@ -35,6 +36,8 @@ import net.corda.core.identity.Party
 import tornadofx.*
 import java.time.LocalDateTime
 import com.secLendModel.gui.views.cordapps.securitiesLending.UpdateLoanView
+import javafx.geometry.Pos
+import net.corda.core.crypto.SecureHash
 
 /**
  * Created by raymondm on 11/08/2017.
@@ -45,6 +48,7 @@ class LoanViewer : CordaView("Loan Portfolio") {
     // Inject UI elements.
     override val root: BorderPane by fxml()
     override val icon: FontAwesomeIcon = FontAwesomeIcon.ADDRESS_CARD
+    override val widgets = listOf(CordaWidget("Loans", LoanWidget(), icon)).observable()
     // Left pane
     private val leftPane: VBox by fxid()
     private val splitPane: SplitPane by fxid()
@@ -269,6 +273,32 @@ class LoanViewer : CordaView("Loan Portfolio") {
 
         toggleButton.setOnAction {
             claimViewerTable.selectionModel.clearSelection()
+        }
+    }
+
+    private class LoanWidget : BorderPane() {
+        //private val partiallyResolvedTransactions by observableListReadOnly(TransactionDataModel::partiallyResolvedTransactions)
+        private val claimStates by observableList(SecuritiesLendingModel::loanStates)
+
+        // TODO : Add a scrolling table to show latest transaction.
+        // TODO : Add a chart to show types of transactions.
+        init {
+            right {
+                    label {
+                        val hash = SecureHash.randomSHA256()
+                        graphic = identicon(hash, 30.0)
+                        var quantity = 0;
+                        claimStates.map {
+                            quantity += it.state.data.quantity
+                            it
+                        }
+                        //textProperty().bind(Bindings.concat(quantity))
+                        textProperty().bind(Bindings.size(claimStates).map(Number::toString))
+                        BorderPane.setAlignment(this, Pos.BOTTOM_RIGHT)
+                    }
+
+            }
+
         }
     }
 
