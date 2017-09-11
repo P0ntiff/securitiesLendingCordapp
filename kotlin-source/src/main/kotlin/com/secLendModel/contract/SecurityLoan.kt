@@ -32,6 +32,12 @@ class SecurityLoan : Contract {
         class Net: TypeOnlyCommandData(), Commands
         class PartialExit: TypeOnlyCommandData(), Commands
     }
+    /** Simple data class for holding the collateral types accepted in loan terms */
+    object collateralType {
+        val types = arrayListOf("Cash", "Security")
+        val cash = "Cash"
+        val security = "Security"
+    }
 
     @CordaSerializable
     data class Terms(val lengthOfLoan: Int,

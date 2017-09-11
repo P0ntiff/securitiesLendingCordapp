@@ -4,6 +4,7 @@ import co.paralleluniverse.fibers.Suspendable
 import com.secLendModel.CURRENCY
 import com.secLendModel.contract.SecurityClaim
 import com.secLendModel.contract.SecurityLoan
+import com.secLendModel.flow.CollateralPreparationFlow
 import com.secLendModel.flow.SecuritiesPreparationFlow
 import com.secLendModel.flow.securitiesLending.LoanChecks.getCounterParty
 import com.secLendModel.flow.securitiesLending.LoanChecks.isLender
@@ -59,9 +60,12 @@ object LoanIssuanceFlow {
                 }
             }
             else{ //If we are the borrower
-                 ptx = serviceHub.vaultService.generateSpend(builder,
-                        Amount(((agreedTerms.stockPrice.quantity * agreedTerms.quantity) * (1.0 + agreedTerms.margin)).toLong(), CURRENCY),
-                        AnonymousParty(agreedTerms.lender.owningKey)).first
+                //TODO: Rather than add cash, in the loan agreedterms add a field for collateral type, then add that correct type here
+                ptx = subFlow(CollateralPreparationFlow(builder, "Cash",
+                        ((agreedTerms.stockPrice.quantity * agreedTerms.quantity) * (1.0 + agreedTerms.margin)).toLong(), agreedTerms.lender))
+                //ptx = serviceHub.vaultService.generateSpend(builder,
+                        //Amount(((agreedTerms.stockPrice.quantity * agreedTerms.quantity) * (1.0 + agreedTerms.margin)).toLong(), CURRENCY),
+                        //AnonymousParty(agreedTerms.lender.owningKey)).first
             }
             val stx = sendAndReceive<SignedTransaction>(counterParty, ptx).unwrap {
                 val wtx: WireTransaction = it.verifySignatures(serviceHub.myInfo.legalIdentity.owningKey, notary.owningKey)
@@ -121,9 +125,13 @@ object LoanIssuanceFlow {
                 }
             }
             else { //We are the borrower -> should have received stock, so adding in cash
-                 tx = serviceHub.vaultService.generateSpend(builder,
-                        Amount(((agreedTerms.stockPrice.quantity * agreedTerms.quantity) * (1.0 + agreedTerms.margin)).toLong(), CURRENCY),
-                        AnonymousParty(agreedTerms.lender.owningKey)).first
+                //TODO: Rather than add cash, in the loan agreedterms add a field for collateral type, then add that correct type here
+                tx = subFlow(CollateralPreparationFlow(builder, "Cash",
+                            ((agreedTerms.stockPrice.quantity * agreedTerms.quantity) * (1.0 + agreedTerms.margin)).toLong(), agreedTerms.lender))
+
+                //tx = serviceHub.vaultService.generateSpend(builder,
+                        //Amount(((agreedTerms.stockPrice.quantity * agreedTerms.quantity) * (1.0 + agreedTerms.margin)).toLong(), CURRENCY),
+                        //AnonymousParty(agreedTerms.lender.owningKey)).first
             }
 
             //STEP 5: Generate securityLoan state as output state and send back to borrower

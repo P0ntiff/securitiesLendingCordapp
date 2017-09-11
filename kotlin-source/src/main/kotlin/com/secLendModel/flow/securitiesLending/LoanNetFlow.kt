@@ -3,6 +3,7 @@ package com.secLendModel.flow.securitiesLending
 import co.paralleluniverse.fibers.Suspendable
 import com.secLendModel.CURRENCY
 import com.secLendModel.contract.SecurityLoan
+import com.secLendModel.flow.CollateralPreparationFlow
 import com.secLendModel.flow.SecuritiesPreparationFlow
 import com.secLendModel.flow.oracle.PriceRequestFlow
 import net.corda.core.contracts.*
@@ -107,22 +108,30 @@ object LoanNetFlow {
             }
             var cashNetSum = 0.0
             cashNet.forEach { cashNetSum += it }
+            val ptx: TransactionBuilder
             //If cash net sum is negative, the borrower owed more collateral then the lender owed.
             //if we are borrower, add cash here, taking into account the cashNetSum
             if (serviceHub.myInfo.legalIdentity == outputBorrower) {
                     //Add cash, make sure we dont try add zero cash as this throws an error
                 if (((outputState.stockPrice.quantity * outputState.quantity) * (1.0 + outputState.terms.margin)-cashNetSum).toLong() != 0.toLong()) {
-                    serviceHub.vaultService.generateSpend(builder,
-                            Amount((((outputState.stockPrice.quantity * outputState.quantity) * (1.0 + outputState.terms.margin) - cashNetSum)).toLong(), CURRENCY),
-                            AnonymousParty(outputState.lender.owningKey)).first
+
+                    ptx = subFlow(CollateralPreparationFlow(builder, "Cash",
+                            ((outputState.stockPrice.quantity * outputState.quantity) * (1.0 + outputState.terms.margin) - cashNetSum).toLong(), outputState.lender))
+                    //serviceHub.vaultService.generateSpend(builder,
+                            //Amount((((outputState.stockPrice.quantity * outputState.quantity) * (1.0 + outputState.terms.margin) - cashNetSum)).toLong(), CURRENCY),
+                            //AnonymousParty(outputState.lender.owningKey)).first
+                } else {
+                    ptx = builder
                 }
+            } else {
+                ptx = builder
             }
 
 
             //STEP 5: Send TxBuilder with output loan state, and possible input securities or cash states. Also send the net cash position so we dont have to calculate again
             //Find out who our counterParty is (either lender or borrower)
             val counterParty = LoanChecks.getCounterParty(LoanChecks.stateToLoanTerms(securityLoans.first().state.data), serviceHub.myInfo.legalIdentity)
-            send(counterParty, Pair(builder, cashNetSum))
+            send(counterParty, Pair(ptx, cashNetSum))
 
             //STEP 8 Receive back signed tx and finalize this update to the loan
             val stx = sendAndReceive<SignedTransaction>(counterParty, builder).unwrap {
@@ -156,12 +165,15 @@ object LoanNetFlow {
                     subFlow(SecuritiesPreparationFlow(it.first,code,Math.abs(outputSharesSum),outputBorrower))
                 } else {
                     //if we are borrower, add cash, again taking into account the netCashSum (it.second in this case)
+                    val ptx: TransactionBuilder
                     if (serviceHub.myInfo.legalIdentity == outputBorrower) {
                         //Add cash, make sure we dont try to add zero cash as this throws an error
                         if (((outputState.stockPrice.quantity * outputState.quantity) * (1.0 + outputState.terms.margin)-it.second).toLong() != 0.toLong()) {
-                            serviceHub.vaultService.generateSpend(it.first,
-                                    Amount((((outputState.stockPrice.quantity * outputState.quantity) * (1.0 + outputState.terms.margin) - it.second)).toLong(), CURRENCY),
-                                    AnonymousParty(outputState.lender.owningKey)).first
+                            ptx = subFlow(CollateralPreparationFlow(it.first, "Cash",
+                                    ((outputState.stockPrice.quantity * outputState.quantity) * (1.0 + outputState.terms.margin) - it.second).toLong(), outputState.lender))
+                            //serviceHub.vaultService.generateSpend(it.first,
+                               //     Amount((((outputState.stockPrice.quantity * outputState.quantity) * (1.0 + outputState.terms.margin) - it.second)).toLong(), CURRENCY),
+                                 //   AnonymousParty(outputState.lender.owningKey)).first
                         }
                     }
                 }

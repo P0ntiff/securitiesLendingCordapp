@@ -5,6 +5,8 @@ import com.secLendModel.STOCKS
 import com.secLendModel.contract.SecurityClaim
 import com.secLendModel.flow.oracle.Oracle
 import com.secLendModel.flow.oracle.PriceRequestFlow
+import com.secLendModel.flow.oracle.PriceType
+import com.secLendModel.flow.securitiesLending.LoanNetFlow
 import com.secLendModel.flow.securitiesLending.LoanUpdateFlow
 import com.sun.javafx.collections.ObservableListWrapper
 import de.jensd.fx.glyphs.fontawesome.FontAwesomeIcon
@@ -52,11 +54,13 @@ import java.time.Instant
 import java.time.LocalDateTime
 import java.util.*
 import net.corda.core.flows.FlowLogic.*
+import net.corda.core.node.services.ServiceType
 import kotlin.reflect.KFunction1
 
 class PortfolioViewer : CordaView("Equities Portfolio") {
     //RPC Proxy
     private val rpcProxy by observableValue(NodeMonitorModel::proxyObservable)
+    private val networkIdentities by observableList(NetworkIdentityModel::networkIdentities)
     // Inject UI elements.
     override val root: BorderPane by fxml()
     override val icon: FontAwesomeIcon = FontAwesomeIcon.ADDRESS_CARD
@@ -178,9 +182,15 @@ class PortfolioViewer : CordaView("Equities Portfolio") {
                         val sumAmount = amounts.foldObservable(0, Int::plus)
                         //TODO: Get the total worth for this sumAmount and add it next to the sumAmount in the quantity colum
                         //val price: Pair<Amount<Currency>, TransactionBuilder> = net.corda.core.flows.FlowLogic(PriceRequestFlow(stock, tx))
-
-
-
+                        val oracle = networkIdentities.filtered { it.advertisedServices.any { it.info.type.equals(PriceType.type) } }
+                        var totalValue = 0.0;
+                        memberStates.forEach {
+                            val price = rpcProxy.value?.startFlow(PriceRequestFlow::PriceQueryFlow, oracle.first().value!!.legalIdentity, it.state.data.code)!!.returnValue//, oracle, it.state.data.code)
+                            while(!price.isDone)
+                            totalValue += price.get().quantity
+                        }
+                        //val newPrice = priceQuery.first
+                        //TODO: Add this total value into the view.
 
                         /**
                          * Finally assemble the actual TreeTable Currency node.

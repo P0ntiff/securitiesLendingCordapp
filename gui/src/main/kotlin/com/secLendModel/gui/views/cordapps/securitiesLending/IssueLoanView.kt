@@ -157,7 +157,7 @@ class IssueLoanView : Fragment() {
                             val priceTx = TransactionBuilder()
                             val priceQuery = rpcProxy.value?.startFlow(PriceRequestFlow::PriceQueryFlow, oracle.first().legalIdentity, codeCB.value )
                             val loanTerms = LoanTerms(codeCB.value, amountTextField.text.toInt(), priceQuery!!.returnValue.get(), lender, borrower,
-                                    marginTextField.text.toDouble(), rebateTextField.text.toDouble(), lengthTextField.text.toInt() )
+                                    marginTextField.text.toDouble(), rebateTextField.text.toDouble(), lengthTextField.text.toInt(), "Cash")
                             rpcProxy.value?.startFlow(LoanIssuanceFlow::Initiator, loanTerms) as FlowHandle<Unit>
 
                     }
@@ -190,9 +190,17 @@ class IssueLoanView : Fragment() {
 
         //Setup avaialble opposing parties
         //opposingPartyLabel.textProperty().bind(transactionTypeCB.valueProperty().map { it?.partyNameB?.let { "$it : " } })
+        //TODO: Remove our node name from parties. cant just do this using parties.remove() for some reason
+        val newParties = arrayListOf<net.corda.core.node.NodeInfo>()
+        parties.forEach {
+            if (it != myIdentity.value) {
+                newParties.add(it)
+            }
+        }
         opposingPartyCB.apply {
-            parties.remove(myIdentity.value)
-            items = parties.sorted()
+            //parties.remove(myIdentity.value)
+            items = newParties.observable()
+            //items.remove(myIdentity.value)
             converter = stringConverter { it?.legalIdentity?.let { PartyNameFormatter.short.format(it.name) } ?: "" }
         }
 

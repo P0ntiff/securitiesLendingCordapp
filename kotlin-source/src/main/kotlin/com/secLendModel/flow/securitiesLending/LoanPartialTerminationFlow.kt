@@ -3,6 +3,7 @@ package com.secLendModel.flow.securitiesLending
 import co.paralleluniverse.fibers.Suspendable
 import com.secLendModel.CURRENCY
 import com.secLendModel.contract.SecurityLoan
+import com.secLendModel.flow.CollateralPreparationFlow
 import com.secLendModel.flow.SecuritiesPreparationFlow
 import net.corda.core.contracts.Amount
 import net.corda.core.contracts.InsufficientBalanceException
@@ -50,9 +51,12 @@ object LoanPartialTerminationFlowTerminationFlow {
             val ptx: TransactionBuilder
             //If we are the lender, then we are returning cash collateral for the correct amount of shares being returned
             if (LoanChecks.isLender(secLoanTerms, serviceHub.myInfo.legalIdentity)) {
-                ptx = serviceHub.vaultService.generateSpend(builder,
-                        Amount(((secLoanTerms.stockPrice.quantity * amountToTerminate) * (1.0 + secLoanTerms.margin)).toLong(), CURRENCY),
-                        AnonymousParty(counterParty.owningKey)).first
+                //Collateral is no longer just cashm so we add in the correct collateral here
+                ptx = subFlow(CollateralPreparationFlow(builder, "Cash",
+                        ((secLoan.state.data.stockPrice.quantity * secLoan.state.data.quantity) * (1.0 + secLoanTerms.margin)).toLong(), secLoan.state.data.lender))
+                //ptx = serviceHub.vaultService.generateSpend(builder,
+                  //      Amount(((secLoanTerms.stockPrice.quantity * amountToTerminate) * (1.0 + secLoanTerms.margin)).toLong(), CURRENCY),
+                    //    AnonymousParty(counterParty.owningKey)).first
             } else {  //If we are the borrower, then we are returning stock to the lender
                 ptx = try {
                     subFlow(SecuritiesPreparationFlow(builder, secLoanTerms.code, amountToTerminate, counterParty)).first
@@ -94,9 +98,11 @@ object LoanPartialTerminationFlowTerminationFlow {
             val tx: TransactionBuilder
             if (LoanChecks.isLender(secLoanTerms, serviceHub.myInfo.legalIdentity)) {
                 //We are lender -> should send back cash collateral to the borrower
-                tx = serviceHub.vaultService.generateSpend(ptx,
-                        Amount(((secLoanTerms.stockPrice.quantity * amountToTerminate) * (1.0 + secLoanTerms.margin)).toLong(), CURRENCY),
-                        AnonymousParty(counterParty.owningKey)).first
+                tx = subFlow(CollateralPreparationFlow(ptx, "Cash",
+                        ((secLoanTerms.stockPrice.quantity * amountToTerminate) * (1.0 + secLoanTerms.margin)).toLong(), counterParty))
+                //tx = serviceHub.vaultService.generateSpend(ptx,
+                  //      Amount(((secLoanTerms.stockPrice.quantity * amountToTerminate) * (1.0 + secLoanTerms.margin)).toLong(), CURRENCY),
+                    //    AnonymousParty(counterParty.owningKey)).first
             } else { //We are the borrower -> should send back stock to the lender
                 tx = try {
                     subFlow(SecuritiesPreparationFlow(ptx, secLoanTerms.code, amountToTerminate, counterParty)).first

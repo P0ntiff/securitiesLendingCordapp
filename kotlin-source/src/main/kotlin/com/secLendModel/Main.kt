@@ -378,7 +378,7 @@ class Simulation(options : String?) {
         val loanTerms = LoanTerms(CODES[stockIndex], quantity, sharePrice,
                 me.nodeIdentity().legalIdentity,
                 randomBorrower.nodeIdentity().legalIdentity,
-                margin, rebate, length)
+                margin, rebate, length, "Cash")
         when (BorrowerInitiates) {
             true -> {
                 //Counter party initiates the deal
@@ -420,7 +420,7 @@ class Simulation(options : String?) {
         val loanTerms = LoanTerms(CODES[0], quantity, sharePrice,
                 me.nodeIdentity().legalIdentity,
                 borrower.nodeIdentity().legalIdentity,
-                margin, rebate, length)
+                margin, rebate, length, "Cash")
         when (BorrowerInitiates) {
             true -> {
                 //Counter party initiates the deal
@@ -460,7 +460,7 @@ class Simulation(options : String?) {
         val loanTerms = LoanTerms(CODES[stockIndex], quantity, sharePrice,
                 randomLender.nodeIdentity().legalIdentity,
                 me.nodeIdentity().legalIdentity,
-                margin, rebate, length)
+                margin, rebate, length, "Cash")
         when (BorrowerInitiates) {
             true -> {
                 //We initiate the deal

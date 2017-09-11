@@ -136,8 +136,14 @@ class NetLoanView : Fragment() {
 
         // Loan Selection
         otherPartyLabel.text = "Opposing Party"
+        val newParties = arrayListOf<net.corda.core.node.NodeInfo>()
+        parties.forEach {
+            if (it != myIdentity.value) {
+                newParties.add(it)
+            }
+        }
         otherPartyCB.apply {
-            items = parties.observable()
+            items = newParties.observable()
             converter = stringConverter { it?.legalIdentity?.let {
                 PartyNameFormatter.short.format(it.name) } ?: "" }
         }
