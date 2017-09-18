@@ -155,7 +155,7 @@ class IssueLoanView : Fragment() {
                             //Get stock price from the oracle
                             val oracle = allNodes.filtered { it.advertisedServices.any { it.info.type.equals(PriceType.type) } }
                             val priceTx = TransactionBuilder()
-                            val priceQuery = rpcProxy.value?.startFlow(PriceRequestFlow::PriceQueryFlow, oracle.first().legalIdentity, codeCB.value )
+                            val priceQuery = rpcProxy.value?.startFlow(PriceRequestFlow::PriceQueryFlow, codeCB.value )
                             val loanTerms = LoanTerms(codeCB.value, amountTextField.text.toInt(), priceQuery!!.returnValue.get(), lender, borrower,
                                     marginTextField.text.toDouble(), rebateTextField.text.toDouble(), lengthTextField.text.toInt(), "Cash")
                             rpcProxy.value?.startFlow(LoanIssuanceFlow::Initiator, loanTerms) as FlowHandle<Unit>

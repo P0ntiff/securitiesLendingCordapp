@@ -60,18 +60,19 @@ class CollateralPreparationFlow(val builder : TransactionBuilder,
                     Amount((totalValue).toLong(), CURRENCY),
                     AnonymousParty(to.owningKey)).first
         }
-
         else {
             //Add securities collaeral
             val oracle = serviceHub.cordaService(Oracle::class.java)
             //TODO: Add correct amount of securities. How do we decide what security? What if we dont have enough of this security?
-            val currentPrice = subFlow(PriceRequestFlow.PriceQueryFlow(oracle.identity, collateralType))
+            //val currentPrice = subFlow(PriceRequestFlow.PriceQueryFlow(oracle.identity, collateralType))
+            val currentPrice = subFlow(PriceRequestFlow.PriceQueryFlow(collateralType))
             println("Collateral price was ${currentPrice.quantity}")
             /** Note: Calling this flow calls heaps of issues due to how the move vertification is setup. Should fix that at some point
              * but for now just avoid calling this flow twice (exactly what happened here)
              */
             val quantity = (totalValue / currentPrice.quantity).toInt()
             newTx = subFlow(SecuritiesPreparationFlow(tx, collateralType, quantity, to as Party)).first
+
 
         }
     return newTx

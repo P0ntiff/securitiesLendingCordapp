@@ -178,7 +178,6 @@ class Simulation(options : String?) {
             val id3 = borrowSecurities(it.second, true)
             //Borrow stock from a random counter party, where they initiate the deal
             val id4 = borrowSecurities(it.second, false)
-
             //updateMargin(id, it.second)
             //updateMargin(id2, it.second)
             //updateMargin(id3, it.second)

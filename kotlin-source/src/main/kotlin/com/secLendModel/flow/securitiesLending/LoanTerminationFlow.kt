@@ -4,6 +4,7 @@ import co.paralleluniverse.fibers.Suspendable
 import com.secLendModel.CURRENCY
 import com.secLendModel.contract.SecurityClaim
 import com.secLendModel.contract.SecurityLoan
+import com.secLendModel.flow.CollateralPreparationFlow
 import com.secLendModel.flow.SecuritiesPreparationFlow
 import com.secLendModel.flow.securitiesLending.LoanChecks.isLender
 import com.secLendModel.flow.securitiesLending.LoanChecks.stateToLoanTerms
@@ -45,7 +46,7 @@ object LoanTerminationFlow {
             val secLoanTerms = stateToLoanTerms(secLoan.state.data)
             val counterParty = LoanChecks.getCounterParty(secLoanTerms, serviceHub.myInfo.legalIdentity)
             send(counterParty, loanID)
-
+            println("Collateral Type: ${secLoan.state.data.terms.collateralType}")
             //STEP 2: Prepare the txBuilder for the exit -> add the securityLoan input state
             val lender = secLoan.state.data.lender
             val borrower = secLoan.state.data.borrower
@@ -56,9 +57,14 @@ object LoanTerminationFlow {
             val ptx : TransactionBuilder
             //If we are the lender, then we are returning cash collateral
             if (isLender(secLoanTerms, serviceHub.myInfo.legalIdentity)) {
-                ptx = serviceHub.vaultService.generateSpend(builder,
-                        Amount(((secLoanTerms.stockPrice.quantity * secLoanTerms.quantity) * (1.0 + secLoanTerms.margin)).toLong(), CURRENCY),
-                        AnonymousParty(counterParty.owningKey)).first
+                    //ptx = serviceHub.vaultService.generateSpend(builder,
+                            //Amount(((secLoanTerms.stockPrice.quantity * secLoanTerms.quantity) * (1.0 + secLoanTerms.margin)).toLong(), CURRENCY),
+                            //AnonymousParty(counterParty.owningKey)).first
+                //Return amount of stock as of original loan (even if price has been updated)
+                val value = ((secLoan.state.data.stockPrice.quantity* secLoanTerms.quantity) * (1.0 + secLoanTerms.margin)).toLong()
+                ptx = subFlow(CollateralPreparationFlow(builder, secLoan.state.data.terms.collateralType, value, counterParty ))
+                //TODO: Add remaining cash required to cover collateral payments
+
             }
             else{  //If we are the borrower, then we are returning stock to the lender
                 ptx = try {
@@ -112,9 +118,12 @@ object LoanTerminationFlow {
             val tx : TransactionBuilder
             if (isLender(secLoanTerms, serviceHub.myInfo.legalIdentity)) {
                 //We are lender -> should send back cash collateral to the borrower
-                tx = serviceHub.vaultService.generateSpend(ptx,
-                        Amount(((secLoanTerms.stockPrice.quantity * secLoanTerms.quantity) * (1.0 + secLoanTerms.margin)).toLong(), CURRENCY),
-                        AnonymousParty(counterParty.owningKey)).first
+                //tx = serviceHub.vaultService.generateSpend(ptx,
+                        //Amount(((secLoanTerms.stockPrice.quantity * secLoanTerms.quantity) * (1.0 + secLoanTerms.margin)).toLong(), CURRENCY),
+                        //AnonymousParty(counterParty.owningKey)).first
+                val value = ((secLoan.state.data.stockPrice.quantity* secLoanTerms.quantity) * (1.0 + secLoanTerms.margin)).toLong()
+                tx = subFlow(CollateralPreparationFlow(ptx, secLoan.state.data.terms.collateralType, value, counterParty ))
+                //TODO: Add remaining cash required to cover collateral payments
             }
             else{ //We are the borrower -> should send back stock to the lender
                 tx = try {

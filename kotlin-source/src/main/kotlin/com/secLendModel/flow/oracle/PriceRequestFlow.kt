@@ -24,7 +24,7 @@ open class PriceRequestFlow(val code : String,
         //val oracle = serviceHub.networkMapCache.getNodesWithService(PriceType.type).single()
         //val oracleService = oracle.serviceIdentities(PriceType.type).single()
         val oracle2 = serviceHub.cordaService(Oracle::class.java)
-        val price =  subFlow(PriceQueryFlow(oracle2.identity, code))
+        val price =  subFlow(PriceQueryFlow(code))
         //stockPrice command data is added to the tx -> contains the code and current ticker price
         val stockPrice = stockPrice(Pair(code, price))
         tx.addCommand(stockPrice, oracle2.identity.owningKey)
@@ -37,11 +37,12 @@ open class PriceRequestFlow(val code : String,
     }
     @StartableByRPC
     @InitiatingFlow
-    class PriceQueryFlow(val oracle : Party, val code: String) : FlowLogic<Amount<Currency>>() {
+    class PriceQueryFlow(val code: String) : FlowLogic<Amount<Currency>>() {
         @Suspendable
         override fun call() : Amount<Currency> {
+            val oracle = serviceHub.cordaService(Oracle::class.java)
             //Send the code we want a price update for to the oracle (This calls OracleFlow.QueryHandler in response)
-            val request = sendAndReceive<Amount<Currency>>(oracle, code).unwrap {
+            val request = sendAndReceive<Amount<Currency>>(oracle.identity, code).unwrap {
             //TODO: Any required checks go here
                 it
             }

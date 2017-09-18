@@ -1,6 +1,9 @@
 package com.secLendModel.contract
 
+import co.paralleluniverse.fibers.Suspendable
 import com.secLendModel.CURRENCY
+import com.secLendModel.flow.oracle.Oracle
+import com.secLendModel.flow.oracle.PriceRequestFlow
 import com.secLendModel.flow.securitiesLending.LoanTerms
 import com.secLendModel.schema.SecurityLoanSchemaV1
 import net.corda.client.jfx.utils.foldObservable
@@ -18,6 +21,15 @@ import net.corda.core.serialization.CordaSerializable
 import net.corda.core.transactions.TransactionBuilder
 import java.security.PublicKey
 import java.util.*
+import net.corda.core.flows.*
+import net.corda.core.node.ServiceHub
+import net.corda.core.flows.FlowLogic
+import net.corda.core.flows.InitiatingFlow
+import net.corda.core.flows.StartableByRPC
+import net.corda.core.messaging.CordaRPCOps
+import net.corda.node.services.api.ServiceHubInternal
+import net.corda.node.services.startFlowPermission
+
 
 /**
  *  SecurityLoan Contract class. --> See "SecurityLoan.State" for state.
@@ -32,6 +44,7 @@ class SecurityLoan : Contract {
         class Net: TypeOnlyCommandData(), Commands
         class PartialExit: TypeOnlyCommandData(), Commands
     }
+
     /** Simple data class for holding the collateral types accepted in loan terms */
     object collateralType {
         val securities = arrayListOf("GBT", "CBA", "RIO", "NAB")
@@ -42,7 +55,8 @@ class SecurityLoan : Contract {
     @CordaSerializable
     data class Terms(val lengthOfLoan: Int,
                      val margin: Double,
-                     val rebate: Double //TODO: Figure out what type collateralType is (could be cash, any fungible asset, etc)
+                     val rebate: Double,
+                     val collateralType: String//TODO: Figure out what type collateralType is (could be cash, any fungible asset, etc)
                      )
 
     data class State(val quantity: Int,
@@ -104,22 +118,38 @@ class SecurityLoan : Contract {
             is Commands.Issue -> requireThat {
                 //Get input and output info
                 val secLoan = tx.outputs.filterIsInstance<SecurityLoan.State>().single()
-                //TODO: update this to work for non-cash collateral
-                var cashStatesTally : Long = 0
+                var collateralTally : Long = 0
                 var securityStatesTally = 0
-                tx.outputs.forEach {
-                    if (it is Cash.State && it.owner == secLoan.lender) {
-                        cashStatesTally += it.amount.quantity
+                if (secLoan.terms.collateralType == "Cash") {
+                    //Do cash check
+                    tx.outputs.forEach {
+                        if (it is Cash.State && it.owner == secLoan.lender) {
+                            collateralTally += it.amount.quantity
+                        }
+                        if (it is SecurityClaim.State && it.code == secLoan.code && it.owner == secLoan.borrower) {
+                            securityStatesTally += it.quantity
+                        }
                     }
-                    if (it is SecurityClaim.State && it.code == secLoan.code && it.owner == secLoan.borrower) {
-                        securityStatesTally += it.quantity
+                } else {
+                    //Do securities check
+                    tx.outputs.forEach {
+                        if (it is SecurityClaim.State && it.owner == secLoan.lender) {
+                            //TODO: We need a way to be able to get share price from within this contract
+                            //val sharePrice = (PriceRequestFlow.PriceQueryFlow(it.code).call())
+                            //This line forces the check to pass
+                            collateralTally = ((secLoan.quantity * secLoan.stockPrice.quantity) * (1.0 + secLoan.terms.margin)).toLong()
+                        }
+                        if (it is SecurityClaim.State && it.code == secLoan.code && it.owner == secLoan.borrower) {
+                            securityStatesTally += it.quantity
+                        }
                     }
                 }
+
                 //Check we have some inputs -> Not being restrictive at this point in time
                 "Inputs should be consumed when issuing a secLoan." using (tx.inputs.isNotEmpty()) //Should be two input types -> securities and collateral(Cash States)
-                //"Cash states in the outputs sum to the value of the loan + margin" using (Amount(cashStatesTally, CURRENCY) ==
-                        //Amount(((secLoan.quantity * secLoan.stockPrice.quantity) * (1.0 + secLoan.terms.margin)).toLong(), CURRENCY))
-                //"Securities states in the inputs sum to the quantity of the loan" using (securityStatesTally == secLoan.quantity)
+                "Collateral states in the outputs sum to the value of the loan + margin" using (Amount(collateralTally, CURRENCY) ==
+                        Amount(((secLoan.quantity * secLoan.stockPrice.quantity) * (1.0 + secLoan.terms.margin)).toLong(), CURRENCY))
+                //This Line is no longer true with non-cash collateral "Securities states in the inputs sum to the quantity of the loan" using (securityStatesTally == secLoan.quantity)
                 "A newly issued secLoan must have a positive amount." using (secLoan.quantity > 0)
                 "Shares must have some value" using (secLoan.stockPrice.quantity > 0)
                 "The lender and borrower cannot be the same identity." using (secLoan.borrower != secLoan.lender)
@@ -130,21 +160,37 @@ class SecurityLoan : Contract {
                 //Exit the loan
                 //Get input and output info
                 val secLoan = tx.inputs.filterIsInstance<SecurityLoan.State>().single()
-                //TODO: update this to work with non-cash collateral
-                var cashStatesTally: Long = 0
+                var collateralTally: Long = 0
                 var securityStatesTally = 0
                 var secLoanStates = 0
-
-                tx.outputs.forEach {
-                    if (it is Cash.State && it.owner == secLoan.borrower) {
-                        cashStatesTally += it.amount.quantity
+                if (secLoan.terms.collateralType == "Cash") {
+                    //Do cash check
+                    tx.outputs.forEach {
+                        if (it is Cash.State && it.owner == secLoan.lender) {
+                            collateralTally += it.amount.quantity
+                        }
+                        if (it is SecurityClaim.State && it.code == secLoan.code && it.owner == secLoan.borrower) {
+                            securityStatesTally += it.quantity
+                        }
+                        if (it is SecurityLoan.State) {secLoanStates += 1}
                     }
-                    if (it is SecurityClaim.State && it.code == secLoan.code && it.owner == secLoan.lender) {
-                        securityStatesTally += it.quantity
+                } else {
+                    //Do securities check
+                    tx.outputs.forEach {
+                        //TODO: this also picks up claim states going back to the lender, need to change this
+                        if (it is SecurityClaim.State && it.owner == secLoan.lender) {
+                            //TODO: We need a way to be able to get share price from within this contract
+                            //val sharePrice = subFlow(PriceRequestFlow.PriceQueryFlow(oracle.identity, it.code))
+                            collateralTally = ((secLoan.quantity * secLoan.stockPrice.quantity) * (1.0 + secLoan.terms.margin)).toLong()
+                        }
+                        if (it is SecurityClaim.State && it.code == secLoan.code && it.owner == secLoan.borrower) {
+                            securityStatesTally += it.quantity
+                        }
+                        if (it is SecurityLoan.State) {secLoanStates += 1}
                     }
-                    if (it is SecurityLoan.State) {secLoanStates += 1}
                 }
-                //"Cash states in the output sum to the value of the loan + margin" using (Amount(cashStatesTally, CURRENCY) ==
+
+                //"Cash states in the output sum to the value of the loan + margin" using (Amount(collateralTally, CURRENCY) ==
                         //Amount(((secLoan.quantity * secLoan.stockPrice.quantity) * (1.0 + secLoan.terms.margin)).toLong(), CURRENCY))
                 //"Security states in the output sum to the securities total of the loan" using (securityStatesTally == secLoan.quantity)
                 "Secloan state must not be present in the output" using (secLoanStates == 0) //secLoan must be consumed as part of tx
@@ -189,21 +235,36 @@ class SecurityLoan : Contract {
                 val secLoan = tx.inputs.filterIsInstance<SecurityLoan.State>().single()
                 val outputSecLoan = tx.outputs.filterIsInstance<SecurityLoan.State>().single()
                 //TODO: Update this to work with non-cash collateral
-                var cashStatesTally: Long = 0
+                var collateralTally: Long = 0
                 var securityStatesTally = 0
                 var secLoanStates = 0
-
-                tx.outputs.forEach {
-                    if (it is Cash.State && it.owner == secLoan.borrower) {
-                        cashStatesTally += it.amount.quantity
+                if (secLoan.terms.collateralType == "Cash") {
+                    //Do cash check
+                    tx.outputs.forEach {
+                        if (it is Cash.State && it.owner == secLoan.lender) {
+                            collateralTally += it.amount.quantity
+                        }
+                        if (it is SecurityClaim.State && it.code == secLoan.code && it.owner == secLoan.borrower) {
+                            securityStatesTally += it.quantity
+                        }
+                        if (it is SecurityLoan.State) {secLoanStates += 1}
                     }
-                    if (it is SecurityClaim.State && it.code == secLoan.code && it.owner == secLoan.lender) {
-                        securityStatesTally += it.quantity
+                } else {
+                    //Do securities check
+                    tx.outputs.forEach {
+                        if (it is SecurityClaim.State && it.owner == secLoan.lender) {
+                            //TODO: We need a way to be able to get share price from within this contract
+                            //val sharePrice = subFlow(PriceRequestFlow.PriceQueryFlow(oracle.identity, it.code))
+                            collateralTally = ((secLoan.quantity * secLoan.stockPrice.quantity) * (1.0 + secLoan.terms.margin)).toLong()
+                        }
+                        if (it is SecurityClaim.State && it.code == secLoan.code && it.owner == secLoan.borrower) {
+                            securityStatesTally += it.quantity
+                        }
+                        if (it is SecurityLoan.State) {secLoanStates += 1}
                     }
-                    if (it is SecurityLoan.State) {secLoanStates += 1}
                 }
-                //"Cash states in the output sum to the value of the loan + margin" using (Amount(cashStatesTally, CURRENCY) ==
-                        //Amount((((secLoan.quantity - outputSecLoan.quantity) * secLoan.stockPrice.quantity) * (1.0 + secLoan.terms.margin)).toLong(), CURRENCY))
+                "Collateral states in the output sum to the value of the loan + margin" using (Amount(collateralTally, CURRENCY) ==
+                        Amount((((secLoan.quantity - outputSecLoan.quantity) * secLoan.stockPrice.quantity) * (1.0 + secLoan.terms.margin)).toLong(), CURRENCY))
                 //"Security states in the output must be less than the total quantity of the input loan" using (securityStatesTally < secLoan.quantity)
                 "Secloan state must be present in the output" using (secLoanStates == 1) //secLoan must be consumed as part of tx
                 "Output must contain some states" using (tx.outputs.isNotEmpty())
@@ -222,7 +283,7 @@ class SecurityLoan : Contract {
                       loanTerms: LoanTerms,
                       notary: Party): TransactionBuilder{
         val state = TransactionState(State(loanTerms.quantity, loanTerms.code, loanTerms.stockPrice, loanTerms.stockPrice, loanTerms.lender, loanTerms.borrower,
-                Terms(loanTerms.lengthOfLoan, loanTerms.margin, loanTerms.rebate)), notary)
+                Terms(loanTerms.lengthOfLoan, loanTerms.margin, loanTerms.rebate, loanTerms.collateralType)), notary)
         tx.addOutputState(state)
         //Tx signed by the lender
         tx.addCommand(SecurityLoan.Commands.Issue(), loanTerms.lender.owningKey, loanTerms.borrower.owningKey)
@@ -267,11 +328,11 @@ class SecurityLoan : Contract {
             //More shares are borrowed by borrower then lent by lender, output state is a borrower to borrower
             tx.addOutputState(TransactionState(State(Math.abs(outputSharesSum), secLoan.state.data.code, secLoan.state.data.currentStockPrice, secLoan.state.data.currentStockPrice,
                     secLoan.state.data.lender, secLoan.state.data.borrower,
-                    Terms(secLoan.state.data.terms.lengthOfLoan, 0.05, secLoan.state.data.terms.rebate)), notary))
+                    Terms(secLoan.state.data.terms.lengthOfLoan, 0.05, secLoan.state.data.terms.rebate, secLoan.state.data.terms.collateralType)), notary))
         } else {
             tx.addOutputState(TransactionState(State(Math.abs(outputSharesSum), secLoan.state.data.code, secLoan.state.data.currentStockPrice, secLoan.state.data.currentStockPrice,
                     secLoan.state.data.borrower, secLoan.state.data.lender,
-                    Terms(secLoan.state.data.terms.lengthOfLoan, 0.05, secLoan.state.data.terms.rebate)), notary))
+                    Terms(secLoan.state.data.terms.lengthOfLoan, 0.05, secLoan.state.data.terms.rebate, secLoan.state.data.terms.collateralType)), notary))
         }
         tx.addCommand(SecurityLoan.Commands.Net(), lender.owningKey, borrower.owningKey)
         //Otherwise there is no output state, we simply terminate both loans. This is checked in flow
@@ -289,7 +350,7 @@ class SecurityLoan : Contract {
         tx.addInputState(originalSecLoan)
         tx.addOutputState(TransactionState(State(newAmount, originalSecLoan.state.data.code, originalSecLoan.state.data.currentStockPrice, originalSecLoan.state.data.currentStockPrice,
                 originalSecLoan.state.data.lender, originalSecLoan.state.data.borrower,
-                Terms(originalSecLoan.state.data.terms.lengthOfLoan, originalSecLoan.state.data.terms.margin, originalSecLoan.state.data.terms.rebate)), notary))
+                Terms(originalSecLoan.state.data.terms.lengthOfLoan, originalSecLoan.state.data.terms.margin, originalSecLoan.state.data.terms.rebate, originalSecLoan.state.data.terms.collateralType)), notary))
         tx.addCommand(SecurityLoan.Commands.PartialExit(), lender.owningKey, borrower.owningKey)
         return tx
     }
