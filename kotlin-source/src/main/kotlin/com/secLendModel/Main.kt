@@ -159,13 +159,13 @@ class Simulation(options : String?) {
 
         //Test they can move stock and cash to another owner
         parties.forEach {
-            moveCash(it.second)
-            moveEquity(it.second)
+            //moveCash(it.second)
+            //moveEquity(it.second)
         }
         //Test they can DVP trade stock
         parties.forEach {
-            tradeEquity(it.second)
-            tradeEquity(it.second)
+            //tradeEquity(it.second)
+            //tradeEquity(it.second)
         }
 
         //Test stock borrows and stock loans
@@ -178,25 +178,10 @@ class Simulation(options : String?) {
             val id3 = borrowSecurities(it.second, true)
             //Borrow stock from a random counter party, where they initiate the deal
             val id4 = borrowSecurities(it.second, false)
-            //updateMargin(id, it.second)
-            //updateMargin(id2, it.second)
-            //updateMargin(id3, it.second)
-            //updateMargin(id4, it.second)
 
-            //terminateLoan(id, it.second)
-            //terminateLoan(id2, it.second)
-            //terminateLoan(id3, it.second)
-            //terminateLoan(id4, it.second)
         }
-
-        //Test LoanNetFlow
+        //Test Loan with stock collateral
         val id5 = LoanSecuritySpecific(parties[0].second, true, parties[1].second)
-        //val id6 = LoanSecuritySpecific(parties[0].second, true, parties[1].second)
-        //val id7 = LoanSecuritySpecific(parties[1].second, true, parties[0].second)
-        //val id8 = LoanSecuritySpecific(parties[1].second, true, parties[0].second)
-        //val idList = arrayListOf(id5, id6, id7, id8)
-        //partialTerminateLoan(id5, parties[0].second, 5)
-        //netLoans(parties[1].second.nodeIdentity().legalIdentity, parties[0].second, "CBA")
 
 
 

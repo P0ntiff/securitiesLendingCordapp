@@ -56,6 +56,8 @@ class IssueLoanView : Fragment() {
     private val codeCB by fxid<ChoiceBox<String>>()
     private val opposingPartyLabel by fxid<Label>()
     private val opposingPartyCB by fxid<ChoiceBox<net.corda.core.node.NodeInfo>>()
+    private val collateralTypeLabel by fxid<Label>()
+    private val collateralTypeCB by fxid<ChoiceBox<String>>()
     private val typeLabel by fxid<Label>()
     private val typeCB by fxid<ChoiceBox<String>>()
     private val amountLabel by fxid<Label>()
@@ -157,7 +159,7 @@ class IssueLoanView : Fragment() {
                             val priceTx = TransactionBuilder()
                             val priceQuery = rpcProxy.value?.startFlow(PriceRequestFlow::PriceQueryFlow, codeCB.value )
                             val loanTerms = LoanTerms(codeCB.value, amountTextField.text.toInt(), priceQuery!!.returnValue.get(), lender, borrower,
-                                    marginTextField.text.toDouble(), rebateTextField.text.toDouble(), lengthTextField.text.toInt(), "Cash")
+                                    marginTextField.text.toDouble(), rebateTextField.text.toDouble(), lengthTextField.text.toInt(), collateralTypeCB.value)
                             rpcProxy.value?.startFlow(LoanIssuanceFlow::Initiator, loanTerms) as FlowHandle<Unit>
 
                     }
@@ -187,10 +189,8 @@ class IssueLoanView : Fragment() {
         rebateLabel.text = "Rebate: "
         lengthLabel.text = "Length of Loan: "
         opposingPartyLabel.text = "Opposing Party: "
-
+        collateralTypeLabel.text = "Collateral Type"
         //Setup avaialble opposing parties
-        //opposingPartyLabel.textProperty().bind(transactionTypeCB.valueProperty().map { it?.partyNameB?.let { "$it : " } })
-        //TODO: Remove our node name from parties. cant just do this using parties.remove() for some reason
         val newParties = arrayListOf<net.corda.core.node.NodeInfo>()
         parties.forEach {
             if (it != myIdentity.value) {
@@ -203,6 +203,7 @@ class IssueLoanView : Fragment() {
             //items.remove(myIdentity.value)
             converter = stringConverter { it?.legalIdentity?.let { PartyNameFormatter.short.format(it.name) } ?: "" }
         }
+        collateralTypeCB.items = CODES.plus("Cash").observable()
 
         // Validate inputs.
         val formValidCondition = arrayOf(

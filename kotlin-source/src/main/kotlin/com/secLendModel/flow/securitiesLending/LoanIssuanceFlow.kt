@@ -126,7 +126,7 @@ object LoanIssuanceFlow {
             }
             else { //We are the borrower -> should have received stock, so adding in cash
                 //TODO: Rather than add cash, in the loan agreedterms add a field for collateral type, then add that correct type here
-                tx = subFlow(CollateralPreparationFlow(builder, "Cash",
+                tx = subFlow(CollateralPreparationFlow(builder, agreedTerms.collateralType,
                             ((agreedTerms.stockPrice.quantity * agreedTerms.quantity) * (1.0 + agreedTerms.margin)).toLong(), agreedTerms.lender))
 
             }

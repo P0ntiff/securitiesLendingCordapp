@@ -32,9 +32,12 @@
             <Label fx:id="lengthLabel" GridPane.halignment="RIGHT" GridPane.rowIndex="8"/>
             <TextField fx:id="lengthTextField" maxWidth="Infinity" GridPane.columnIndex="1" GridPane.columnSpan="4"
                        GridPane.fillWidth="true" GridPane.hgrow="ALWAYS" GridPane.rowIndex="8"/>
-            <Label fx:id="opposingPartyLabel" GridPane.halignment="RIGHT" GridPane.rowIndex="9"/>
-            <ChoiceBox fx:id="opposingPartyCB" maxWidth="Infinity" GridPane.columnIndex="1" GridPane.columnSpan="4"
+            <Label fx:id="collateralTypeLabel" GridPane.halignment="RIGHT" GridPane.rowIndex="9"/>
+            <ChoiceBox fx:id="collateralTypeCB" maxWidth="Infinity" GridPane.columnIndex="1" GridPane.columnSpan="4"
                        GridPane.fillWidth="true" GridPane.hgrow="ALWAYS" GridPane.rowIndex="9"/>
+            <Label fx:id="opposingPartyLabel" GridPane.halignment="RIGHT" GridPane.rowIndex="10"/>
+            <ChoiceBox fx:id="opposingPartyCB" maxWidth="Infinity" GridPane.columnIndex="1" GridPane.columnSpan="4"
+                       GridPane.fillWidth="true" GridPane.hgrow="ALWAYS" GridPane.rowIndex="10"/>
 
 
 

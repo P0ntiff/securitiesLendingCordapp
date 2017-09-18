@@ -64,11 +64,22 @@ object LoanTerminationFlow {
                 val value = ((secLoan.state.data.stockPrice.quantity* secLoanTerms.quantity) * (1.0 + secLoanTerms.margin)).toLong()
                 ptx = subFlow(CollateralPreparationFlow(builder, secLoan.state.data.terms.collateralType, value, counterParty ))
                 //TODO: Add remaining cash required to cover collateral payments
-
+                val remainingValue = ((secLoan.state.data.currentStockPrice.quantity* secLoanTerms.quantity) * (1.0 + secLoanTerms.margin)).toLong() - value
+                if (remainingValue > 0) {
+                    //We also need to pay some more cash
+                    subFlow(CollateralPreparationFlow(ptx, "Cash", remainingValue, counterParty ))
+                }
             }
             else{  //If we are the borrower, then we are returning stock to the lender
+                val remainingValue = (((secLoan.state.data.currentStockPrice.quantity* secLoanTerms.quantity) * (1.0 + secLoanTerms.margin)).toLong()
+                        - ((secLoan.state.data.stockPrice.quantity* secLoanTerms.quantity) * (1.0 + secLoanTerms.margin)).toLong())
+                if (remainingValue < 0) {
+                    //TODO: Check this logic: borrower needs to pay back some cash that the lender would have paid due to being over collateralized
+                    subFlow(CollateralPreparationFlow(builder, "Cash", Math.abs(remainingValue), counterParty ))
+                }
                 ptx = try {
                     subFlow(SecuritiesPreparationFlow(builder, secLoanTerms.code, secLoanTerms.quantity, counterParty)).first
+
                 } catch (e: InsufficientBalanceException) {
                     throw SecurityException("Insufficient holding: ${e.message}", e)
                 }
@@ -124,8 +135,19 @@ object LoanTerminationFlow {
                 val value = ((secLoan.state.data.stockPrice.quantity* secLoanTerms.quantity) * (1.0 + secLoanTerms.margin)).toLong()
                 tx = subFlow(CollateralPreparationFlow(ptx, secLoan.state.data.terms.collateralType, value, counterParty ))
                 //TODO: Add remaining cash required to cover collateral payments
+                val remainingValue = ((secLoan.state.data.currentStockPrice.quantity* secLoanTerms.quantity) * (1.0 + secLoanTerms.margin)).toLong() - value
+                if (remainingValue > 0) {
+                    //We also need to pay some more cash
+                    subFlow(CollateralPreparationFlow(ptx, "Cash", remainingValue, counterParty ))
+                }
             }
             else{ //We are the borrower -> should send back stock to the lender
+                val remainingValue = (((secLoan.state.data.currentStockPrice.quantity* secLoanTerms.quantity) * (1.0 + secLoanTerms.margin)).toLong()
+                        - ((secLoan.state.data.stockPrice.quantity* secLoanTerms.quantity) * (1.0 + secLoanTerms.margin)).toLong())
+                if (remainingValue < 0) {
+                    //TODO: Check this logic: borrower needs to pay back some cash that the lender would have paid due to being over collateralized
+                    subFlow(CollateralPreparationFlow(ptx, "Cash", Math.abs(remainingValue), counterParty ))
+                }
                 tx = try {
                     subFlow(SecuritiesPreparationFlow(ptx, secLoanTerms.code, secLoanTerms.quantity, counterParty)).first
                 } catch (e: InsufficientBalanceException) {
