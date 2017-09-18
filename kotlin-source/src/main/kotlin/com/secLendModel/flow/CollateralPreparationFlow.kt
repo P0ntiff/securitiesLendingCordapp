@@ -8,7 +8,11 @@ import co.paralleluniverse.fibers.Suspendable
 import com.secLendModel.CURRENCY
 import com.secLendModel.contract.SecurityClaim
 import com.secLendModel.contract.SecurityLoan
+import com.secLendModel.flow.oracle.Oracle
+import com.secLendModel.flow.oracle.PriceRequestFlow
 import net.corda.core.contracts.*
+import net.corda.core.crypto.DigitalSignature
+import net.corda.core.crypto.keys
 import net.corda.core.flows.FlowException
 import net.corda.core.flows.FlowLogic
 import net.corda.core.flows.InitiatingFlow
@@ -46,29 +50,30 @@ class CollateralPreparationFlow(val builder : TransactionBuilder,
                                    collateralType: String,
                                    totalValue: Long,
                                    to: AbstractParty) : TransactionBuilder {
-        if (!SecurityLoan.collateralType.types.contains(collateralType)) {
-            throw Exception("Invalid Collateral Type")
+        if (collateralType != SecurityLoan.collateralType.cash && !SecurityLoan.collateralType.securities.contains(collateralType)) {
+            throw Exception("Invalid Collateral Type ${collateralType}")
         }
         val newTx: TransactionBuilder
         if (collateralType == SecurityLoan.collateralType.cash) {
             //Add cash collateral
-            newTx = serviceHub.vaultService.generateSpend(builder,
-                    Amount((totalValue).toLong(), CURRENCY),
-                    AnonymousParty(to.owningKey)).first
-        }
-
-        else if (collateralType == SecurityLoan.collateralType.security) {
-            //Add securities collaeral
-            //TODO: Add another field for prefered type of security in loanTerms, for now we get any old security.
-            newTx = serviceHub.vaultService.generateSpend(builder,
+            newTx = serviceHub.vaultService.generateSpend(tx,
                     Amount((totalValue).toLong(), CURRENCY),
                     AnonymousParty(to.owningKey)).first
         }
 
         else {
-            newTx = tx
-        }
-        return newTx
-    }
+            //Add securities collaeral
+            val oracle = serviceHub.cordaService(Oracle::class.java)
+            //TODO: Add correct amount of securities. How do we decide what security? What if we dont have enough of this security?
+            val currentPrice = subFlow(PriceRequestFlow.PriceQueryFlow(oracle.identity, collateralType))
+            println("Collateral price was ${currentPrice.quantity}")
+            /** Note: Calling this flow calls heaps of issues due to how the move vertification is setup. Should fix that at some point
+             * but for now just avoid calling this flow twice (exactly what happened here)
+             */
+            val quantity = (totalValue / currentPrice.quantity).toInt()
+            newTx = subFlow(SecuritiesPreparationFlow(tx, collateralType, quantity, to as Party)).first
 
+        }
+    return newTx
+    }
 }

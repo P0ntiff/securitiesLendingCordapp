@@ -192,9 +192,9 @@ class Simulation(options : String?) {
 
         //Test LoanNetFlow
         val id5 = LoanSecuritySpecific(parties[0].second, true, parties[1].second)
-        val id6 = LoanSecuritySpecific(parties[0].second, true, parties[1].second)
-        val id7 = LoanSecuritySpecific(parties[1].second, true, parties[0].second)
-        val id8 = LoanSecuritySpecific(parties[1].second, true, parties[0].second)
+        //val id6 = LoanSecuritySpecific(parties[0].second, true, parties[1].second)
+        //val id7 = LoanSecuritySpecific(parties[1].second, true, parties[0].second)
+        //val id8 = LoanSecuritySpecific(parties[1].second, true, parties[0].second)
         //val idList = arrayListOf(id5, id6, id7, id8)
         //partialTerminateLoan(id5, parties[0].second, 5)
         //netLoans(parties[1].second.nodeIdentity().legalIdentity, parties[0].second, "CBA")
@@ -417,10 +417,10 @@ class Simulation(options : String?) {
         //Pick a random party to be the borrower
         //val randomBorrower = parties.filter { it.first != me.nodeIdentity().legalIdentity }[rand.nextInt(parties.size - 1)].second
         //Storage container for loan terms
-        val loanTerms = LoanTerms(CODES[0], quantity, sharePrice,
+        val loanTerms = LoanTerms(CODES[1], quantity, sharePrice,
                 me.nodeIdentity().legalIdentity,
                 borrower.nodeIdentity().legalIdentity,
-                margin, rebate, length, "Cash")
+                margin, rebate, length, "GBT")
         when (BorrowerInitiates) {
             true -> {
                 //Counter party initiates the deal

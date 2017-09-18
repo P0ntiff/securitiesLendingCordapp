@@ -34,7 +34,7 @@ class SecurityLoan : Contract {
     }
     /** Simple data class for holding the collateral types accepted in loan terms */
     object collateralType {
-        val types = arrayListOf("Cash", "Security")
+        val securities = arrayListOf("GBT", "CBA", "RIO", "NAB")
         val cash = "Cash"
         val security = "Security"
     }
@@ -104,6 +104,7 @@ class SecurityLoan : Contract {
             is Commands.Issue -> requireThat {
                 //Get input and output info
                 val secLoan = tx.outputs.filterIsInstance<SecurityLoan.State>().single()
+                //TODO: update this to work for non-cash collateral
                 var cashStatesTally : Long = 0
                 var securityStatesTally = 0
                 tx.outputs.forEach {
@@ -116,9 +117,9 @@ class SecurityLoan : Contract {
                 }
                 //Check we have some inputs -> Not being restrictive at this point in time
                 "Inputs should be consumed when issuing a secLoan." using (tx.inputs.isNotEmpty()) //Should be two input types -> securities and collateral(Cash States)
-                "Cash states in the outputs sum to the value of the loan + margin" using (Amount(cashStatesTally, CURRENCY) ==
-                        Amount(((secLoan.quantity * secLoan.stockPrice.quantity) * (1.0 + secLoan.terms.margin)).toLong(), CURRENCY))
-                "Securities states in the inputs sum to the quantity of the loan" using (securityStatesTally == secLoan.quantity)
+                //"Cash states in the outputs sum to the value of the loan + margin" using (Amount(cashStatesTally, CURRENCY) ==
+                        //Amount(((secLoan.quantity * secLoan.stockPrice.quantity) * (1.0 + secLoan.terms.margin)).toLong(), CURRENCY))
+                //"Securities states in the inputs sum to the quantity of the loan" using (securityStatesTally == secLoan.quantity)
                 "A newly issued secLoan must have a positive amount." using (secLoan.quantity > 0)
                 "Shares must have some value" using (secLoan.stockPrice.quantity > 0)
                 "The lender and borrower cannot be the same identity." using (secLoan.borrower != secLoan.lender)
@@ -129,6 +130,7 @@ class SecurityLoan : Contract {
                 //Exit the loan
                 //Get input and output info
                 val secLoan = tx.inputs.filterIsInstance<SecurityLoan.State>().single()
+                //TODO: update this to work with non-cash collateral
                 var cashStatesTally: Long = 0
                 var securityStatesTally = 0
                 var secLoanStates = 0
@@ -142,9 +144,9 @@ class SecurityLoan : Contract {
                     }
                     if (it is SecurityLoan.State) {secLoanStates += 1}
                 }
-                "Cash states in the output sum to the value of the loan + margin" using (Amount(cashStatesTally, CURRENCY) ==
-                        Amount(((secLoan.quantity * secLoan.stockPrice.quantity) * (1.0 + secLoan.terms.margin)).toLong(), CURRENCY))
-                "Security states in the output sum to the securities total of the loan" using (securityStatesTally == secLoan.quantity)
+                //"Cash states in the output sum to the value of the loan + margin" using (Amount(cashStatesTally, CURRENCY) ==
+                        //Amount(((secLoan.quantity * secLoan.stockPrice.quantity) * (1.0 + secLoan.terms.margin)).toLong(), CURRENCY))
+                //"Security states in the output sum to the securities total of the loan" using (securityStatesTally == secLoan.quantity)
                 "Secloan state must not be present in the output" using (secLoanStates == 0) //secLoan must be consumed as part of tx
                 "Output must contain some states" using (tx.outputs.isNotEmpty())
                 "Input should be signed by both borrow and lender" using (command.signers.toSet()
@@ -186,6 +188,7 @@ class SecurityLoan : Contract {
                 //Get input and output info
                 val secLoan = tx.inputs.filterIsInstance<SecurityLoan.State>().single()
                 val outputSecLoan = tx.outputs.filterIsInstance<SecurityLoan.State>().single()
+                //TODO: Update this to work with non-cash collateral
                 var cashStatesTally: Long = 0
                 var securityStatesTally = 0
                 var secLoanStates = 0
@@ -199,9 +202,9 @@ class SecurityLoan : Contract {
                     }
                     if (it is SecurityLoan.State) {secLoanStates += 1}
                 }
-                "Cash states in the output sum to the value of the loan + margin" using (Amount(cashStatesTally, CURRENCY) ==
-                        Amount((((secLoan.quantity - outputSecLoan.quantity) * secLoan.stockPrice.quantity) * (1.0 + secLoan.terms.margin)).toLong(), CURRENCY))
-                "Security states in the output must be less than the total quantity of the input loan" using (securityStatesTally < secLoan.quantity)
+                //"Cash states in the output sum to the value of the loan + margin" using (Amount(cashStatesTally, CURRENCY) ==
+                        //Amount((((secLoan.quantity - outputSecLoan.quantity) * secLoan.stockPrice.quantity) * (1.0 + secLoan.terms.margin)).toLong(), CURRENCY))
+                //"Security states in the output must be less than the total quantity of the input loan" using (securityStatesTally < secLoan.quantity)
                 "Secloan state must be present in the output" using (secLoanStates == 1) //secLoan must be consumed as part of tx
                 "Output must contain some states" using (tx.outputs.isNotEmpty())
                 "Input should be signed by both borrow and lender" using (command.signers.toSet()

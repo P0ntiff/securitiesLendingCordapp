@@ -12,6 +12,7 @@ import net.corda.core.transactions.TransactionBuilder
 import net.corda.core.identity.AbstractParty
 import net.corda.core.identity.Party
 import net.corda.core.random63BitValue
+import java.security.PublicKey
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -105,16 +106,26 @@ class SecurityClaim : Contract {
                                 outputs: List<State>,
                                 commands: List<AuthenticatedObject<Commands>>,
                                 groupingKey: Issued<Terms>?): Set<Commands> {
-                val command = commands.requireSingleCommand<Commands.Move>()
-                val owningPubKeys = inputs.map { it.owner.owningKey }.toSet()
-                val keysThatSigned = command.signers.toSet()
+                val owningPubKeys2 = inputs.map { it.owner.owningKey }.toSet()
+                val keysThatSigned2 = arrayListOf<PublicKey>()
+                commands.forEach { keysThatSigned2.addAll(it.signers) }
+                //commands.forEach { it.signers.forEach { keysThatSigned2.plus(it) } }
+                //println(owningPubKeys2)
+                //println(keysThatSigned2)
+                //val command = commands.requireSingleCommand<Commands.Move>()
+                //val owningPubKeys = inputs.map { it.owner.owningKey }.toSet()
+                //val keysThatSigned = command.signers.toSet()
+                //println(owningPubKeys)
+                //println(keysThatSigned)
                 requireThat {
-                    "the owning keys are a subset of the signing keys" using keysThatSigned.containsAll(owningPubKeys)
+                    "the owning keys are a subset of the signing keys" using keysThatSigned2.containsAll(owningPubKeys2)
                     "there are no zero sized inputs" using inputs.none { it.quantity == 0 }
                     // Don't need to check anything else, as if outputs.size == 1 then the output is equal to
                     // the input ignoring the owner field due to the grouping.
                 }
-                return setOf(command.value)
+                return setOf(commands.first().value)
+                //TODO: Refactor to allow multiple move securities comamnds in one transaction
+
             }
         }
     }

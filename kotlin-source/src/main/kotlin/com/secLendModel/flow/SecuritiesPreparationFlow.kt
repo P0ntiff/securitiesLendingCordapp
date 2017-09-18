@@ -2,10 +2,7 @@ package com.secLendModel.flow
 
 import co.paralleluniverse.fibers.Suspendable
 import com.secLendModel.contract.SecurityClaim
-import net.corda.core.contracts.PartyAndReference
-import net.corda.core.contracts.StateAndRef
-import net.corda.core.contracts.TransactionState
-import net.corda.core.contracts.TransactionType
+import net.corda.core.contracts.*
 import net.corda.core.flows.FlowException
 import net.corda.core.flows.FlowLogic
 import net.corda.core.flows.InitiatingFlow
@@ -17,6 +14,7 @@ import net.corda.core.node.services.queryBy
 import net.corda.core.node.services.vault.QueryCriteria
 import net.corda.core.transactions.TransactionBuilder
 import java.security.PublicKey
+import java.security.Security
 import java.util.ArrayList
 
 /**

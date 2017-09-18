@@ -185,9 +185,9 @@ class PortfolioViewer : CordaView("Equities Portfolio") {
                         val oracle = networkIdentities.filtered { it.advertisedServices.any { it.info.type.equals(PriceType.type) } }
                         var totalValue = 0.0;
                         memberStates.forEach {
-                            val price = rpcProxy.value?.startFlow(PriceRequestFlow::PriceQueryFlow, oracle.first().value!!.legalIdentity, it.state.data.code)!!.returnValue//, oracle, it.state.data.code)
-                            while(!price.isDone)
-                            totalValue += price.get().quantity
+                            //val price = rpcProxy.value?.startFlow(PriceRequestFlow::PriceQueryFlow, oracle.first().value!!.legalIdentity, it.state.data.code)!!.returnValue//, oracle, it.state.data.code)
+                            //while(!price.isDone)
+                            //totalValue += price.get().quantity
                         }
                         //val newPrice = priceQuery.first
                         //TODO: Add this total value into the view.
