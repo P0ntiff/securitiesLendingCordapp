@@ -19,8 +19,11 @@ import net.corda.core.node.services.vault.QueryCriteria
 class LoanRetrievalFlow(val linearID : UniqueIdentifier) : FlowLogic<StateAndRef<SecurityLoan.State>>() {
     @Suspendable
     override fun call() : StateAndRef<SecurityLoan.State> {
+        //Query the vault for unconsumed states and then for Security loan states
         val criteria = QueryCriteria.VaultQueryCriteria(status = Vault.StateStatus.UNCONSUMED)
         val loanStates = serviceHub.vaultQueryService.queryBy<SecurityLoan.State>(criteria)
+
+        //Filter for states that match the required linear ID
         val secLoans = loanStates.states.filter {
             (it.state.data.linearId == linearID) }
         if (secLoans.size > 1) {

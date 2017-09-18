@@ -183,8 +183,6 @@ class Simulation(options : String?) {
         //Test Loan with stock collateral
         val id5 = LoanSecuritySpecific(parties[0].second, true, parties[1].second)
 
-
-
     }
 
     private fun setUpNodes() {

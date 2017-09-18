@@ -3,7 +3,6 @@ package com.secLendModel.flow.securitiesLending
 import co.paralleluniverse.fibers.Suspendable
 import com.secLendModel.CURRENCY
 import com.secLendModel.contract.SecurityLoan
-import com.secLendModel.flow.oracle.Oracle
 import com.secLendModel.flow.oracle.PriceRequestFlow
 import com.secLendModel.flow.securitiesLending.LoanChecks.cashRequired
 import com.secLendModel.flow.securitiesLending.LoanChecks.getCounterParty
@@ -18,17 +17,13 @@ import net.corda.core.identity.Party
 import net.corda.core.node.services.Vault
 import net.corda.core.node.services.queryBy
 import net.corda.core.node.services.vault.QueryCriteria
-import net.corda.core.transactions.FilteredTransaction
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.transactions.TransactionBuilder
 import net.corda.core.transactions.WireTransaction
 import net.corda.core.utilities.unwrap
-import net.corda.flows.CollectSignaturesFlow
 import net.corda.flows.FinalityFlow
 import net.corda.flows.ResolveTransactionsFlow
-import net.corda.flows.SignTransactionFlow
 import java.text.DecimalFormat
-import java.util.*
 
 
 /** A flow for updating the margin of a given SecurityLoan state -> all other parameters preserved
@@ -58,8 +53,8 @@ object LoanUpdateFlow {
                 println("Prices are the same")
                 throw Exception("Update Not Needed")
             }
-            //Get the new margin based off the ratio of new to old stock price
 
+            //Get the new margin based off the ratio of new to old stock price
             val newMargin = DecimalFormat(".##").format(secLoan.state.data.terms.margin * ((newPrice.quantity.toDouble()/secLoan.state.data.currentStockPrice.quantity.toDouble()))).toDouble()
             println("New Price ${newPrice.quantity}, Old Price ${secLoan.state.data.currentStockPrice.quantity}, ratio${(newPrice.quantity/secLoan.state.data.currentStockPrice.quantity)}")
             println("New Margin is $newMargin")

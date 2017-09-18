@@ -1,28 +1,22 @@
 package com.secLendModel.flow.securitiesLending
 
 import co.paralleluniverse.fibers.Suspendable
-import com.secLendModel.CURRENCY
 import com.secLendModel.contract.SecurityLoan
 import com.secLendModel.flow.CollateralPreparationFlow
 import com.secLendModel.flow.SecuritiesPreparationFlow
-import com.secLendModel.flow.oracle.PriceRequestFlow
 import net.corda.core.contracts.*
 import net.corda.core.flows.FlowLogic
 import net.corda.core.flows.InitiatedBy
 import net.corda.core.flows.InitiatingFlow
 import net.corda.core.flows.StartableByRPC
-import net.corda.core.identity.AnonymousParty
 import net.corda.core.identity.Party
-import net.corda.core.node.services.Vault
-import net.corda.core.node.services.queryBy
-import net.corda.core.node.services.vault.QueryCriteria
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.transactions.TransactionBuilder
 import net.corda.core.transactions.WireTransaction
 import net.corda.core.utilities.unwrap
 import net.corda.flows.FinalityFlow
 import net.corda.flows.ResolveTransactionsFlow
-import java.text.DecimalFormat
+
 
 /**
  * Created by raymondm on 21/08/2017.
@@ -117,9 +111,6 @@ object LoanNetFlow {
 
                     ptx = subFlow(CollateralPreparationFlow(builder, "Cash",
                             ((outputState.stockPrice.quantity * outputState.quantity) * (1.0 + outputState.terms.margin) - cashNetSum).toLong(), outputState.lender))
-                    //serviceHub.vaultService.generateSpend(builder,
-                            //Amount((((outputState.stockPrice.quantity * outputState.quantity) * (1.0 + outputState.terms.margin) - cashNetSum)).toLong(), CURRENCY),
-                            //AnonymousParty(outputState.lender.owningKey)).first
                 } else {
                     ptx = builder
                 }
@@ -164,16 +155,12 @@ object LoanNetFlow {
                     //If we are the lender, we need to add shares as an input state
                     subFlow(SecuritiesPreparationFlow(it.first,code,Math.abs(outputSharesSum),outputBorrower))
                 } else {
-                    //if we are borrower, add cash, again taking into account the netCashSum (it.second in this case)
-                    val ptx: TransactionBuilder
+                    //If we are borrower, add the required collateral
                     if (serviceHub.myInfo.legalIdentity == outputBorrower) {
                         //Add cash, make sure we dont try to add zero cash as this throws an error
                         if (((outputState.stockPrice.quantity * outputState.quantity) * (1.0 + outputState.terms.margin)-it.second).toLong() != 0.toLong()) {
-                            ptx = subFlow(CollateralPreparationFlow(it.first, "Cash",
+                            subFlow(CollateralPreparationFlow(it.first, "Cash",
                                     ((outputState.stockPrice.quantity * outputState.quantity) * (1.0 + outputState.terms.margin) - it.second).toLong(), outputState.lender))
-                            //serviceHub.vaultService.generateSpend(it.first,
-                               //     Amount((((outputState.stockPrice.quantity * outputState.quantity) * (1.0 + outputState.terms.margin) - it.second)).toLong(), CURRENCY),
-                                 //   AnonymousParty(outputState.lender.owningKey)).first
                         }
                     }
                 }

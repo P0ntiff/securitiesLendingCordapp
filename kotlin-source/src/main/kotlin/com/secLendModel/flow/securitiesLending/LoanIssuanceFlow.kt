@@ -1,26 +1,20 @@
 package com.secLendModel.flow.securitiesLending
 
 import co.paralleluniverse.fibers.Suspendable
-import com.secLendModel.CURRENCY
-import com.secLendModel.contract.SecurityClaim
 import com.secLendModel.contract.SecurityLoan
 import com.secLendModel.flow.CollateralPreparationFlow
 import com.secLendModel.flow.SecuritiesPreparationFlow
 import com.secLendModel.flow.securitiesLending.LoanChecks.getCounterParty
 import com.secLendModel.flow.securitiesLending.LoanChecks.isLender
-import net.corda.contracts.asset.Cash
 import net.corda.core.contracts.*
 import net.corda.core.flows.*
-import net.corda.core.identity.AnonymousParty
 import net.corda.core.identity.Party
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.transactions.TransactionBuilder
 import net.corda.core.transactions.WireTransaction
 import net.corda.core.utilities.unwrap
-import net.corda.flows.CollectSignaturesFlow
 import net.corda.flows.FinalityFlow
 import net.corda.flows.ResolveTransactionsFlow
-import net.corda.flows.SignTransactionFlow
 
 /**
  *  Flow to create a TXN between lender and borrower with the following structure:
@@ -75,29 +69,10 @@ object LoanIssuanceFlow {
                 it
             }
 
-            //STEP 6: Check other party has put in the securities/collateral and the securityLoan state.
-//            val signTransactionFlow = object : SignTransactionFlow(counterParty) {
-//                //TODO: Edit this checkTransaction to be more generalized
-//                override fun checkTransaction(stx: SignedTransaction)  = requireThat {
-//                        //Our only requirment is that the issued loan matches the agreed Terms
-//                        val secLoan = stx.tx.outputs.map { it.data }.filterIsInstance<SecurityLoan.State>().single()
-//                        "Lender must have issued us a loan with the agreed terms" using
-//                                ((secLoan.quantity == agreedTerms.quantity) &&
-//                                        (secLoan.code == agreedTerms.code) &&
-//                                        (secLoan.stockPrice == agreedTerms.stockPrice) &&
-//                                        (secLoan.lender == agreedTerms.lender) &&
-//                                        (secLoan.borrower == agreedTerms.borrower) &&
-//                                        (secLoan.terms.margin == agreedTerms.margin) &&
-//                                        (secLoan.terms.rebate == agreedTerms.rebate))
-//
-//
-//                }
-//            }
-
+            //Sign and finalize this transaction.
             val unnotarisedTX = serviceHub.addSignature(stx, serviceHub.myInfo.legalIdentity.owningKey)
             val finishedTX = subFlow(FinalityFlow(unnotarisedTX, setOf(counterParty))).single()
             return finishedTX.tx.outputs.map { it.data }.filterIsInstance<SecurityLoan.State>().single().linearId
-            //STEP 7: Sign on our end and return
             //return subFlow(signTransactionFlow).tx.outputs.map { it.data }.filterIsInstance<SecurityLoan.State>().single().linearId
         }
     }
@@ -124,8 +99,7 @@ object LoanIssuanceFlow {
                     throw SecurityException("Insufficient holding: ${e.message}", e)
                 }
             }
-            else { //We are the borrower -> should have received stock, so adding in cash
-                //TODO: Rather than add cash, in the loan agreedterms add a field for collateral type, then add that correct type here
+            else { //We are the borrower -> should have received stock, so adding in collateral (cash or securities)
                 tx = subFlow(CollateralPreparationFlow(builder, agreedTerms.collateralType,
                             ((agreedTerms.stockPrice.quantity * agreedTerms.quantity) * (1.0 + agreedTerms.margin)).toLong(), agreedTerms.lender))
 

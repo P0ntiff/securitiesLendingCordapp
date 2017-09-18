@@ -1,12 +1,8 @@
 package com.secLendModel.contract
 
-import co.paralleluniverse.fibers.Suspendable
 import com.secLendModel.CURRENCY
-import com.secLendModel.flow.oracle.Oracle
-import com.secLendModel.flow.oracle.PriceRequestFlow
 import com.secLendModel.flow.securitiesLending.LoanTerms
 import com.secLendModel.schema.SecurityLoanSchemaV1
-import net.corda.client.jfx.utils.foldObservable
 import net.corda.contracts.asset.Cash
 import net.corda.core.contracts.*
 import net.corda.core.crypto.SecureHash
@@ -21,14 +17,6 @@ import net.corda.core.serialization.CordaSerializable
 import net.corda.core.transactions.TransactionBuilder
 import java.security.PublicKey
 import java.util.*
-import net.corda.core.flows.*
-import net.corda.core.node.ServiceHub
-import net.corda.core.flows.FlowLogic
-import net.corda.core.flows.InitiatingFlow
-import net.corda.core.flows.StartableByRPC
-import net.corda.core.messaging.CordaRPCOps
-import net.corda.node.services.api.ServiceHubInternal
-import net.corda.node.services.startFlowPermission
 
 
 /**
@@ -111,15 +99,17 @@ class SecurityLoan : Contract {
 
     override fun verify(tx: TransactionForContract): Unit {
         val command = tx.commands.requireSingleCommand<SecurityLoan.Commands>()
-
         //The following are the verify functions for each command available for a security loan
         //All these 'tests' for a command type must pass for the transactino to be considered valid.
+
         when (command.value) {
             is Commands.Issue -> requireThat {
                 //Get input and output info
                 val secLoan = tx.outputs.filterIsInstance<SecurityLoan.State>().single()
                 var collateralTally : Long = 0
                 var securityStatesTally = 0
+
+                //Validate the states depending on collateral type
                 if (secLoan.terms.collateralType == "Cash") {
                     //Do cash check
                     tx.outputs.forEach {
@@ -145,7 +135,7 @@ class SecurityLoan : Contract {
                     }
                 }
 
-                //Check we have some inputs -> Not being restrictive at this point in time
+                //Run validation checks
                 "Inputs should be consumed when issuing a secLoan." using (tx.inputs.isNotEmpty()) //Should be two input types -> securities and collateral(Cash States)
                 "Collateral states in the outputs sum to the value of the loan + margin" using (Amount(collateralTally, CURRENCY) ==
                         Amount(((secLoan.quantity * secLoan.stockPrice.quantity) * (1.0 + secLoan.terms.margin)).toLong(), CURRENCY))
@@ -163,6 +153,8 @@ class SecurityLoan : Contract {
                 var collateralTally: Long = 0
                 var securityStatesTally = 0
                 var secLoanStates = 0
+
+                //Validate the states depending on collateral type
                 if (secLoan.terms.collateralType == "Cash") {
                     //Do cash check
                     tx.outputs.forEach {
@@ -190,6 +182,7 @@ class SecurityLoan : Contract {
                     }
                 }
 
+                //Run validation checks
                 //"Cash states in the output sum to the value of the loan + margin" using (Amount(collateralTally, CURRENCY) ==
                         //Amount(((secLoan.quantity * secLoan.stockPrice.quantity) * (1.0 + secLoan.terms.margin)).toLong(), CURRENCY))
                 //"Security states in the output sum to the securities total of the loan" using (securityStatesTally == secLoan.quantity)
@@ -238,6 +231,8 @@ class SecurityLoan : Contract {
                 var collateralTally: Long = 0
                 var securityStatesTally = 0
                 var secLoanStates = 0
+
+                //Validate the states depending on collateral type
                 if (secLoan.terms.collateralType == "Cash") {
                     //Do cash check
                     tx.outputs.forEach {
@@ -263,6 +258,8 @@ class SecurityLoan : Contract {
                         if (it is SecurityLoan.State) {secLoanStates += 1}
                     }
                 }
+
+                //Run validation checks
                 "Collateral states in the output sum to the value of the loan + margin" using (Amount(collateralTally, CURRENCY) ==
                         Amount((((secLoan.quantity - outputSecLoan.quantity) * secLoan.stockPrice.quantity) * (1.0 + secLoan.terms.margin)).toLong(), CURRENCY))
                 //"Security states in the output must be less than the total quantity of the input loan" using (securityStatesTally < secLoan.quantity)
@@ -336,7 +333,6 @@ class SecurityLoan : Contract {
         }
         tx.addCommand(SecurityLoan.Commands.Net(), lender.owningKey, borrower.owningKey)
         //Otherwise there is no output state, we simply terminate both loans. This is checked in flow
-        //Add commands as required
     }
 
     fun generatePartialExit(

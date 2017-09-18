@@ -1,36 +1,15 @@
 package com.secLendModel.flow.oracle
 
 import co.paralleluniverse.fibers.Suspendable
-import com.secLendModel.CURRENCY
-import com.sun.org.apache.xpath.internal.operations.Bool
-import net.corda.contracts.Fix
-import net.corda.contracts.FixOf
 import net.corda.core.contracts.Amount
-import net.corda.core.contracts.Command
 import net.corda.core.contracts.CommandData
-import net.corda.core.contracts.UniqueIdentifier
-import net.corda.core.crypto.DigitalSignature
-import net.corda.core.crypto.MerkleTreeException
-import net.corda.core.crypto.keys
 import net.corda.core.flows.FlowLogic
 import net.corda.core.flows.InitiatedBy
-import net.corda.core.flows.InitiatingFlow
-import net.corda.core.flows.StartableByRPC
 import net.corda.core.identity.Party
-import net.corda.core.node.PluginServiceHub
-import net.corda.core.node.ServiceHub
-import net.corda.core.node.services.CordaService
-import net.corda.core.node.services.ServiceType
-import net.corda.core.serialization.SingletonSerializationToken
-import net.corda.core.serialization.SingletonSerializeAsToken
 import net.corda.core.transactions.FilteredTransaction
-import net.corda.core.transactions.TransactionBuilder
 import net.corda.core.utilities.unwrap
-import org.apache.commons.io.IOUtils
-import java.math.BigDecimal
-import java.security.PublicKey
 import java.util.*
-import javax.annotation.concurrent.ThreadSafe
+
 
 /**
  * Created by raymondm on 18/07/2017.

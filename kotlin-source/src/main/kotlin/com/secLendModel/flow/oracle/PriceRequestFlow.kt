@@ -21,17 +21,17 @@ open class PriceRequestFlow(val code : String,
                            val tx : TransactionBuilder) : FlowLogic<Pair<Amount<Currency>, TransactionBuilder>>() {
     @Suspendable
     override fun call() : Pair<Amount<Currency>, TransactionBuilder> {
-        //val oracle = serviceHub.networkMapCache.getNodesWithService(PriceType.type).single()
-        //val oracleService = oracle.serviceIdentities(PriceType.type).single()
-        val oracle2 = serviceHub.cordaService(Oracle::class.java)
+        //Get the new price
+        val oracle = serviceHub.cordaService(Oracle::class.java)
         val price =  subFlow(PriceQueryFlow(code))
+
         //stockPrice command data is added to the tx -> contains the code and current ticker price
         val stockPrice = stockPrice(Pair(code, price))
-        tx.addCommand(stockPrice, oracle2.identity.owningKey)
+        tx.addCommand(stockPrice, oracle.identity.owningKey)
+
         //Sign and confirm signatures for the tx
-        //TODO: Create our own filtering function to check the attached signature is from oracle, for now we just accept
         val mtx = tx.toWireTransaction().buildFilteredTransaction(filtering = Predicate{true})
-        val signature = subFlow(PriceSignFlow(oracle2.identity, mtx, tx))
+        val signature = subFlow(PriceSignFlow(oracle.identity, mtx, tx))
         tx.addSignatureUnchecked(signature)
         return Pair(price, tx)
     }
