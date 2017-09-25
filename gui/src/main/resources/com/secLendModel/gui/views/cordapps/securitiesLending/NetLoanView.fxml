@@ -22,6 +22,10 @@
             <ChoiceBox fx:id="securityTypeCB" maxWidth="Infinity" GridPane.columnIndex="1" GridPane.columnSpan="4"
                        GridPane.fillWidth="true" GridPane.hgrow="ALWAYS" GridPane.rowIndex="3"/>
 
+            <Label fx:id="collateralTypeLabel" GridPane.halignment="RIGHT" GridPane.rowIndex="4"/>
+            <ChoiceBox fx:id="collateralTypeCB" maxWidth="Infinity" GridPane.columnIndex="1" GridPane.columnSpan="4"
+                       GridPane.fillWidth="true" GridPane.hgrow="ALWAYS" GridPane.rowIndex="4"/>
+
 
             <padding>
                 <Insets bottom="20.0" left="30.0" right="30.0" top="30.0"/>

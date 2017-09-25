@@ -52,7 +52,7 @@ object LoanPartialTerminationFlowTerminationFlow {
             //If we are the lender, then we are returning cash collateral for the correct amount of shares being returned
             if (LoanChecks.isLender(secLoanTerms, serviceHub.myInfo.legalIdentity)) {
                 //Collateral is no longer just cashm so we add in the correct collateral here
-                ptx = subFlow(CollateralPreparationFlow(builder, "Cash",
+                ptx = subFlow(CollateralPreparationFlow(builder, secLoan.state.data.terms.collateralType,
                         ((secLoan.state.data.stockPrice.quantity * secLoan.state.data.quantity) * (1.0 + secLoanTerms.margin)).toLong(), secLoan.state.data.lender))
                 //ptx = serviceHub.vaultService.generateSpend(builder,
                   //      Amount(((secLoanTerms.stockPrice.quantity * amountToTerminate) * (1.0 + secLoanTerms.margin)).toLong(), CURRENCY),
@@ -98,11 +98,8 @@ object LoanPartialTerminationFlowTerminationFlow {
             val tx: TransactionBuilder
             if (LoanChecks.isLender(secLoanTerms, serviceHub.myInfo.legalIdentity)) {
                 //We are lender -> should send back cash collateral to the borrower
-                tx = subFlow(CollateralPreparationFlow(ptx, "Cash",
+                tx = subFlow(CollateralPreparationFlow(ptx, secLoan.state.data.terms.collateralType,
                         ((secLoanTerms.stockPrice.quantity * amountToTerminate) * (1.0 + secLoanTerms.margin)).toLong(), counterParty))
-                //tx = serviceHub.vaultService.generateSpend(ptx,
-                  //      Amount(((secLoanTerms.stockPrice.quantity * amountToTerminate) * (1.0 + secLoanTerms.margin)).toLong(), CURRENCY),
-                    //    AnonymousParty(counterParty.owningKey)).first
             } else { //We are the borrower -> should send back stock to the lender
                 tx = try {
                     subFlow(SecuritiesPreparationFlow(ptx, secLoanTerms.code, amountToTerminate, counterParty)).first

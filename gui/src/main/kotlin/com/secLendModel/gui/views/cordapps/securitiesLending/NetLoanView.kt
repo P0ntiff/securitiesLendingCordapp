@@ -44,6 +44,8 @@ class NetLoanView : Fragment() {
     private val otherPartyLabel by fxid<Label>()
     private val securityTypeCB by fxid<ChoiceBox<String>>()
     private val securityTypeLabel by fxid<Label>()
+    private val collateralTypeCB by fxid<ChoiceBox<String>>()
+    private val collateralTypeLabel by fxid<Label>()
 
     private val issueRef = SimpleObjectProperty<Byte>()
     // Inject data
@@ -114,7 +116,8 @@ class NetLoanView : Fragment() {
                 executeButton -> when (transactionTypeCB.value) {
                     LoanTransactions.Net -> {
                         val otherParty = otherPartyCB.value.legalIdentity
-                        rpcProxy.value?.startFlow(LoanNetFlow::NetInitiator, otherParty, securityTypeCB.value)
+                        rpcProxy.value?.startFlow(LoanNetFlow::NetInitiator, otherParty, securityTypeCB.value,
+                                collateralTypeCB.value)
 
                     }
                 }
@@ -156,6 +159,15 @@ class NetLoanView : Fragment() {
                     "NAB"
             ).observable()
         }
+
+        collateralTypeLabel.text = "Collateral Type"
+        collateralTypeCB.apply { items = listOf<String>(
+                "GBT",
+                "CBA",
+                "RIO",
+                "NAB",
+                "Cash"
+        ).observable() }
         // Validate inputs.
         val formValidCondition = arrayOf(
                 //myIdentity.isNotNull(),

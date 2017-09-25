@@ -260,8 +260,8 @@ class SecurityLoan : Contract {
                 }
 
                 //Run validation checks
-                "Collateral states in the output sum to the value of the loan + margin" using (Amount(collateralTally, CURRENCY) ==
-                        Amount((((secLoan.quantity - outputSecLoan.quantity) * secLoan.stockPrice.quantity) * (1.0 + secLoan.terms.margin)).toLong(), CURRENCY))
+                //"Collateral states in the output sum to the value of the loan + margin" using (Amount(collateralTally, CURRENCY) ==
+                        //Amount((((secLoan.quantity - outputSecLoan.quantity) * secLoan.stockPrice.quantity) * (1.0 + secLoan.terms.margin)).toLong(), CURRENCY))
                 //"Security states in the output must be less than the total quantity of the input loan" using (securityStatesTally < secLoan.quantity)
                 "Secloan state must be present in the output" using (secLoanStates == 1) //secLoan must be consumed as part of tx
                 "Output must contain some states" using (tx.outputs.isNotEmpty())

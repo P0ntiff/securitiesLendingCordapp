@@ -34,7 +34,7 @@ import net.corda.flows.ResolveTransactionsFlow
 object LoanNetFlow {
     @StartableByRPC
     @InitiatingFlow
-    class NetInitiator(val otherParty: Party, val code: String
+    class NetInitiator(val otherParty: Party, val code: String, val collateralType: String
     ) : FlowLogic<UniqueIdentifier>() {
         @Suspendable
         override fun call() : UniqueIdentifier {
@@ -43,7 +43,7 @@ object LoanNetFlow {
             val builder = TransactionType.General.Builder(notary = serviceHub.networkMapCache.notaryNodes.single().notaryIdentity)
             val securityLoans: ArrayList<StateAndRef<SecurityLoan.State>> = ArrayList()
             //Also get the linear ID list for the other party
-            val linearIDList = subFlow(LoanNetPrepFlow(otherParty, code))
+            val linearIDList = subFlow(LoanNetPrepFlow(otherParty, code, collateralType))
 
             //STEP2: Update each loan within this list to get the current price.
             //Note this wil be in a seperate tx on the ledger for each loan as LoanUpdateFlow initiates its own txn.

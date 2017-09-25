@@ -475,8 +475,8 @@ class Simulation(options : String?) {
      * @param initiator = the party that wants to update the margin with the counterparty on the loan
      *
      */
-    private fun netLoans(otherParty: Party, initiator: CordaRPCOps, code:String): UniqueIdentifier {
-        val netLoans = initiator.startFlow(::NetInitiator, otherParty, code).returnValue.getOrThrow()
+    private fun netLoans(otherParty: Party, initiator: CordaRPCOps, code:String, collateral:String): UniqueIdentifier {
+        val netLoans = initiator.startFlow(::NetInitiator, otherParty, code, collateral).returnValue.getOrThrow()
         println("Loans Netted")
         return netLoans
     }
