@@ -17,15 +17,21 @@ import javafx.scene.text.Font
 import javafx.scene.text.TextAlignment
 import javafx.stage.Stage
 import javafx.stage.WindowEvent
-import net.corda.client.jfx.model.NetworkIdentityModel
-import net.corda.client.jfx.model.objectProperty
-import net.corda.client.jfx.model.observableList
-import net.corda.client.jfx.model.observableValue
 import net.corda.client.jfx.utils.ChosenList
 import net.corda.client.jfx.utils.map
 import com.secLendModel.gui.formatters.PartyNameFormatter
 import com.secLendModel.gui.model.CordaViewModel
 import tornadofx.*
+import com.secLendModel.Simulation
+import com.secLendModel.flow.oracle.PriceRequestFlow
+import com.secLendModel.flow.oracle.PriceType
+import com.secLendModel.flow.securitiesLending.LoanIssuanceFlow
+import com.secLendModel.flow.securitiesLending.LoanTerms
+import javafx.scene.control.Button
+import net.corda.client.jfx.model.*
+import net.corda.core.messaging.FlowHandle
+import net.corda.core.messaging.startFlow
+import net.corda.core.transactions.TransactionBuilder
 
 /**
  * The root view embeds the [Shell] and provides support for the status bar, and modal dialogs.
@@ -35,6 +41,7 @@ class MainView : View() {
 
     // Inject components.
     private val userButton by fxid<MenuButton>()
+    private val txnsButton by fxid<Button>()
     private val exit by fxid<MenuItem>()
     private val sidebar by fxid<VBox>()
     private val selectionBorderPane by fxid<BorderPane>()
@@ -43,6 +50,9 @@ class MainView : View() {
     private val myIdentity by observableValue(NetworkIdentityModel::myIdentity)
     private val selectedView by objectProperty(CordaViewModel::selectedView)
     private val registeredViews by observableList(CordaViewModel::registeredViews)
+    private val rpcProxy by observableValue(NodeMonitorModel::proxyObservable)
+    private val allNodes by observableList(NetworkIdentityModel::networkIdentities)
+
 
     private val menuItemCSS = "sidebar-menu-item"
     private val menuItemArrowCSS = "sidebar-menu-item-arrow"
@@ -50,6 +60,7 @@ class MainView : View() {
 
     init {
         // Header
+
         userButton.textProperty().bind(myIdentity.map { it?.legalIdentity?.let { PartyNameFormatter.short.format(it.name) } })
         exit.setOnAction {
             (root.scene.window as Stage).fireEvent(WindowEvent(root.scene.window, WindowEvent.WINDOW_CLOSE_REQUEST))

@@ -147,13 +147,14 @@ class Simulation(options : String?) {
         }
     }
 
-    private fun simulateTransactions() {
+    fun simulateTransactions() {
         val stockMarket = stockMarkets.single().second
         val centralBank = cashIssuers.single().second
 
         //Test cash and equities asset issue
         parties.forEach {
             issueCash(centralBank, it.second, notaryNode.nodeInfo.notaryIdentity)
+            issueEquity(stockMarket, it.second, notaryNode.nodeInfo.notaryIdentity)
             issueEquity(stockMarket, it.second, notaryNode.nodeInfo.notaryIdentity)
         }
 
@@ -164,26 +165,39 @@ class Simulation(options : String?) {
         }
         //Test they can DVP trade stock
         parties.forEach {
-            //tradeEquity(it.second)
+            tradeEquity(it.second)
             //tradeEquity(it.second)
         }
 
         //Test stock borrows and stock loans
         parties.forEach {
             //Loan out stock to a random counter party, where they initiate the deal
-            val id = loanSecurities(it.second, true)
+            //val id = loanSecurities(it.second, true)
             //Loan out stock to a random counter party, where we initiate the deal
-            val id2 = loanSecurities(it.second, false)
+            //val id2 = loanSecurities(it.second, false)
             //Borrow stock from a random counter party, where we initiate the deal
-            val id3 = borrowSecurities(it.second, true)
+            //val id3 = borrowSecurities(it.second, true)
             //Borrow stock from a random counter party, where they initiate the deal
-            val id4 = borrowSecurities(it.second, false)
+            //val id4 = borrowSecurities(it.second, false)
 
         }
-        //Test Loan with stock collateral
-        val id5 = LoanSecuritySpecific(parties[0].second, true, parties[1].second)
-        val id6 = LoanSecuritySpecific(parties[1].second, true, parties[0].second)
-        //netLoans(parties[0].first, parties[1].second, "CBA", "GBT")
+        //Test Loan with cash collateral
+        //Loan CBA to demonstrate loan netting
+        //val id5 = LoanSecuritySpecific(parties[0].second, true, parties[1].second, "Cash", "CBA")
+        //val id6 = LoanSecuritySpecific(parties[1].second, true, parties[0].second, "Cash", "CBA")
+        //Loan RIO to demonstrate update
+        //val id7 = LoanSecuritySpecific(parties[1].second, true, parties[0].second, "Cash", "RIO")
+        //Loan NAB to demonstrate partial terminate and terminate
+        //val id8 = LoanSecuritySpecific(parties[1].second, true, parties[0].second, "Cash", "NAB")
+
+        //Loans with GBT as collateral
+        //Loan CBA to demonstrate loan netting
+        //val id9 = LoanSecuritySpecific(parties[0].second, true, parties[1].second, "GBT", "CBA")
+        //val id10 = LoanSecuritySpecific(parties[1].second, true, parties[0].second, "GBT", "CBA")
+        //Loan RIO to demonstrate update
+        //val id11 = LoanSecuritySpecific(parties[1].second, true, parties[0].second, "GBT", "RIO")
+        //Loan NAB to demonstrate partial terminate and terminate
+        //val id12 = LoanSecuritySpecific(parties[1].second, true, parties[0].second, "GBT", "NAB")
 
     }
 
@@ -362,7 +376,7 @@ class Simulation(options : String?) {
         val loanTerms = LoanTerms(CODES[stockIndex], quantity, sharePrice,
                 me.nodeIdentity().legalIdentity,
                 randomBorrower.nodeIdentity().legalIdentity,
-                margin, rebate, length, "Cash", 100)
+                margin, rebate, length, "Cash")
         when (BorrowerInitiates) {
             true -> {
                 //Counter party initiates the deal
@@ -384,7 +398,8 @@ class Simulation(options : String?) {
      *  @param me = party lending out the securities
      *  @param BorrowerInitiates = 'true' for borrower to initiate the deal, 'false' for lender to initiate the deal
      */
-    private fun LoanSecuritySpecific(me: CordaRPCOps, BorrowerInitiates : Boolean, borrower: CordaRPCOps): UniqueIdentifier {
+    private fun LoanSecuritySpecific(me: CordaRPCOps, BorrowerInitiates : Boolean, borrower: CordaRPCOps, collateralType: String,
+                                     code: String): UniqueIdentifier {
         val rand = Random()
         //val stockIndex = rand.nextInt(CODES.size - 0) + 0
         //Quantity between 10,000 and 50,000 shares
@@ -401,10 +416,10 @@ class Simulation(options : String?) {
         //Pick a random party to be the borrower
         //val randomBorrower = parties.filter { it.first != me.nodeIdentity().legalIdentity }[rand.nextInt(parties.size - 1)].second
         //Storage container for loan terms
-        val loanTerms = LoanTerms(CODES[1], quantity, sharePrice,
+        val loanTerms = LoanTerms(code, quantity, sharePrice,
                 me.nodeIdentity().legalIdentity,
                 borrower.nodeIdentity().legalIdentity,
-                margin, rebate, length, "GBT", 100)
+                margin, rebate, length, collateralType)
         when (BorrowerInitiates) {
             true -> {
                 //Counter party initiates the deal
@@ -415,7 +430,7 @@ class Simulation(options : String?) {
                 stockOnLoan = me.startFlow(::Initiator, loanTerms).returnValue.getOrThrow()
             }
         }
-        println("Loan Finalised: ${quantity} shares in ${CODES[1]} at ${sharePrice} each loaned to borrower '" +
+        println("Loan Finalised: ${quantity} shares in ${code} at ${sharePrice} each loaned to borrower '" +
                 "${borrower.nodeIdentity().legalIdentity}' by lender '${me.nodeIdentity().legalIdentity}' at a margin of ${margin}")
         return stockOnLoan
     }
@@ -444,7 +459,7 @@ class Simulation(options : String?) {
         val loanTerms = LoanTerms(CODES[stockIndex], quantity, sharePrice,
                 randomLender.nodeIdentity().legalIdentity,
                 me.nodeIdentity().legalIdentity,
-                margin, rebate, length, "Cash", 100)
+                margin, rebate, length, "Cash")
         when (BorrowerInitiates) {
             true -> {
                 //We initiate the deal

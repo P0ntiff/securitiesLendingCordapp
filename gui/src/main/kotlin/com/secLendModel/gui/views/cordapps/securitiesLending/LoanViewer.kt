@@ -110,6 +110,7 @@ class LoanViewer : CordaView("Loan Portfolio") {
         val quantityValueLabel: Label by fxid()
         val ValueLabel: Label by fxid()
         val lastPriceLabel: Label by fxid()
+        val CollateralTypeLabel: Label by fxid()
 
         init {
             val value = stateRow.stateAndRef.state.data.quantity * stateRow.stateAndRef.state.data.currentStockPrice.quantity
@@ -118,7 +119,7 @@ class LoanViewer : CordaView("Loan Portfolio") {
             val margin: Double = stateRow.stateAndRef.state.data.terms.margin
             val quantity = stateRow.stateAndRef.state.data.quantity
             val lastPrice = stateRow.stateAndRef.state.data.currentStockPrice
-
+            val collateralType = stateRow.stateAndRef.state.data.terms.collateralType
 
             stateIdValueLabel.apply {
                 text = stateRow.stateAndRef.ref.toString().substring(0, 16) + "...[${stateRow.stateAndRef.ref.index}]"
@@ -132,6 +133,7 @@ class LoanViewer : CordaView("Loan Portfolio") {
             quantityValueLabel.text = AmountFormatter.formatStock(quantity)
             MarginLabel.text = margin.toString() + "%"
             lastPriceLabel.text = AmountFormatter.boring.format(lastPrice)
+            CollateralTypeLabel.text = collateralType
         }
     }
 

@@ -1,11 +1,13 @@
 package com.secLendModel.flow.securitiesLending
 
 import co.paralleluniverse.fibers.Suspendable
+import com.secLendModel.contract.SecurityClaim
 import com.secLendModel.contract.SecurityLoan
 import com.secLendModel.flow.CollateralPreparationFlow
 import com.secLendModel.flow.SecuritiesPreparationFlow
 import com.secLendModel.flow.securitiesLending.LoanChecks.getCounterParty
 import com.secLendModel.flow.securitiesLending.LoanChecks.isLender
+import net.corda.contracts.asset.Cash
 import net.corda.core.contracts.*
 import net.corda.core.flows.*
 import net.corda.core.identity.Party
@@ -105,8 +107,21 @@ object LoanIssuanceFlow {
 
             }
 
+            //Figure out the amount of collateral used
+            var collateralQuantity = 0;
+            if (agreedTerms.collateralType == "Cash") {
+                collateralQuantity =((agreedTerms.stockPrice.quantity * agreedTerms.quantity) * (1.0 + agreedTerms.margin)).toInt()
+            } else {
+                tx.outputStates().map { it.data }.filterIsInstance<SecurityClaim.State>().forEach {
+                    if ((it.owner == agreedTerms.lender) && (it.code == agreedTerms.collateralType)) {
+                        collateralQuantity += it.quantity;
+                    }
+                }
+            }
+
             //STEP 5: Generate securityLoan state as output state and send back to borrower
-            val ptx = SecurityLoan().generateIssue(tx, agreedTerms, notary)
+            val ptx = SecurityLoan().generateIssue(tx, agreedTerms, notary, collateralQuantity)
+            println("Collateral amount of ${collateralQuantity}")
             val stx = serviceHub.signInitialTransaction(ptx, serviceHub.myInfo.legalIdentity.owningKey)
             //subFlow(ResolveTransactionsFlow(stx, counterParty))
             send(counterParty, stx)

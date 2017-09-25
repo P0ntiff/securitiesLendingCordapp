@@ -11,6 +11,7 @@
     <Label text="Quantity" wrapText="true" GridPane.rowIndex="5"/>
     <Label text="Last Price" wrapText="true" GridPane.rowIndex="6"/>
     <Label text="Total Value" wrapText="true" GridPane.rowIndex="7"/>
+    <Label text="Collateral Type" wrapText="true" GridPane.rowIndex="8"/>
 
     <Label fx:id="stateIdValueLabel" text="39043-329090-390091" GridPane.columnIndex="1"/>
     <Label fx:id="instrumentValueLabel" text="Ordinary Shares" wrapText="true" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
@@ -22,4 +23,5 @@
     <Label fx:id="quantityValueLabel" text="0" wrapText="true" GridPane.columnIndex="1" GridPane.rowIndex="5"/>
     <Label fx:id="lastPriceLabel" text="0" wrapText="true" GridPane.columnIndex="1" GridPane.rowIndex="6"/>
     <Label fx:id="ValueLabel" text="0" wrapText="true" GridPane.columnIndex="1" GridPane.rowIndex="7"/>
+    <Label fx:id="CollateralTypeLabel" text="0" wrapText="true" GridPane.columnIndex="1" GridPane.rowIndex="8"/>
 </GridPane>

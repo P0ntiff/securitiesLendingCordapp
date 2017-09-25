@@ -20,8 +20,8 @@ data class LoanTerms(
         val margin : Double,       //Percent
         val rebate : Double,        //Percent
         val lengthOfLoan: Int,   //Length represented in days?
-        val collateralType: String, //A string describing the collateral type. Must be contained in the securityLoan contract field collateralType
-        val collateralQuantity: Int
+        val collateralType: String //A string describing the collateral type. Must be contained in the securityLoan contract field collateralType
+        //val collateralQuantity: Int
 )
 
 //Helper functions used in securitiesLending flows
@@ -56,6 +56,6 @@ object LoanChecks {
     @Suspendable
     fun stateToLoanTerms(state : SecurityLoan.State) : LoanTerms {
         return LoanTerms(state.code, state.quantity, state.stockPrice, state.lender, state.borrower,
-                state.terms.margin, state.terms.rebate, state.terms.lengthOfLoan, state.terms.collateralType, 100)
+                state.terms.margin, state.terms.rebate, state.terms.lengthOfLoan, state.terms.collateralType)
     }
 }

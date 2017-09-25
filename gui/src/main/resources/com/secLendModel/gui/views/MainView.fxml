@@ -22,6 +22,8 @@
                         <FontAwesomeIconView glyphName="USER" glyphSize="20"/>
                     </graphic>
                 </MenuButton>
+
+                
             </GridPane>
         </top>
         <center>

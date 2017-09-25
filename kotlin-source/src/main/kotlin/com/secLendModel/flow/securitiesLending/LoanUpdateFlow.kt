@@ -60,9 +60,9 @@ object LoanUpdateFlow {
             println("New Price ${newPrice.quantity}, Old Price ${secLoan.state.data.currentStockPrice.quantity}, ratio${(newPrice.quantity/secLoan.state.data.currentStockPrice.quantity)}")
             println("New Margin is $newMargin")
             println("Old margin is ${secLoan.state.data.terms.margin}")
+
             //STEP 2: Create Transaction with the loanState as input and updated LoanState as output
             val builder = TransactionType.General.Builder(notary = serviceHub.networkMapCache.notaryNodes.single().notaryIdentity)
-            //TODO: Problem arises here. newMargin is rounded down here, whereas in the calculation for change margin its rounded up
             SecurityLoan().generateUpdate(builder, newPrice, newMargin, secLoan, lender, borrower)
             //STEP 3: Calculate change in margin, add cash if required. If not required, will be added by acceptor in STEP X
             val changeMargin = DecimalFormat(".##").format(newMargin - secLoan.state.data.terms.margin).toDouble()
