@@ -54,6 +54,7 @@ class SecurityLoan : Contract {
                      val lender: Party,
                      val borrower: Party,
                      val terms: Terms,
+                     //val collateralQuantity: Int,
                      override val linearId: UniqueIdentifier = UniqueIdentifier()): LinearState, QueryableState {
         /**
          *  This property holds a list of the nodes which can "use" this state in a valid transaction. In this case, the
@@ -320,7 +321,9 @@ class SecurityLoan : Contract {
         //Calculate the net of all the input shares. Borrower is taken as the negative position
         //Therefor if negative total, then the abs(outputShares) goes to borrower
         val secLoan = secLoanStates.first()
+
         //TODO: rather than using the first share for margin, currently defaulting this to 0.05%. Maybe find a better way to do this i.e loanAgreementFlow
+        //TODO: Sort out collateral quantity here
         if (outputSharesSum < 0) {
             //More shares are borrowed by borrower then lent by lender, output state is a borrower to borrower
             tx.addOutputState(TransactionState(State(Math.abs(outputSharesSum), secLoan.state.data.code, secLoan.state.data.currentStockPrice, secLoan.state.data.currentStockPrice,
@@ -343,6 +346,7 @@ class SecurityLoan : Contract {
             borrower: Party,
             notary: Party): TransactionBuilder {
         //Add the loan state as an input to the exit
+        //TODO: sort out collateral quantity here -> currently is the ratio of new amount to old amount times the original quantity of collateral
         tx.addInputState(originalSecLoan)
         tx.addOutputState(TransactionState(State(newAmount, originalSecLoan.state.data.code, originalSecLoan.state.data.currentStockPrice, originalSecLoan.state.data.currentStockPrice,
                 originalSecLoan.state.data.lender, originalSecLoan.state.data.borrower,

@@ -159,7 +159,7 @@ class IssueLoanView : Fragment() {
                             val priceTx = TransactionBuilder()
                             val priceQuery = rpcProxy.value?.startFlow(PriceRequestFlow::PriceQueryFlow, codeCB.value )
                             val loanTerms = LoanTerms(codeCB.value, amountTextField.text.toInt(), priceQuery!!.returnValue.get(), lender, borrower,
-                                    marginTextField.text.toDouble(), rebateTextField.text.toDouble(), lengthTextField.text.toInt(), collateralTypeCB.value)
+                                    marginTextField.text.toDouble(), rebateTextField.text.toDouble(), lengthTextField.text.toInt(), collateralTypeCB.value, 100)
                             rpcProxy.value?.startFlow(LoanIssuanceFlow::Initiator, loanTerms) as FlowHandle<Unit>
 
                     }

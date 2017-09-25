@@ -183,7 +183,7 @@ class Simulation(options : String?) {
         //Test Loan with stock collateral
         val id5 = LoanSecuritySpecific(parties[0].second, true, parties[1].second)
         val id6 = LoanSecuritySpecific(parties[1].second, true, parties[0].second)
-        netLoans(parties[0].first, parties[1].second, "CBA", "GBT")
+        //netLoans(parties[0].first, parties[1].second, "CBA", "GBT")
 
     }
 
@@ -362,7 +362,7 @@ class Simulation(options : String?) {
         val loanTerms = LoanTerms(CODES[stockIndex], quantity, sharePrice,
                 me.nodeIdentity().legalIdentity,
                 randomBorrower.nodeIdentity().legalIdentity,
-                margin, rebate, length, "Cash")
+                margin, rebate, length, "Cash", 100)
         when (BorrowerInitiates) {
             true -> {
                 //Counter party initiates the deal
@@ -404,7 +404,7 @@ class Simulation(options : String?) {
         val loanTerms = LoanTerms(CODES[1], quantity, sharePrice,
                 me.nodeIdentity().legalIdentity,
                 borrower.nodeIdentity().legalIdentity,
-                margin, rebate, length, "GBT")
+                margin, rebate, length, "GBT", 100)
         when (BorrowerInitiates) {
             true -> {
                 //Counter party initiates the deal
@@ -444,7 +444,7 @@ class Simulation(options : String?) {
         val loanTerms = LoanTerms(CODES[stockIndex], quantity, sharePrice,
                 randomLender.nodeIdentity().legalIdentity,
                 me.nodeIdentity().legalIdentity,
-                margin, rebate, length, "Cash")
+                margin, rebate, length, "Cash", 100)
         when (BorrowerInitiates) {
             true -> {
                 //We initiate the deal

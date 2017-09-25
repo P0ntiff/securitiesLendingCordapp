@@ -3,6 +3,7 @@ package com.secLendModel.flow.securitiesLending
 import co.paralleluniverse.fibers.Suspendable
 import com.secLendModel.CURRENCY
 import com.secLendModel.contract.SecurityLoan
+import com.secLendModel.flow.CollateralPreparationFlow
 import com.secLendModel.flow.oracle.PriceRequestFlow
 import com.secLendModel.flow.securitiesLending.LoanChecks.cashRequired
 import com.secLendModel.flow.securitiesLending.LoanChecks.getCounterParty
@@ -70,9 +71,12 @@ object LoanUpdateFlow {
             //Check if cash required, send to counterparty if it is
             if (cashRequired(serviceHub.myInfo.legalIdentity, borrower, lender, changeMargin)) {
                 val counterParty = getCounterParty(stateToLoanTerms(secLoan.state.data), serviceHub.myInfo.legalIdentity)
-                serviceHub.vaultService.generateSpend(builder,
-                        Amount(cashToAdd, CURRENCY),
-                        AnonymousParty(counterParty.owningKey)
+                subFlow(CollateralPreparationFlow(builder, secLoan.state.data.terms.collateralType,
+                        cashToAdd, counterParty)
+
+                //serviceHub.vaultService.generateSpend(builder,
+                        //Amount(cashToAdd, CURRENCY),
+                        //AnonymousParty(counterParty.owningKey)
                 )
             }
 
@@ -111,9 +115,11 @@ object LoanUpdateFlow {
                 //Check if cash required, send to counterParty if needed
                 if (cashRequired(serviceHub.myInfo.legalIdentity, outputState.borrower, outputState.lender, changeMargin)){
                     val counterParty = getCounterParty(stateToLoanTerms(outputState), serviceHub.myInfo.legalIdentity)
-                    serviceHub.vaultService.generateSpend(it,
-                            Amount(cashToAdd, CURRENCY),
-                            AnonymousParty(counterParty.owningKey)
+                    subFlow(CollateralPreparationFlow(it, outputState.terms.collateralType,
+                            cashToAdd, counterParty)
+                    //serviceHub.vaultService.generateSpend(it,
+                            //Amount(cashToAdd, CURRENCY),
+                            //AnonymousParty(counterParty.owningKey)
                     )
                 }
                 it
