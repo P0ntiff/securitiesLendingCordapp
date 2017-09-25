@@ -182,6 +182,8 @@ class Simulation(options : String?) {
         }
         //Test Loan with stock collateral
         val id5 = LoanSecuritySpecific(parties[0].second, true, parties[1].second)
+        val id6 = LoanSecuritySpecific(parties[1].second, true, parties[0].second)
+        netLoans(parties[0].first, parties[1].second, "CBA", "GBT")
 
     }
 
@@ -413,7 +415,7 @@ class Simulation(options : String?) {
                 stockOnLoan = me.startFlow(::Initiator, loanTerms).returnValue.getOrThrow()
             }
         }
-        println("Loan Finalised: ${quantity} shares in ${CODES[0]} at ${sharePrice} each loaned to borrower '" +
+        println("Loan Finalised: ${quantity} shares in ${CODES[1]} at ${sharePrice} each loaned to borrower '" +
                 "${borrower.nodeIdentity().legalIdentity}' by lender '${me.nodeIdentity().legalIdentity}' at a margin of ${margin}")
         return stockOnLoan
     }

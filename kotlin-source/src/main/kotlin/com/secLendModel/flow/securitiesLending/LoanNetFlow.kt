@@ -86,7 +86,7 @@ object LoanNetFlow {
             SecurityLoan().generateLoanNet(builder,lender, borrower, securityLoans, outputSharesSum,
                     serviceHub.networkMapCache.notaryNodes.single().notaryIdentity)
 
-            //STEP 4: Calculate the cash that needs to be added to pay of the original loan collateral, as well as this new loan collateral.
+            //STEP 4: Calculate the cash that needs to be added to pay off the original loan collateral, as well as this new loan collateral.
             val outputState = builder.outputStates().map { it.data }.filterIsInstance<SecurityLoan.State>().single()
             //Add cash as needed
             val outputLender = outputState.lender
@@ -109,7 +109,7 @@ object LoanNetFlow {
                     //Add cash, make sure we dont try add zero cash as this throws an error
                 if (((outputState.stockPrice.quantity * outputState.quantity) * (1.0 + outputState.terms.margin)-cashNetSum).toLong() != 0.toLong()) {
 
-                    ptx = subFlow(CollateralPreparationFlow(builder, "Cash",
+                    ptx = subFlow(CollateralPreparationFlow(builder, collateralType,
                             ((outputState.stockPrice.quantity * outputState.quantity) * (1.0 + outputState.terms.margin) - cashNetSum).toLong(), outputState.lender))
                 } else {
                     ptx = builder
@@ -159,7 +159,7 @@ object LoanNetFlow {
                     if (serviceHub.myInfo.legalIdentity == outputBorrower) {
                         //Add cash, make sure we dont try to add zero cash as this throws an error
                         if (((outputState.stockPrice.quantity * outputState.quantity) * (1.0 + outputState.terms.margin)-it.second).toLong() != 0.toLong()) {
-                            subFlow(CollateralPreparationFlow(it.first, "Cash",
+                            subFlow(CollateralPreparationFlow(it.first, outputState.terms.collateralType,
                                     ((outputState.stockPrice.quantity * outputState.quantity) * (1.0 + outputState.terms.margin) - it.second).toLong(), outputState.lender))
                         }
                     }
