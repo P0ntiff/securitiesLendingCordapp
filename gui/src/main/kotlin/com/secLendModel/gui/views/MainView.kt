@@ -26,6 +26,7 @@ import tornadofx.*
 import com.secLendModel.Simulation
 import com.secLendModel.flow.oracle.PriceRequestFlow
 import com.secLendModel.flow.oracle.PriceType
+import com.secLendModel.flow.securitiesLending.LoanAgreementFlow
 import com.secLendModel.flow.securitiesLending.LoanIssuanceFlow
 import com.secLendModel.flow.securitiesLending.LoanTerms
 import javafx.concurrent.Task
@@ -49,6 +50,7 @@ class MainView : View() {
     // Inject components.
     private val userButton by fxid<MenuButton>()
     private val txnsButton by fxid<Button>()
+    private val agreementButton by fxid<Button>()
     private val exit by fxid<MenuItem>()
     private val sidebar by fxid<VBox>()
     private val selectionBorderPane by fxid<BorderPane>()
@@ -75,6 +77,21 @@ class MainView : View() {
             }
         }
 
+        //TODO: Setup simulation for loan agreement flow
+        agreementButton.setOnMouseClicked {
+            //Do txns in a new thread as to avoid UI freezing/locking
+            val newThread = kotlin.concurrent.thread {
+                val myInfo = rpcProxy.value!!.nodeIdentity().legalIdentity
+                val otherParty = parties.filter { it.advertisedServices.isEmpty() && it.legalIdentity != myInfo  && it.legalIdentity.name.commonName == "Alice Corp" }.single().legalIdentity
+                val loanTerms = LoanTerms("CBA", 1200, Amount(2535, CURRENCY), otherParty, myInfo,
+                        0.05, 0.05, 100, "Cash")
+                val flow = rpcProxy.value?.startFlow(LoanAgreementFlow::Borrower, loanTerms)!!.returnValue.getOrThrow()
+
+                val loanTerms2 = LoanTerms("CBA", 1200, Amount(2535, CURRENCY), myInfo, otherParty,
+                        0.05, 0.05, 100, "Cash")
+                val flow2 = rpcProxy.value?.startFlow(LoanAgreementFlow::Borrower, loanTerms2)!!.returnValue.getOrThrow()
+            }
+        }
 
         userButton.textProperty().bind(myIdentity.map { it?.legalIdentity?.let { PartyNameFormatter.short.format(it.name) } })
         exit.setOnAction {

@@ -9,6 +9,7 @@ import com.secLendModel.flow.oracle.OracleFlow
 import com.secLendModel.flow.oracle.PriceRequestFlow
 import com.secLendModel.flow.oracle.PriceType
 import com.secLendModel.flow.securities.BuyFlow
+import com.secLendModel.flow.securitiesLending.LoanAgreementFlow
 import com.secLendModel.flow.securitiesLending.LoanIssuanceFlow.Initiator
 import com.secLendModel.flow.securitiesLending.LoanIssuanceFlow.Acceptor
 import com.secLendModel.flow.securitiesLending.LoanNetFlow
@@ -252,6 +253,8 @@ class Simulation(options : String?) {
             startFlowPermission<BuyFlow.Buyer>()
     )
     private fun allocateSecuritiesLendingPermissions() : Set<String> = setOf(
+            startFlowPermission<LoanAgreementFlow.Borrower>(),
+            startFlowPermission<LoanAgreementFlow.Lender>(),
             startFlowPermission<Initiator>(),
             startFlowPermission<Acceptor>(),
             startFlowPermission<Updator>(),

@@ -55,8 +55,10 @@ object LoanTerminationFlow {
                 //collateral prep flow is used to get the required collateral
                 val value = ((secLoan.state.data.stockPrice.quantity* secLoanTerms.quantity) * (1.0 + secLoanTerms.margin)).toLong()
                 ptx = subFlow(CollateralPreparationFlow(builder, secLoan.state.data.terms.collateralType, value, counterParty ))
-                //Depending on price changes, extra cash may need to be added at terminate.
-                val remainingValue = ((secLoan.state.data.currentStockPrice.quantity* secLoanTerms.quantity) * (1.0 + secLoanTerms.margin)).toLong() - value
+                //Depending on price changes, extra cash may need to be added at terminate. //TODO: Check but pretty sure this isnt needed as the margin is based off original value, hence return will return
+                //all collateral at the correct amount.
+                //val remainingValue = ((secLoan.state.data.currentStockPrice.quantity* secLoanTerms.quantity) * (1.0 + secLoanTerms.margin)).toLong() - value
+                val remainingValue = 0.toLong()
                 if (remainingValue > 0) {
                     //We also need to pay some more cash
                     subFlow(CollateralPreparationFlow(ptx, "Cash", remainingValue, counterParty ))
@@ -124,8 +126,9 @@ object LoanTerminationFlow {
                         //AnonymousParty(counterParty.owningKey)).first
                 val value = ((secLoan.state.data.stockPrice.quantity* secLoanTerms.quantity) * (1.0 + secLoanTerms.margin)).toLong()
                 tx = subFlow(CollateralPreparationFlow(ptx, secLoan.state.data.terms.collateralType, value, counterParty ))
-                //TODO: Add remaining cash required to cover collateral payments
-                val remainingValue = ((secLoan.state.data.currentStockPrice.quantity* secLoanTerms.quantity) * (1.0 + secLoanTerms.margin)).toLong() - value
+                //TODO: Add remaining cash required to cover collateral payments -> see previous note but dont think its needed
+                //val remainingValue = ((secLoan.state.data.currentStockPrice.quantity* secLoanTerms.quantity) * (1.0 + secLoanTerms.margin)).toLong() - value
+                val remainingValue = 0.toLong()
                 if (remainingValue > 0) {
                     //We also need to pay some more cash
                     subFlow(CollateralPreparationFlow(ptx, "Cash", remainingValue, counterParty ))

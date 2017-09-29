@@ -13,6 +13,8 @@
                 <ImageView styleClass="corda-text-logo" fitHeight="35" preserveRatio="true" GridPane.hgrow="ALWAYS"
                            fx:id="cordaLogo"/>
 
+                <Button fx:id="agreementButton" text="Get loans" GridPane.columnIndex="1"/>
+
                 <Button fx:id="txnsButton" text="Start Txns" GridPane.columnIndex="2"/>
 
                 <!-- User account menu -->
