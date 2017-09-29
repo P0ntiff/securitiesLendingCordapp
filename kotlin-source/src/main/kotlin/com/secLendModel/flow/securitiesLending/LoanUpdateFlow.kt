@@ -68,6 +68,9 @@ object LoanUpdateFlow {
             val changeMargin = DecimalFormat(".##").format(newMargin - secLoan.state.data.terms.margin).toDouble()
             println("Change margin is $changeMargin")
             val cashToAdd = (secLoan.state.data.quantity * secLoan.state.data.stockPrice.quantity * Math.abs(changeMargin)).toLong()
+            //val cashToAdd = ((secLoan.state.data.quantity * secLoan.state.data.stockPrice.quantity * newMargin).toLong() -
+                    //((secLoan.state.data.quantity * secLoan.state.data.stockPrice.quantity * secLoan.state.data.terms.margin).toLong()))
+
             //Check if cash required, send to counterparty if it is
             if (cashRequired(serviceHub.myInfo.legalIdentity, borrower, lender, changeMargin)) {
                 val counterParty = getCounterParty(stateToLoanTerms(secLoan.state.data), serviceHub.myInfo.legalIdentity)

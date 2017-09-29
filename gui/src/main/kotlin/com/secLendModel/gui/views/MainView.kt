@@ -118,6 +118,7 @@ class MainView : View() {
         val otherParty = parties.filter { it.advertisedServices.isEmpty() && it.legalIdentity != myInfo  && it.legalIdentity.name.commonName == "Alice Corp" }.single().legalIdentity
         println(otherParty)
         //Loan borrow 1200 CBA w/cash collateral
+        //TODO: These busy waiting statements freeze the GUI, maybe there is a better way to do this?
         val loanTerms = LoanTerms("CBA", 1200, Amount(2535, CURRENCY), otherParty, myInfo,
                 0.05, 0.05, 100, "Cash")
         val flow = rpcProxy.value?.startFlow(LoanIssuanceFlow::Initiator, loanTerms) as FlowHandle<Unit>
