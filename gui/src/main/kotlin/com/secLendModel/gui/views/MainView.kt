@@ -7,9 +7,6 @@ import javafx.beans.binding.Bindings
 import javafx.geometry.Insets
 import javafx.geometry.Pos
 import javafx.scene.Parent
-import javafx.scene.control.ContentDisplay
-import javafx.scene.control.MenuButton
-import javafx.scene.control.MenuItem
 import javafx.scene.input.MouseButton
 import javafx.scene.layout.BorderPane
 import javafx.scene.layout.StackPane
@@ -27,10 +24,11 @@ import com.secLendModel.Simulation
 import com.secLendModel.flow.oracle.PriceRequestFlow
 import com.secLendModel.flow.oracle.PriceType
 import com.secLendModel.flow.securitiesLending.LoanAgreementFlow
+import com.secLendModel.flow.securitiesLending.LoanChecks
 import com.secLendModel.flow.securitiesLending.LoanIssuanceFlow
 import com.secLendModel.flow.securitiesLending.LoanTerms
 import javafx.concurrent.Task
-import javafx.scene.control.Button
+import javafx.scene.control.*
 import net.corda.client.jfx.model.*
 import net.corda.core.contracts.Amount
 import net.corda.core.crypto.commonName
@@ -85,11 +83,20 @@ class MainView : View() {
                 val otherParty = parties.filter { it.advertisedServices.isEmpty() && it.legalIdentity != myInfo  && it.legalIdentity.name.commonName == "Alice Corp" }.single().legalIdentity
                 val loanTerms = LoanTerms("CBA", 1200, Amount(2535, CURRENCY), otherParty, myInfo,
                         0.05, 0.05, 100, "Cash")
-                val flow = rpcProxy.value?.startFlow(LoanAgreementFlow::Borrower, loanTerms)!!.returnValue.getOrThrow()
+                val loanTermsReturned = rpcProxy.value?.startFlow(LoanAgreementFlow::Borrower, loanTerms)!!.returnValue.getOrThrow()
 
+                runInFxApplicationThread {
+                    val dialog = Alert(Alert.AlertType.INFORMATION).apply {
+                        headerText = "Loan offer received"
+                        contentText = LoanChecks.loanTermsToString(loanTermsReturned)
+                        dialogPane.isDisable = false
+                        //initOwner(window)
+                        show()
+                    }
+                }
                 val loanTerms2 = LoanTerms("CBA", 1200, Amount(2535, CURRENCY), myInfo, otherParty,
                         0.05, 0.05, 100, "Cash")
-                val flow2 = rpcProxy.value?.startFlow(LoanAgreementFlow::Borrower, loanTerms2)!!.returnValue.getOrThrow()
+                val loanTermsReturned2 = rpcProxy.value?.startFlow(LoanAgreementFlow::Borrower, loanTerms2)!!.returnValue.getOrThrow()
             }
         }
 

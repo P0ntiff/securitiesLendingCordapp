@@ -58,4 +58,10 @@ object LoanChecks {
         return LoanTerms(state.code, state.quantity, state.stockPrice, state.lender, state.borrower,
                 state.terms.margin, state.terms.rebate, state.terms.lengthOfLoan, state.terms.collateralType)
     }
+
+    fun loanTermsToString(loanTerms: LoanTerms): String {
+        return "Code: ${loanTerms.code}\nQuantity: ${loanTerms.quantity}\nPrice:${loanTerms.stockPrice.quantity}\n" +
+                "Margin: ${loanTerms.margin}\nRebate: ${loanTerms.rebate}\nCollateral Type: ${loanTerms.collateralType}\n" +
+                "From ${loanTerms.lender} "
+    }
 }

@@ -324,7 +324,7 @@ class SecurityLoan : Contract {
         val secLoan = secLoanStates.first()
 
         //TODO: rather than using the first share for margin, currently defaulting this to 0.05%. Maybe find a better way to do this i.e loanAgreementFlow
-        //TODO: Sort out collateral quantity here
+        //TODO: Sort out collateral quantity here -> not currently being used elsewhere, dont thikn it will end up being used at all
         if (outputSharesSum < 0) {
             //More shares are borrowed by borrower then lent by lender, output state is a borrower to borrower
             tx.addOutputState(TransactionState(State(Math.abs(outputSharesSum), secLoan.state.data.code, secLoan.state.data.currentStockPrice, secLoan.state.data.currentStockPrice,
