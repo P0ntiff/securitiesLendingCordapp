@@ -1,5 +1,6 @@
 package com.secLendModel.gui.views
 
+import com.secLendModel.CURRENCY
 import de.jensd.fx.glyphs.fontawesome.FontAwesomeIcon
 import de.jensd.fx.glyphs.fontawesome.FontAwesomeIconView
 import javafx.beans.binding.Bindings
@@ -29,6 +30,8 @@ import com.secLendModel.flow.securitiesLending.LoanIssuanceFlow
 import com.secLendModel.flow.securitiesLending.LoanTerms
 import javafx.scene.control.Button
 import net.corda.client.jfx.model.*
+import net.corda.core.contracts.Amount
+import net.corda.core.crypto.commonName
 import net.corda.core.messaging.FlowHandle
 import net.corda.core.messaging.startFlow
 import net.corda.core.transactions.TransactionBuilder
@@ -48,6 +51,7 @@ class MainView : View() {
 
     // Inject data.
     private val myIdentity by observableValue(NetworkIdentityModel::myIdentity)
+    private val parties by observableList(NetworkIdentityModel::parties)
     private val selectedView by objectProperty(CordaViewModel::selectedView)
     private val registeredViews by observableList(CordaViewModel::registeredViews)
     private val rpcProxy by observableValue(NodeMonitorModel::proxyObservable)
@@ -60,7 +64,9 @@ class MainView : View() {
 
     init {
         // Header
-
+        txnsButton.setOnMouseClicked {
+            runTxns()
+        }
         userButton.textProperty().bind(myIdentity.map { it?.legalIdentity?.let { PartyNameFormatter.short.format(it.name) } })
         exit.setOnAction {
             (root.scene.window as Stage).fireEvent(WindowEvent(root.scene.window, WindowEvent.WINDOW_CLOSE_REQUEST))
@@ -104,5 +110,76 @@ class MainView : View() {
         Bindings.bindContent(sidebar.children, menuItems)
         // Main view
         selectionBorderPane.centerProperty().bind(selectedView.map { it?.root })
+    }
+
+    fun runTxns() {
+        //The following simulates specific trades and is accessed by clicking the txns button in the main view of the cordapp.
+        val myInfo = rpcProxy.value!!.nodeIdentity().legalIdentity
+        val otherParty = parties.filter { it.advertisedServices.isEmpty() && it.legalIdentity != myInfo  && it.legalIdentity.name.commonName == "Alice Corp" }.single().legalIdentity
+        println(otherParty)
+        //Loan borrow 1200 CBA w/cash collateral
+        val loanTerms = LoanTerms("CBA", 1200, Amount(2535, CURRENCY), otherParty, myInfo,
+                0.05, 0.05, 100, "Cash")
+        val flow = rpcProxy.value?.startFlow(LoanIssuanceFlow::Initiator, loanTerms) as FlowHandle<Unit>
+        while(!flow.returnValue.isDone){
+            //wait till the txn is done
+        }
+
+        //Loan lend 3000 CBA w/cash collateral
+        val loanTerms2 = LoanTerms("CBA", 3000, Amount(2122, CURRENCY), myInfo, otherParty,
+                0.07, 0.05, 100, "Cash")
+        val flow2 = rpcProxy.value?.startFlow(LoanIssuanceFlow::Initiator, loanTerms2) as FlowHandle<Unit>
+        while(!flow2.returnValue.isDone){
+            //wait till the txn is done
+        }
+
+        //Loan lend 900 RIO w/cash collateral
+        val loanTerms3 = LoanTerms("RIO", 900, Amount(2356, CURRENCY), myInfo, otherParty,
+                0.05, 0.05, 100, "Cash")
+        val flow3 = rpcProxy.value?.startFlow(LoanIssuanceFlow::Initiator, loanTerms3) as FlowHandle<Unit>
+        while(!flow3.returnValue.isDone){
+            //wait till the txn is done
+        }
+
+        //Loan borrow 850 NAB w/cash collateral
+        val loanTerms4 = LoanTerms("NAB", 850, Amount(2410, CURRENCY), otherParty, myInfo,
+                0.05, 0.05, 100, "Cash")
+        val flow4 = rpcProxy.value?.startFlow(LoanIssuanceFlow::Initiator, loanTerms4) as FlowHandle<Unit>
+        while(!flow4.returnValue.isDone){
+            //wait till the txn is done
+        }
+
+        //Loan borrow 500 CBA w/GBT collateral
+        val loanTerms5 = LoanTerms("CBA", 500, Amount(2750, CURRENCY), otherParty, myInfo,
+                0.05, 0.05, 100, "GBT")
+        val flow5 = rpcProxy.value?.startFlow(LoanIssuanceFlow::Initiator, loanTerms5) as FlowHandle<Unit>
+        while(!flow5.returnValue.isDone){
+            //wait till the txn is done
+        }
+
+        //Loan lend 350 CBA w/GBT collateral
+        val loanTerms6 = LoanTerms("CBA", 350, Amount(2195, CURRENCY), myInfo, otherParty,
+                0.05, 0.05, 100, "GBT")
+        val flow6 = rpcProxy.value?.startFlow(LoanIssuanceFlow::Initiator, loanTerms6) as FlowHandle<Unit>
+        while(!flow6.returnValue.isDone){
+            //wait till the txn is done
+        }
+
+        //Loan lend 250 RIO w/GBT collateral
+        val loanTerms7 = LoanTerms("RIO", 250, Amount(2888, CURRENCY), myInfo, otherParty,
+                0.05, 0.05, 100, "GBT")
+        val flow7 = rpcProxy.value?.startFlow(LoanIssuanceFlow::Initiator, loanTerms7) as FlowHandle<Unit>
+        while(!flow7.returnValue.isDone){
+            //wait till the txn is done
+        }
+
+        //Loan borrow 550 NAB w/GBT collateral
+        val loanTerms8 = LoanTerms("NAB", 550, Amount(3253, CURRENCY), otherParty, myInfo,
+                0.05, 0.05, 100, "GBT")
+        val flow8 = rpcProxy.value?.startFlow(LoanIssuanceFlow::Initiator, loanTerms8) as FlowHandle<Unit>
+        while(!flow8.returnValue.isDone){
+            //wait till the txn is done
+        }
+
     }
 }

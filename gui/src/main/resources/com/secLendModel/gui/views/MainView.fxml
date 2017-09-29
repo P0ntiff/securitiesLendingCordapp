@@ -13,6 +13,8 @@
                 <ImageView styleClass="corda-text-logo" fitHeight="35" preserveRatio="true" GridPane.hgrow="ALWAYS"
                            fx:id="cordaLogo"/>
 
+                <Button fx:id="txnsButton" text="Start Txns" GridPane.columnIndex="2"/>
+
                 <!-- User account menu -->
                 <MenuButton fx:id="userButton" mnemonicParsing="false" GridPane.columnIndex="3">
                     <items>
@@ -23,7 +25,7 @@
                     </graphic>
                 </MenuButton>
 
-                
+
             </GridPane>
         </top>
         <center>

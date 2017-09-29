@@ -169,6 +169,12 @@ class Simulation(options : String?) {
             //tradeEquity(it.second)
         }
 
+
+        /** For demo purposes, the following have been moved to MainView within the GUI, under a function called
+         * run txns. This allows the click of a button to trigger these txns and the viewer to see them come in.
+         *
+         * Uncomment below for simulation txns to be run on the nodes startup and not from within the GUI
+         */
         //Test stock borrows and stock loans
         parties.forEach {
             //Loan out stock to a random counter party, where they initiate the deal
