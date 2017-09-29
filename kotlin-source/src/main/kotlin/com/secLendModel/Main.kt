@@ -92,6 +92,7 @@ fun main(args: Array<String>) {
     Simulation("Place runtime options here")
 }
 
+
 class Simulation(options : String?) {
     val cashPermissions = allocateCashPermissions()
     val securitiesTradingPermissions = allocateSecuritiesTradingPermissions()
