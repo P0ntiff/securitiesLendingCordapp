@@ -53,7 +53,7 @@ object LoanPartialTerminationFlowTerminationFlow {
             if (LoanChecks.isLender(secLoanTerms, serviceHub.myInfo.legalIdentity)) {
                 //Collateral is no longer just cashm so we add in the correct collateral here
                 ptx = subFlow(CollateralPreparationFlow(builder, secLoan.state.data.terms.collateralType,
-                        ((secLoan.state.data.stockPrice.quantity * secLoan.state.data.quantity) * (1.0 + secLoanTerms.margin)).toLong(), secLoan.state.data.lender))
+                        ((secLoan.state.data.stockPrice.quantity * amountToTerminate) * (1.0 + secLoanTerms.margin)).toLong(), secLoan.state.data.borrower))
                 //ptx = serviceHub.vaultService.generateSpend(builder,
                   //      Amount(((secLoanTerms.stockPrice.quantity * amountToTerminate) * (1.0 + secLoanTerms.margin)).toLong(), CURRENCY),
                     //    AnonymousParty(counterParty.owningKey)).first

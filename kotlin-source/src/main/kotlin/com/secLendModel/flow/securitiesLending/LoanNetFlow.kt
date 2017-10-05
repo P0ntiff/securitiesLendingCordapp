@@ -73,13 +73,13 @@ object LoanNetFlow {
             if (outputSharesSum < 0) {
                 //If we are the lender, we need to add shares as an input state
                 if (serviceHub.myInfo.legalIdentity == lender) {
-                    subFlow(SecuritiesPreparationFlow(builder,securityLoans.first().state.data.code,Math.abs(outputSharesSum),borrower))
+                    //subFlow(SecuritiesPreparationFlow(builder,securityLoans.first().state.data.code,Math.abs(outputSharesSum),borrower))
                 }
             //Otherwise shares are going from borrower to lender
             } else {
                 //if we are borrower, we need to add shares as an input state
                 if (serviceHub.myInfo.legalIdentity == borrower) {
-                    subFlow(SecuritiesPreparationFlow(builder,securityLoans.first().state.data.code,Math.abs(outputSharesSum),lender))
+                    //subFlow(SecuritiesPreparationFlow(builder,securityLoans.first().state.data.code,Math.abs(outputSharesSum),lender))
                 }
             }
             //Generate the new output loan
