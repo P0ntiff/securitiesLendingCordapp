@@ -154,7 +154,7 @@ object LoanNetFlow {
                 //Add input stock as needed if we are the lender
                 if (serviceHub.myInfo.legalIdentity == outputLender) {
                     //If we are the lender, we need to add shares as an input state
-                    subFlow(SecuritiesPreparationFlow(it.first,code,Math.abs(outputSharesSum),outputBorrower))
+                    //subFlow(SecuritiesPreparationFlow(it.first,code,Math.abs(outputSharesSum),outputBorrower))
                 } else {
                     //If we are borrower, add the required collateral
                     if (serviceHub.myInfo.legalIdentity == outputBorrower) {
