@@ -99,7 +99,7 @@ class Main : App(MainView::class) {
         addStageIcon(cordaLogo)
         // Register views.
         Models.get<CordaViewModel>(Main::class).apply {
-            // TODO : This could block the UI thread when number of views increase, maybe we can make this async and display a loading screen.
+            // TODO : This could block the UI thread when number of views increase, maybe we can make this async and display a loading screen. -> could just be done in a new thread
             // Stock Views.
             registerView<Dashboard>()
             registerView<TransactionViewer>()

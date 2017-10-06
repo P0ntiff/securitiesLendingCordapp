@@ -70,7 +70,7 @@ object LoanTerminationFlow {
                         - ((secLoan.state.data.stockPrice.quantity* secLoanTerms.quantity) * (1.0 + secLoanTerms.margin)).toLong())
                 if (remainingValue < 0) {
                     //TODO: Check this logic: borrower needs to pay back some cash that the lender would have paid due to being over collateralized
-                    subFlow(CollateralPreparationFlow(builder, "Cash", Math.abs(remainingValue), counterParty ))
+                    //subFlow(CollateralPreparationFlow(builder, "Cash", Math.abs(remainingValue), counterParty ))
                 }
 
                 //Add the original securities that were loaned out to the tx.

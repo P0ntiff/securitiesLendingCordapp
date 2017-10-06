@@ -24,6 +24,12 @@ import net.corda.flows.ResolveTransactionsFlow
 
 /**
  * Created by raymondm on 31/08/2017.
+ *
+ * A flow that allows a party to partially terminate a loan.
+ * @param amountToTerminate is a given amount of the loan that will
+ * be termiante eg to terminate 50% of a loan of 1000 shares, amountToTerminate is supplied as 500.
+ * @param UniqueIdentifier is the given identifier for the loan.  LoanRetrievalFlow is used to get this laon
+ * from the vault.
  */
 
 
@@ -54,9 +60,6 @@ object LoanPartialTerminationFlowTerminationFlow {
                 //Collateral is no longer just cashm so we add in the correct collateral here
                 ptx = subFlow(CollateralPreparationFlow(builder, secLoan.state.data.terms.collateralType,
                         ((secLoan.state.data.stockPrice.quantity * amountToTerminate) * (1.0 + secLoanTerms.margin)).toLong(), secLoan.state.data.borrower))
-                //ptx = serviceHub.vaultService.generateSpend(builder,
-                  //      Amount(((secLoanTerms.stockPrice.quantity * amountToTerminate) * (1.0 + secLoanTerms.margin)).toLong(), CURRENCY),
-                    //    AnonymousParty(counterParty.owningKey)).first
             } else {  //If we are the borrower, then we are returning stock to the lender
                 ptx = try {
                     subFlow(SecuritiesPreparationFlow(builder, secLoanTerms.code, amountToTerminate, counterParty)).first

@@ -56,12 +56,9 @@ object LoanIssuanceFlow {
                 }
             }
             else{ //If we are the borrower
-                //TODO: Rather than add cash, in the loan agreedterms add a field for collateral type, then add that correct type here
+                //Add in the required collateral
                 ptx = subFlow(CollateralPreparationFlow(builder, loanTerms.collateralType,
                         ((agreedTerms.stockPrice.quantity * agreedTerms.quantity) * (1.0 + agreedTerms.margin)).toLong(), agreedTerms.lender))
-                //ptx = serviceHub.vaultService.generateSpend(builder,
-                        //Amount(((agreedTerms.stockPrice.quantity * agreedTerms.quantity) * (1.0 + agreedTerms.margin)).toLong(), CURRENCY),
-                        //AnonymousParty(agreedTerms.lender.owningKey)).first
             }
             val stx = sendAndReceive<SignedTransaction>(counterParty, ptx).unwrap {
                 val wtx: WireTransaction = it.verifySignatures(serviceHub.myInfo.legalIdentity.owningKey, notary.owningKey)

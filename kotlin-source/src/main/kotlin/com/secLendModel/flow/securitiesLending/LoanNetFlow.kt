@@ -70,18 +70,20 @@ object LoanNetFlow {
             var outputSharesSum = 0
             outputShares.forEach { outputSharesSum += it }
             //Output shaers sum < 0 indicatse that the shares are going from lender to borrower
-            if (outputSharesSum < 0) {
-                //If we are the lender, we need to add shares as an input state
-                if (serviceHub.myInfo.legalIdentity == lender) {
-                    //subFlow(SecuritiesPreparationFlow(builder,securityLoans.first().state.data.code,Math.abs(outputSharesSum),borrower))
-                }
-            //Otherwise shares are going from borrower to lender
-            } else {
-                //if we are borrower, we need to add shares as an input state
-                if (serviceHub.myInfo.legalIdentity == borrower) {
-                    //subFlow(SecuritiesPreparationFlow(builder,securityLoans.first().state.data.code,Math.abs(outputSharesSum),lender))
-                }
-            }
+            //TODO: Revisit this logic, but dont think shares need to be added. Netting takes into account who owes who what
+            //TODO: And hence adding shares messes this up
+//            if (outputSharesSum < 0) {
+//                //If we are the lender, we need to add shares as an input state
+//                if (serviceHub.myInfo.legalIdentity == lender) {
+//                    subFlow(SecuritiesPreparationFlow(builder,securityLoans.first().state.data.code,Math.abs(outputSharesSum),borrower))
+//                }
+//            //Otherwise shares are going from borrower to lender
+//            } else {
+//                //if we are borrower, we need to add shares as an input state
+//                if (serviceHub.myInfo.legalIdentity == borrower) {
+//                    subFlow(SecuritiesPreparationFlow(builder,securityLoans.first().state.data.code,Math.abs(outputSharesSum),lender))
+//                }
+//            }
             //Generate the new output loan
             SecurityLoan().generateLoanNet(builder,lender, borrower, securityLoans, outputSharesSum,
                     serviceHub.networkMapCache.notaryNodes.single().notaryIdentity)
