@@ -14,9 +14,10 @@ import java.util.*
 import java.util.function.Predicate
 
 
-//Called from a flow that requires an update to margin or stockPrice
-//Returns a Pair of (stockPrice, transactionBuilder) where the stockPrice is the officially signed
-//price of the stock and the transactionBuilder contains the oracle's signature
+/** Flow to handle the actual calling of an oracle. Called from a flow that requires an update to margin or stockPrice
+ * Returns a Pair of (stockPrice, transactionBuilder) where the stockPrice is the officially signed
+ * price of the stock and the transactionBuilder contains the oracle's signature */
+
 open class PriceRequestFlow(val code : String,
                            val tx : TransactionBuilder) : FlowLogic<Pair<Amount<Currency>, TransactionBuilder>>() {
     @Suspendable

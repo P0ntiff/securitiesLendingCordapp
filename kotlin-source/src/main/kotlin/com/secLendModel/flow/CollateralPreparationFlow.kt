@@ -17,14 +17,19 @@ import net.corda.core.identity.AnonymousParty
 import net.corda.core.identity.Party
 import net.corda.core.transactions.TransactionBuilder
 
-/**
+/** Collateral prep flow for preparing a specified type of collateral for a tx.
  * This flow gets called as a subflow whenever collateral needs to be added to a transaction. It checks the type of
- * collateral and adds the required value of that type to the tx
+ * collateral and adds the required value of that type to the tx (think a more generalised genereateSpend() allowing
+ * use of not just cash collateral
  **/
 
 
 @StartableByRPC
 @InitiatingFlow
+/**
+ * @param builder the tx builder for this tx
+ * @param collateralType the collteral type to prepare. For this cordapp it is one of GBT, CBA, RIO, NAB or Cash
+ */
 class CollateralPreparationFlow(val builder : TransactionBuilder,
                                 val collateralType : String,
                                 val totalValue : Long,

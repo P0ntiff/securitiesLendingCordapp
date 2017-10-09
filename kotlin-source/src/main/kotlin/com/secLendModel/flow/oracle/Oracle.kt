@@ -17,6 +17,14 @@ import java.math.BigDecimal
 import java.util.*
 import javax.annotation.concurrent.ThreadSafe
 
+
+/** Oracle for providing security prices within the cordapp. Can be queuried to simply provide the current price, or
+ * used as part of a flow where a security loan state is provided. In the second scenario the security loan state will
+ * be altered, with its field currentStockPrice reflecting the new retrieved stock price.
+ *
+ * @param identity" the indentity of the oracle
+ * @param services serviceHub being used for this cordapp/
+ */
 @ThreadSafe
 @CordaService
 class Oracle(val identity: Party, val services: ServiceHub) : SingletonSerializeAsToken() {

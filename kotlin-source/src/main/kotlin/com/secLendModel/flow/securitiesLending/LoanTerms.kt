@@ -9,7 +9,10 @@ import net.corda.core.serialization.CordaSerializable
 import java.util.*
 
 
-//Storage container class for storing terms of a loan
+/** Storage container class for storing terms of a loan
+ * used within the loan contract to simplfy interaction with the contract. Also contains some helper functions (see LoanChecks)
+ * which are useful to getting certain fields of a loan.
+ */
 @CordaSerializable
 data class LoanTerms(
         val code : String,

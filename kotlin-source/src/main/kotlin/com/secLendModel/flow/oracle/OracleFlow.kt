@@ -17,8 +17,6 @@ import java.util.*
  * Basic flow for a priceUpdate oracle which reads in stock price data from a txt file to get the current price
  */
 data class stockPrice(val value: Pair<String, Amount<Currency>>) : CommandData
-
-
 object OracleFlow {
     @InitiatedBy(PriceRequestFlow.PriceQueryFlow::class)
     class QueryHandler(val requester: Party): FlowLogic<Unit>() {

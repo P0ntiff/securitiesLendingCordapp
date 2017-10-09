@@ -14,13 +14,12 @@ import net.corda.core.identity.Party
 import net.corda.core.random63BitValue
 import java.security.PublicKey
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//
-// SecurityClaim
-//
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/** SecurityClaim used for within the securityLending cordapp. Each state has an issuer, owner, security type/instrument type.
+ * Security claim states can only be issued by nodes with the corresponding securityClaim issue permission and are needed
+ * for many of the securityLoan flows
+ *
+ */
 
-// Just a fake program identifier for now
 val SECURITY_PROGRAM_ID = SecurityClaim()
 
 /**

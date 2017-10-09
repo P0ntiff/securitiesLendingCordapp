@@ -80,7 +80,7 @@ class MainView : View() {
             //Do txns in a new thread as to avoid UI freezing/locking
             val newThread = kotlin.concurrent.thread {
                 val myInfo = rpcProxy.value!!.nodeIdentity().legalIdentity
-                val otherParty = parties.filter { it.advertisedServices.isEmpty() && it.legalIdentity != myInfo  && it.legalIdentity.name.commonName == "Alice Corp" }.single().legalIdentity
+                val otherParty = parties.filter { it.advertisedServices.isEmpty() && it.legalIdentity != myInfo  && it.legalIdentity.name.commonName == "Commbank" }.single().legalIdentity
                 val loanTerms = LoanTerms("CBA", 1200, Amount(2535, CURRENCY), otherParty, myInfo,
                         0.05, 0.05, 100, "Cash")
                 val loanTermsReturned = rpcProxy.value?.startFlow(LoanAgreementFlow::Borrower, loanTerms)!!.returnValue.getOrThrow()

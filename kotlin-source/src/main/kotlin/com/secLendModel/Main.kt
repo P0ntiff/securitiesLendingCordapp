@@ -54,8 +54,8 @@ import java.util.*
 val EXCHANGE = X500Name("CN=ASX,O=ASX Ltd,L=Sydney,C=AU")
 val CENTRALBANK = X500Name("CN=RBA,O=ReserveBankOfAustralia,L=Canberra,C=AU")
 val NOTARY = X500Name("CN=Notary Service,O=R3,OU=corda,L=Zurich,C=CH,OU=corda.notary.validating")
-val ARNOLD = X500Name("CN=Commbank ,O=Commonwealth Bank of Australia,L=Madrid,C=ES")
-val BARRY = X500Name("CN=ANZ ,O=Australi and New Zealand Banking Group LTD,L=Rome,C=IT")
+val ARNOLD = X500Name("CN=Commbank,O=Commonwealth Bank of Australia,L=Madrid,C=ES")
+val BARRY = X500Name("CN=ANZ,O=Australia and New Zealand Banking Group LTD,L=Rome,C=IT")
 val COLIN = X500Name("CN=NAB ,O=National Australia Bank,L=Paris,C=FR")
 //val ORACLE = X500Name("CN=Oracle SP,O=Oracle SP,L=Brisbane,C=AU")
 
