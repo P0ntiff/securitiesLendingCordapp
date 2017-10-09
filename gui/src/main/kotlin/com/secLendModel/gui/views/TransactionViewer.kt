@@ -203,7 +203,7 @@ class TransactionViewer : CordaView("Transactions") {
         })
     }
 
-    private fun ObservableList<List<ObservableValue<NodeInfo?>>>.formatJoinPartyNames(separator: String = "", formatter: Formatter<X500Name>): String {
+    private fun ObservableList<List<ObservableValue<NodeInfo?>>>.formatJoinPartyNames(separator: String = ", ", formatter: Formatter<X500Name>): String {
         return flatten().map {
             it.value?.legalIdentity?.let { formatter.format(it.name) }
         }.filterNotNull().toSet().joinToString(separator)

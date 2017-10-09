@@ -20,10 +20,10 @@ import javax.annotation.concurrent.ThreadSafe
 @ThreadSafe
 @CordaService
 class Oracle(val identity: Party, val services: ServiceHub) : SingletonSerializeAsToken() {
-    //TODO: This still seems a bit hacky. Seems like we can only have one oracle on the network as it is always just this identity
+    //Instantiate this oracle and register if with the serviceHubs services list
     constructor(services: PluginServiceHub) : this(services.myInfo.legalIdentity, services)
+    //Add prices from txt file
     val priceList = addDefaultPrices()
-
 
     private fun addDefaultPrices(): Set<Pair<String, Amount<Currency>>> {
         return  parseFile(IOUtils.toString(Thread.currentThread().contextClassLoader.getResourceAsStream("example_prices.txt"), Charsets.UTF_8.name()))
@@ -91,6 +91,7 @@ class Oracle(val identity: Party, val services: ServiceHub) : SingletonSerialize
         }
 
         val leaves = ftx.filteredLeaves
+        //TODO: Check why I commented this out -> was it throwing an error or something
         //if (!leaves.checkWithFun(::check))
           //  throw IllegalArgumentException()
 

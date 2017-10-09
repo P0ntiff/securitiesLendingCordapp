@@ -35,7 +35,6 @@ object OracleFlow {
             //Send the price information back to the party who requested it
             send(requester, response.query(code))
 
-            //val oracle = serviceHub.networkMapCache.getNodesWithService(PriceType.type).single().serviceIdentities(PriceType.type).single()
         }
     }
 

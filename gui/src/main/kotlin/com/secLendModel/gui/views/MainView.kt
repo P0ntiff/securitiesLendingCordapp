@@ -148,7 +148,7 @@ class MainView : View() {
     fun runTxns() {
         //The following simulates specific trades and is accessed by clicking the txns button in the main view of the cordapp.
         val myInfo = rpcProxy.value!!.nodeIdentity().legalIdentity
-        val otherParty = parties.filter { it.advertisedServices.isEmpty() && it.legalIdentity != myInfo  && it.legalIdentity.name.commonName == "Alice Corp" }.single().legalIdentity
+        val otherParty = parties.filter { it.advertisedServices.isEmpty() && it.legalIdentity != myInfo  && it.legalIdentity.name.commonName == "Commbank" }.single().legalIdentity
         println(otherParty)
         //Loan borrow 1200 CBA w/cash collateral
         val loanTerms = LoanTerms("CBA", 1200, Amount(2535, CURRENCY), otherParty, myInfo,
