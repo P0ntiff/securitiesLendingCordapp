@@ -32,6 +32,12 @@ import net.corda.flows.ResolveTransactionsFlow
 
 
 object LoanNetFlow {
+
+    /** Flow for the party that intiates this loan net.
+     * @param otherParty the other party in this loan net (can be either lender, borrower, or differ for the loans given)
+     * @param code the security for which loans will be netted
+     * @param collateralType the type of collateral used in these loans (currently only one of Cash, GBT, CBA, NAB or RIO can be used)
+     */
     @StartableByRPC
     @InitiatingFlow
     class NetInitiator(val otherParty: Party, val code: String, val collateralType: String
@@ -69,22 +75,9 @@ object LoanNetFlow {
             }
             var outputSharesSum = 0
             outputShares.forEach { outputSharesSum += it }
-            //Output shaers sum < 0 indicatse that the shares are going from lender to borrower
-            //TODO: Revisit this logic, but dont think shares need to be added. Netting takes into account who owes who what
-            //TODO: And hence adding shares messes this up
-//            if (outputSharesSum < 0) {
-//                //If we are the lender, we need to add shares as an input state
-//                if (serviceHub.myInfo.legalIdentity == lender) {
-//                    subFlow(SecuritiesPreparationFlow(builder,securityLoans.first().state.data.code,Math.abs(outputSharesSum),borrower))
-//                }
-//            //Otherwise shares are going from borrower to lender
-//            } else {
-//                //if we are borrower, we need to add shares as an input state
-//                if (serviceHub.myInfo.legalIdentity == borrower) {
-//                    subFlow(SecuritiesPreparationFlow(builder,securityLoans.first().state.data.code,Math.abs(outputSharesSum),lender))
-//                }
-//            }
-            //Generate the new output loan
+
+            //Generate the new output loan with the correct amount of shares.
+            //TODO: Possible bug here -> seems lender and borrower has only been based off the first share being netted (not good....)
             SecurityLoan().generateLoanNet(builder,lender, borrower, securityLoans, outputSharesSum,
                     serviceHub.networkMapCache.notaryNodes.single().notaryIdentity)
 
@@ -105,9 +98,9 @@ object LoanNetFlow {
             var cashNetSum = 0.0
             cashNet.forEach { cashNetSum += it }
             val ptx: TransactionBuilder
+
             //If cash net sum is negative, the borrower owed more collateral then the lender owed.
             //if we are borrower, add cash here, taking into account the cashNetSum
-            //TODO: Not sure about this stuff below, is it needed?
             if (serviceHub.myInfo.legalIdentity == outputBorrower) {
                     //Add cash, make sure we dont try add zero cash as this throws an error
                 if (cashNetSum < 0.toLong()) {
@@ -141,23 +134,29 @@ object LoanNetFlow {
         }
     }
 
+    /** Flow for the reciever of the loan net proposal. At this point reciever currently accepts all net proposals.
+     * @param counterParty the party who sent this loan net proposal.
+     */
     @InitiatedBy(NetInitiator::class)
     class NetAcceptor(val counterParty : Party) : FlowLogic<Unit>() {
         @Suspendable
         override fun call(): Unit {
             //STEP 6: Receive txBuilder and the netCashSum, with loanStates and possibly cash from initiator. Add Cash/securities if required
             val builder = receive<Pair<TransactionBuilder, Double>>(counterParty).unwrap {
+
                 //Get the output loan state
                 val outputState = it.first.outputStates().map { it.data }.filterIsInstance<SecurityLoan.State>().single()
                 val outputSharesSum = outputState.quantity
                 val code = outputState.code
                 val outputLender = outputState.lender
                 val outputBorrower = outputState.borrower
+
+                //TODO: Check this change in detail.
                 //Add input stock as needed if we are the lender
-                if (serviceHub.myInfo.legalIdentity == outputLender) {
+                //if (serviceHub.myInfo.legalIdentity == outputLender) {
                     //If we are the lender, we need to add shares as an input state
                     //subFlow(SecuritiesPreparationFlow(it.first,code,Math.abs(outputSharesSum),outputBorrower))
-                } else {
+                //} else {
                     //If we are borrower, add the required collateral
                     if (serviceHub.myInfo.legalIdentity == outputBorrower) {
                         //Add cash, make sure we dont try to add zero cash as this throws an error
@@ -167,7 +166,7 @@ object LoanNetFlow {
                                     , outputState.lender))
                         }
                     }
-                }
+                //}
                 it
             }
 

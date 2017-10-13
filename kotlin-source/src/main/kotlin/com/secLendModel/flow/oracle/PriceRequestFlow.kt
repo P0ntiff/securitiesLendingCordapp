@@ -16,7 +16,10 @@ import java.util.function.Predicate
 
 /** Flow to handle the actual calling of an oracle. Called from a flow that requires an update to margin or stockPrice
  * Returns a Pair of (stockPrice, transactionBuilder) where the stockPrice is the officially signed
- * price of the stock and the transactionBuilder contains the oracle's signature */
+ * price of the stock and the transactionBuilder contains the oracle's signature
+ * @param code the code of the security for which the price is being requested
+ * @param tx a transaction builder for which this new price will be attached to and signed
+ * @returns a pair containing: an amount object for the updated price, and the transaction builder with the new price attached and the txn signed*/
 
 open class PriceRequestFlow(val code : String,
                            val tx : TransactionBuilder) : FlowLogic<Pair<Amount<Currency>, TransactionBuilder>>() {
@@ -36,12 +39,18 @@ open class PriceRequestFlow(val code : String,
         tx.addSignatureUnchecked(signature)
         return Pair(price, tx)
     }
+
+    /** Flow for the query of a price
+     * @param code the code of the security for which the price update is being requested.
+     * @returns the updated price of this security as an Amount<Currency>
+     */
     @StartableByRPC
     @InitiatingFlow
     class PriceQueryFlow(val code: String) : FlowLogic<Amount<Currency>>() {
         @Suspendable
         override fun call() : Amount<Currency> {
             val oracle = serviceHub.cordaService(Oracle::class.java)
+
             //Send the code we want a price update for to the oracle (This calls OracleFlow.QueryHandler in response)
             val request = sendAndReceive<Amount<Currency>>(oracle.identity, code).unwrap {
             //TODO: Any required checks go here
@@ -51,12 +60,21 @@ open class PriceRequestFlow(val code : String,
         }
     }
 
+    /** Flow for signing the txn.
+     * @param oracle the oracle who is signing the txn.
+     * @param partialMerkleTx a partial merkle tree for this txn (used to verify signatures and txn validity)
+     * @param tx the txn builder object to be signed.
+     * @returns the digital signature of the oracle
+     */
     @InitiatingFlow
     class PriceSignFlow(val oracle : Party, val partialMerkleTx: FilteredTransaction, val tx: TransactionBuilder) : FlowLogic<DigitalSignature.LegallyIdentifiable>() {
         @Suspendable
         override fun call() : DigitalSignature.LegallyIdentifiable {
+            //Send the partially signed tx
             val response = sendAndReceive<DigitalSignature.LegallyIdentifiable>(oracle, partialMerkleTx)
+
             return response.unwrap { sig ->
+                //Validate that the oracle did sign this txn.
                 check(sig.signer.owningKey == oracle.owningKey)
                 tx.checkSignature(sig)
                 sig

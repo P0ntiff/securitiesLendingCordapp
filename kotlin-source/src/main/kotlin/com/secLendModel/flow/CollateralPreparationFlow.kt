@@ -60,13 +60,11 @@ class CollateralPreparationFlow(val builder : TransactionBuilder,
                     AnonymousParty(to.owningKey)).first
         }
         else {
-            //Add securities collaeral
+            //Calculate the price of the security and how many securities are needed to reach the required value.
             val currentPrice = subFlow(PriceRequestFlow.PriceQueryFlow(collateralType))
             println("Collateral price was ${currentPrice.quantity}")
-            /** Note: Calling this flow calls heaps of issues due to how the move vertification is setup. Should fix that at some point
-             * but for now just avoid calling this flow twice (exactly what happened here)
-             */
             val quantity = (totalValue / currentPrice.quantity).toInt()
+            //Add securities if possible (i.e party has enough holdings of that security)
             try {
                 newTx = subFlow(SecuritiesPreparationFlow(tx, collateralType, quantity, to as Party)).first
             } catch (e: InsufficientBalanceException) {

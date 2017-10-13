@@ -27,13 +27,17 @@ import net.corda.flows.ResolveTransactionsFlow
  *
  * A flow that allows a party to partially terminate a loan.
  * @param amountToTerminate is a given amount of the loan that will
- * be termiante eg to terminate 50% of a loan of 1000 shares, amountToTerminate is supplied as 500.
- * @param UniqueIdentifier is the given identifier for the loan.  LoanRetrievalFlow is used to get this laon
+ * be termianted eg to terminate 50% of a loan of 1000 shares, amountToTerminate is supplied as 500.
+ * @param UniqueIdentifier is the given identifier for the loan.  LoanRetrievalFlow is used to get this loan
  * from the vault.
  */
 
 
 object LoanPartialTerminationFlowTerminationFlow {
+
+    /** Flow for the party that intiates the flow. Handles the process of retrieving the loan, preparing the txn,
+     * sending the txn to get signed and finally commiting this txn to the ledger.
+     */
     @StartableByRPC
     @InitiatingFlow
     open class PartTerminator(val loanID: UniqueIdentifier, val amountToTerminate: Int) : FlowLogic<Unit>() {
@@ -83,6 +87,10 @@ object LoanPartialTerminationFlowTerminationFlow {
         }
     }
 
+    /** Flow for the party that retrieves the partial termination.
+     *  At this point no validation is done on whether or not we want this partial update to go ahead, and instead
+     *  the txn is simply accepted and signed.
+     */
     @StartableByRPC
     @InitiatedBy(PartTerminator::class)
     class PartTerminationAcceptor(val counterParty: Party) : FlowLogic<Unit>() {

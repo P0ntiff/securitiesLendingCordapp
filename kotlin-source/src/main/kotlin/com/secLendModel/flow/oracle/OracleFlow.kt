@@ -18,6 +18,12 @@ import java.util.*
  */
 data class stockPrice(val value: Pair<String, Amount<Currency>>) : CommandData
 object OracleFlow {
+
+    /** Flow that handles a query from a specific party. Code is sent from the PriceUpdateFlow.PriceQueryFlow and
+     * recieved here. A response is sent back to the requestor
+     * @param requestor the party who requested this update
+     * @returns FlowLogic (this flow is continued in PriceRequestFlow.PriceQueryFlow)
+     */
     @InitiatedBy(PriceRequestFlow.PriceQueryFlow::class)
     class QueryHandler(val requester: Party): FlowLogic<Unit>() {
         @Suspendable
@@ -36,16 +42,25 @@ object OracleFlow {
         }
     }
 
+    /** Flow that handles signing a price update request. Called from PriceRequestFlow.PriceSignFlow. Sends the signed
+     * request back to the party who the reqeuest was recieved from.
+     * @param otherParty the party who sent this request
+     * @returns FlowLogic (this flow is continued in PriceRequestFlow.PriceSignFlow)
+     */
     @InitiatedBy(PriceRequestFlow.PriceSignFlow::class)
     class SignHandler (val otherParty: Party) : FlowLogic<Unit>() {
         @Suspendable
         override fun call() {
+            //Recieve the sign request
             val request = receive<FilteredTransaction>(otherParty).unwrap { it }
             val oracle = serviceHub.cordaService(Oracle::class.java)
+
             //These calls are no longer used, can change to this method if there was multiple oracles within the network
             //Leaving them here incase we need to revert back to this
             //val oracle2 = serviceHub.networkMapCache.getNodesWithService(PriceType.type).single()
             //val oracleService = oracle2.serviceIdentities(PriceType.type).single()
+            //Sign the tx and send it back
+
             send(otherParty, oracle.sign(request))
             //send(otherParty, ora)
 

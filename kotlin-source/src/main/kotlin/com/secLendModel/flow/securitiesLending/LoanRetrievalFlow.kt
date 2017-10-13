@@ -13,6 +13,8 @@ import net.corda.core.node.services.vault.QueryCriteria
 
 /**
  * Takes a linearID for a security loan and returns the reference to the state in the calling node's vault..
+ *
+ * @param linearID the linearID of the loan being searched for
  */
 
 @StartableByRPC
