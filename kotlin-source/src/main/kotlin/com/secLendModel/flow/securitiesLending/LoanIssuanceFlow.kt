@@ -44,7 +44,6 @@ object LoanIssuanceFlow {
             val builder = TransactionType.General.Builder(notary = notary)
 
             //STEP 2: Put in either cash or securities, depending on which party we are in the deal.
-            // TODO: don't hard code cash as the collateral
             val myKey = serviceHub.myInfo.legalIdentity.owningKey
             val ptx: TransactionBuilder
             //If we are lender
@@ -122,6 +121,7 @@ object LoanIssuanceFlow {
             val stx = serviceHub.signInitialTransaction(ptx, serviceHub.myInfo.legalIdentity.owningKey)
             //subFlow(ResolveTransactionsFlow(stx, counterParty))
             send(counterParty, stx)
+            //Wait until this txn is commited to the ledger - note this function suspends this flow till this happens.
             return waitForLedgerCommit(stx.id)
 
             //For implementation with CollectSignaturesFlow see old commit: #1f680fb
