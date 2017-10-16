@@ -159,6 +159,10 @@ class MainView : View() {
                 0.07, 0.05, 100, "Cash")
         val flow2 = rpcProxy.value?.startFlow(LoanIssuanceFlow::Initiator, loanTerms2)!!.returnValue.getOrThrow()
 
+        val loanTerms9 = LoanTerms("CBA", 800, Amount(2421, CURRENCY), otherParty, myInfo,
+                0.04, 0.05, 100, "Cash")
+        val flow9 = rpcProxy.value?.startFlow(LoanIssuanceFlow::Initiator, loanTerms9)!!.returnValue.getOrThrow()
+
         //Loan lend 900 RIO w/cash collateral
         val loanTerms3 = LoanTerms("RIO", 900, Amount(2356, CURRENCY), myInfo, otherParty,
                 0.05, 0.05, 100, "Cash")
