@@ -76,10 +76,6 @@ object LoanUpdateFlow {
                 val counterParty = getCounterParty(stateToLoanTerms(secLoan.state.data), serviceHub.myInfo.legalIdentity)
                 subFlow(CollateralPreparationFlow(builder, secLoan.state.data.terms.collateralType,
                         cashToAdd, counterParty)
-
-                        //serviceHub.vaultService.generateSpend(builder,
-                        //Amount(cashToAdd, CURRENCY),
-                        //AnonymousParty(counterParty.owningKey)
                 )
             }
 

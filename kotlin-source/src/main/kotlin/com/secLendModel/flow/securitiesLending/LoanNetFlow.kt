@@ -28,6 +28,8 @@ import net.corda.flows.ResolveTransactionsFlow
  * colalteral position from those loans. Finally the new loan is generated with the correct amount of shares and cash added
  * to cover the repayment of old collateral, as well as the issuance of the new collateral.
  *
+ * It should be noted this flow actually generates multiple txns on the ledger due to the fact that each loan update is its own txn.
+ * Therefor the total number of ledger txns this flow will make = 1+n, where n is the number of input loans being netted.
  */
 
 

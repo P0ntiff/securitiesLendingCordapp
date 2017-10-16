@@ -52,27 +52,11 @@ object LoanTerminationFlow {
             val ptx : TransactionBuilder
             //If we are the lender, then we are returning collateral
             if (isLender(secLoanTerms, serviceHub.myInfo.legalIdentity)) {
-                //collateral prep flow is used to get the required collateral
-                val value = ((secLoan.state.data.stockPrice.quantity* secLoanTerms.quantity) * (1.0 + secLoanTerms.margin)).toLong()
+                //collateral prep flow is used to get the required collateral and add to the txn
+                val value = ((secLoan.state.data.stockPrice.quantity * secLoanTerms.quantity) * (1.0 + secLoanTerms.margin)).toLong()
                 ptx = subFlow(CollateralPreparationFlow(builder, secLoan.state.data.terms.collateralType, value, counterParty ))
-                //Depending on price changes, extra cash may need to be added at terminate. //TODO: Check but pretty sure this isnt needed as the margin is based off original value, hence return will return
-                //all collateral at the correct amount.
-                //val remainingValue = ((secLoan.state.data.currentStockPrice.quantity* secLoanTerms.quantity) * (1.0 + secLoanTerms.margin)).toLong() - value
-                val remainingValue = 0.toLong()
-                if (remainingValue > 0) {
-                    //We also need to pay some more cash
-                    subFlow(CollateralPreparationFlow(ptx, "Cash", remainingValue, counterParty ))
-                }
             }
             else{  //If we are the borrower, then we are returning stock to the lender
-                //Check if we need to add any extra cash, depending on price changes
-                val remainingValue = (((secLoan.state.data.currentStockPrice.quantity* secLoanTerms.quantity) * (1.0 + secLoanTerms.margin)).toLong()
-                        - ((secLoan.state.data.stockPrice.quantity* secLoanTerms.quantity) * (1.0 + secLoanTerms.margin)).toLong())
-                if (remainingValue < 0) {
-                    //TODO: Check this logic: borrower needs to pay back some cash that the lender would have paid due to being over collateralized
-                    //subFlow(CollateralPreparationFlow(builder, "Cash", Math.abs(remainingValue), counterParty ))
-                }
-
                 //Add the original securities that were loaned out to the tx.
                 ptx = try {
                     subFlow(SecuritiesPreparationFlow(builder, secLoanTerms.code, secLoanTerms.quantity, counterParty)).first
@@ -80,6 +64,8 @@ object LoanTerminationFlow {
                     throw SecurityException("Insufficient holding: ${e.message}", e)
                 }
             }
+
+            //STEP 4: Send off the txn to the other party. Recieve back after they have added the required states
             val stx = sendAndReceive<SignedTransaction>(counterParty, ptx).unwrap {
                 val wtx: WireTransaction = it.verifySignatures(serviceHub.myInfo.legalIdentity.owningKey,
                         serviceHub.networkMapCache.notaryNodes.single().notaryIdentity.owningKey)
@@ -109,38 +95,15 @@ object LoanTerminationFlow {
             //STEP 6:Receive the tx builder and and add the required cash states
             val ptx = receive<TransactionBuilder>(counterParty).unwrap {
                 //TODO: Check we want to settle this loan/the total loan time has elapsed
-//                //Check the securities have been returned to us
-//                if (it.outputStates().map { it.data }.filterIsInstance<SecurityClaim.State>().filter {
-//                    (it.owner.owningKey == serviceHub.myInfo.legalIdentity.owningKey) &&
-//                            (it.code == secLoan.state.data.code)
-//                }.sumBy { it.quantity } != (secLoan.state.data.quantity)) {
-//                    throw FlowException("Borrower is not giving all of the securities back")
-//                }
                 it
             }
             val tx : TransactionBuilder
             if (isLender(secLoanTerms, serviceHub.myInfo.legalIdentity)) {
-                //We are lender -> should send back cash collateral to the borrower
-                //tx = serviceHub.vaultService.generateSpend(ptx,
-                        //Amount(((secLoanTerms.stockPrice.quantity * secLoanTerms.quantity) * (1.0 + secLoanTerms.margin)).toLong(), CURRENCY),
-                        //AnonymousParty(counterParty.owningKey)).first
+                //We are lender -> should send back collateral to the borrower
                 val value = ((secLoan.state.data.stockPrice.quantity* secLoanTerms.quantity) * (1.0 + secLoanTerms.margin)).toLong()
                 tx = subFlow(CollateralPreparationFlow(ptx, secLoan.state.data.terms.collateralType, value, counterParty ))
-                //TODO: Add remaining cash required to cover collateral payments -> see previous note but dont think its needed
-                //val remainingValue = ((secLoan.state.data.currentStockPrice.quantity* secLoanTerms.quantity) * (1.0 + secLoanTerms.margin)).toLong() - value
-                val remainingValue = 0.toLong()
-                if (remainingValue > 0) {
-                    //We also need to pay some more cash
-                    subFlow(CollateralPreparationFlow(ptx, "Cash", remainingValue, counterParty ))
-                }
             }
             else{ //We are the borrower -> should send back stock to the lender
-                val remainingValue = (((secLoan.state.data.currentStockPrice.quantity* secLoanTerms.quantity) * (1.0 + secLoanTerms.margin)).toLong()
-                        - ((secLoan.state.data.stockPrice.quantity* secLoanTerms.quantity) * (1.0 + secLoanTerms.margin)).toLong())
-                if (remainingValue < 0) {
-                    //TODO: Check this logic: borrower needs to pay back some cash that the lender would have paid due to being over collateralized
-                    subFlow(CollateralPreparationFlow(ptx, "Cash", Math.abs(remainingValue), counterParty ))
-                }
                 tx = try {
                     subFlow(SecuritiesPreparationFlow(ptx, secLoanTerms.code, secLoanTerms.quantity, counterParty)).first
                 } catch (e: InsufficientBalanceException) {

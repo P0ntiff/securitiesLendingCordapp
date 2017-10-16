@@ -71,6 +71,8 @@ object LoanPartialTerminationFlowTerminationFlow {
                     throw SecurityException("Insufficient holding: ${e.message}", e)
                 }
             }
+
+            //STEP 4: Send the txn to the other party, and receieve it back once they have added their states
             val stx = sendAndReceive<SignedTransaction>(counterParty, ptx).unwrap {
                 val wtx: WireTransaction = it.verifySignatures(serviceHub.myInfo.legalIdentity.owningKey,
                         serviceHub.networkMapCache.notaryNodes.single().notaryIdentity.owningKey)
@@ -101,7 +103,7 @@ object LoanPartialTerminationFlowTerminationFlow {
             val secLoan = subFlow(LoanRetrievalFlow(loanID.first))
             val secLoanTerms = LoanChecks.stateToLoanTerms(secLoan.state.data)
             val amountToTerminate = loanID.second
-            //STEP 6:Receive the tx builder and and add the required cash states
+            //STEP 6:Receive the tx builder and and add the required collateral states as required
             val ptx = receive<TransactionBuilder>(counterParty).unwrap {
                 //TODO: Check we want to accept this partial termination
                 it

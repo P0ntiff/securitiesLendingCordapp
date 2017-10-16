@@ -117,7 +117,7 @@ object LoanIssuanceFlow {
             }
 
             //STEP 5: Generate securityLoan state as output state and send back to borrower
-            val ptx = SecurityLoan().generateIssue(tx, agreedTerms, notary, collateralQuantity)
+            val ptx = SecurityLoan().generateIssue(tx, agreedTerms, notary)
             println("Collateral amount of ${collateralQuantity}")
             val stx = serviceHub.signInitialTransaction(ptx, serviceHub.myInfo.legalIdentity.owningKey)
             //subFlow(ResolveTransactionsFlow(stx, counterParty))

@@ -44,7 +44,7 @@ class SecurityLoan : Contract {
     data class Terms(val lengthOfLoan: Int,
                      val margin: Double,
                      val rebate: Double,
-                     val collateralType: String//TODO: Figure out what type collateralType is (could be cash, any fungible asset, etc)
+                     val collateralType: String //Collateral type is either Cash, or a supported security code eg GBT, CBA, NAB, RIO
                      )
 
     data class State(val quantity: Int,
@@ -54,7 +54,6 @@ class SecurityLoan : Contract {
                      val lender: Party,
                      val borrower: Party,
                      val terms: Terms,
-                     val collateralQuantity: Int,
                      override val linearId: UniqueIdentifier = UniqueIdentifier()): LinearState, QueryableState {
         /**
          *  This property holds a list of the nodes which can "use" this state in a valid transaction. In this case, the
@@ -98,11 +97,12 @@ class SecurityLoan : Contract {
 
     }}
 
+    /** Function for verifying that the proposed tx is valid based of a set of 'rules'
+     * This differs depending on the provided command. If any of the statements at the end of each function fail
+     * this txn is rejected.
+     */
     override fun verify(tx: TransactionForContract): Unit {
         val command = tx.commands.requireSingleCommand<SecurityLoan.Commands>()
-        //The following are the verify functions for each command available for a security loan
-        //All these 'tests' for a command type must pass for the transactino to be considered valid.
-
         when (command.value) {
             is Commands.Issue -> requireThat {
                 //Get input and output info
@@ -274,15 +274,14 @@ class SecurityLoan : Contract {
         }
     }
 
-    /** Functions below for generating an issue and exit transaction, based off
-     * security claim contract
+    /** Functions below for generating the output for different securityLoan commands. All these functions are called
+     * from within the various flows to streamline the preparation of the txns output state.
      */
     fun generateIssue(tx: TransactionBuilder,
                       loanTerms: LoanTerms,
-                      notary: Party,
-                      collateralQuantity: Int): TransactionBuilder{
+                      notary: Party): TransactionBuilder{
         val state = TransactionState(State(loanTerms.quantity, loanTerms.code, loanTerms.stockPrice, loanTerms.stockPrice, loanTerms.lender, loanTerms.borrower,
-                Terms(loanTerms.lengthOfLoan, loanTerms.margin, loanTerms.rebate, loanTerms.collateralType), collateralQuantity), notary)
+                Terms(loanTerms.lengthOfLoan, loanTerms.margin, loanTerms.rebate, loanTerms.collateralType)), notary)
         tx.addOutputState(state)
         //Tx signed by the lender
         tx.addCommand(SecurityLoan.Commands.Issue(), loanTerms.lender.owningKey, loanTerms.borrower.owningKey)
@@ -322,18 +321,16 @@ class SecurityLoan : Contract {
         //Calculate the net of all the input shares. Borrower is taken as the negative position
         //Therefor if negative total, then the abs(outputShares) goes to borrower
         val secLoan = secLoanStates.first()
-
-        //TODO: rather than using the first share for margin, currently defaulting this to 0.05%. Maybe find a better way to do this i.e loanAgreementFlow
-        //TODO: Sort out collateral quantity here -> not currently being used elsewhere, dont thikn it will end up being used at all
+        //Note that during the net, the margin is defaulted to 0.05% for the new loan. Potentially is better ways to do this - eg as an input paramater from the party that calls the net?
         if (outputSharesSum < 0) {
             //More shares are borrowed by borrower then lent by lender, output state is a borrower to borrower
             tx.addOutputState(TransactionState(State(Math.abs(outputSharesSum), secLoan.state.data.code, secLoan.state.data.currentStockPrice, secLoan.state.data.currentStockPrice,
                     secLoan.state.data.lender, secLoan.state.data.borrower,
-                    Terms(secLoan.state.data.terms.lengthOfLoan, 0.05, secLoan.state.data.terms.rebate, secLoan.state.data.terms.collateralType), secLoan.state.data.collateralQuantity), notary))
+                    Terms(secLoan.state.data.terms.lengthOfLoan, 0.05, secLoan.state.data.terms.rebate, secLoan.state.data.terms.collateralType)), notary))
         } else {
             tx.addOutputState(TransactionState(State(Math.abs(outputSharesSum), secLoan.state.data.code, secLoan.state.data.currentStockPrice, secLoan.state.data.currentStockPrice,
                     secLoan.state.data.borrower, secLoan.state.data.lender,
-                    Terms(secLoan.state.data.terms.lengthOfLoan, 0.05, secLoan.state.data.terms.rebate, secLoan.state.data.terms.collateralType), secLoan.state.data.collateralQuantity), notary))
+                    Terms(secLoan.state.data.terms.lengthOfLoan, 0.05, secLoan.state.data.terms.rebate, secLoan.state.data.terms.collateralType)), notary))
         }
         tx.addCommand(SecurityLoan.Commands.Net(), lender.owningKey, borrower.owningKey)
         //Otherwise there is no output state, we simply terminate both loans. This is checked in flow
@@ -347,12 +344,10 @@ class SecurityLoan : Contract {
             borrower: Party,
             notary: Party): TransactionBuilder {
         //Add the loan state as an input to the exit
-        //TODO: sort out collateral quantity here -> currently is the ratio of new amount to old amount times the original quantity of collateral
         tx.addInputState(originalSecLoan)
         tx.addOutputState(TransactionState(State(newAmount, originalSecLoan.state.data.code, originalSecLoan.state.data.currentStockPrice, originalSecLoan.state.data.currentStockPrice,
                 originalSecLoan.state.data.lender, originalSecLoan.state.data.borrower,
-                Terms(originalSecLoan.state.data.terms.lengthOfLoan, originalSecLoan.state.data.terms.margin, originalSecLoan.state.data.terms.rebate, originalSecLoan.state.data.terms.collateralType),
-                originalSecLoan.state.data.collateralQuantity * (newAmount/originalSecLoan.state.data.quantity)), notary))
+                Terms(originalSecLoan.state.data.terms.lengthOfLoan, originalSecLoan.state.data.terms.margin, originalSecLoan.state.data.terms.rebate, originalSecLoan.state.data.terms.collateralType)), notary))
         tx.addCommand(SecurityLoan.Commands.PartialExit(), lender.owningKey, borrower.owningKey)
         return tx
     }
