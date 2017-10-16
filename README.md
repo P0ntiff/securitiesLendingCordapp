@@ -8,7 +8,7 @@ A simple Cordapp to simulate a securities exchange with the ability for users to
 * Loan Issuance
 * Loan Termination (including partial termination)
 * Loan Update using an security price oracle
-* Loan Netting (taking multiple loans between two parties and reproducing an equivilent output loan)
+* Loan Netting
 
 
 This Cordapp/distributed ledger model is based on the R3 Consortium's open-source Cordapp template, view https://github.com/corda/cordapp-template for further information.

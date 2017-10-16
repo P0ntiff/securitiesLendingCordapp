@@ -41,6 +41,9 @@ import tornadofx.*
 
 /**
  * Created by raymondm on 21/08/2017.
+ *
+ * This is the view that is loaded when a user selects the issue loan button within the loan portfolio view in the
+ * cordapp GUI. This view allows users to fill out fields and issue a new loan on the ledger.
  */
 
 class IssueLoanView : Fragment() {
@@ -91,6 +94,7 @@ class IssueLoanView : Fragment() {
             "NAB"
     )
 
+    /** Shows the user when a txn is started and then finished (i.e is commited tot he ledger */
     fun show(window: Window): Unit {
         newTransactionDialog(window).showAndWait().ifPresent { command: Unit ->
             val dialog = Alert(Alert.AlertType.INFORMATION).apply {
@@ -133,7 +137,7 @@ class IssueLoanView : Fragment() {
         }
     }
 
-
+    /** Function for executing the loan issuance when the user clicks the execute button */
     private fun newTransactionDialog(window: Window) = Dialog<Unit>().apply {
         dialogPane = root
         initOwner(window)
@@ -169,6 +173,7 @@ class IssueLoanView : Fragment() {
         }
     }
 
+    /** Initial setup of the view, providing  prompts for each text field, loading choiceboxes with the correct options */
     init {
         // Disable everything when not connected to node.
         val notariesNotNullBinding = Bindings.createBooleanBinding({ notaries.isNotEmpty() }, arrayOf(notaries))

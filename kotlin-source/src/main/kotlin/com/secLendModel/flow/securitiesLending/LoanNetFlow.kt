@@ -77,7 +77,6 @@ object LoanNetFlow {
             outputShares.forEach { outputSharesSum += it }
 
             //Generate the new output loan with the correct amount of shares.
-            //TODO: Possible bug here -> seems lender and borrower has only been based off the first share being netted (not good....)
             SecurityLoan().generateLoanNet(builder,lender, borrower, securityLoans, outputSharesSum,
                     serviceHub.networkMapCache.notaryNodes.single().notaryIdentity)
 
@@ -87,7 +86,7 @@ object LoanNetFlow {
             val outputLender = outputState.lender
             val outputBorrower = outputState.borrower
             val cashNet = securityLoans.map {
-                if (it.state.data.borrower == borrower) {
+                if (it.state.data.borrower == outputBorrower) {
                     //Consider the borrower as negative collateral (i.e they owe collateral)
                     -(it.state.data.quantity * it.state.data.stockPrice.quantity * it.state.data.terms.margin)
                 } else {
@@ -95,18 +94,27 @@ object LoanNetFlow {
                     it.state.data.quantity * it.state.data.stockPrice.quantity * it.state.data.terms.margin
                 }
             }
-            var cashNetSum = 0.0
+            var cashNetSum = 0.00
             cashNet.forEach { cashNetSum += it }
+            println("Cash net sum was $cashNetSum")
             val ptx: TransactionBuilder
 
             //If cash net sum is negative, the borrower owed more collateral then the lender owed.
-            //if we are borrower, add cash here, taking into account the cashNetSum
             if (serviceHub.myInfo.legalIdentity == outputBorrower) {
-                    //Add cash, make sure we dont try add zero cash as this throws an error
+                //Add collateral as the borrower
                 if (cashNetSum < 0.toLong()) {
 
                     ptx = subFlow(CollateralPreparationFlow(builder, collateralType,
                             Math.abs(cashNetSum).toLong() - (outputState.stockPrice.quantity * outputState.quantity * outputState.terms.margin).toLong(), outputState.lender))
+                } else {
+                    ptx = builder
+                }
+            //We are lender, if cashNetSum > 0 we need to add some cash input
+            } else if (serviceHub.myInfo.legalIdentity == outputLender) {
+                //Add collateral as the lender
+                if (cashNetSum > 0.toLong()) {
+                    ptx = subFlow(CollateralPreparationFlow(builder, collateralType,
+                            Math.abs(cashNetSum).toLong() - (outputState.stockPrice.quantity * outputState.quantity * outputState.terms.margin).toLong(), outputState.borrower))
                 } else {
                     ptx = builder
                 }
@@ -150,25 +158,25 @@ object LoanNetFlow {
                 val code = outputState.code
                 val outputLender = outputState.lender
                 val outputBorrower = outputState.borrower
-
-                //TODO: Check this change in detail.
-                //Add input stock as needed if we are the lender
-                //if (serviceHub.myInfo.legalIdentity == outputLender) {
-                    //If we are the lender, we need to add shares as an input state
-                    //subFlow(SecuritiesPreparationFlow(it.first,code,Math.abs(outputSharesSum),outputBorrower))
-                //} else {
-                    //If we are borrower, add the required collateral
-                    if (serviceHub.myInfo.legalIdentity == outputBorrower) {
-                        //Add cash, make sure we dont try to add zero cash as this throws an error
-                        if (it.second > 0.toLong()) {
-                            subFlow(CollateralPreparationFlow(it.first, outputState.terms.collateralType,
-                                    Math.abs(it.second).toLong()  - (outputState.stockPrice.quantity * outputState.quantity * outputState.terms.margin).toLong()
-                                    , outputState.lender))
-                        }
+                //Add the extra collateral based on cashNetSum (i.e it.second in this case)
+                //If we are borrower, add the required collateral
+                if (serviceHub.myInfo.legalIdentity == outputBorrower) {
+                    //Add collateral as borrower if required
+                    if (it.second < 0.toLong()) {
+                        subFlow(CollateralPreparationFlow(it.first, outputState.terms.collateralType,
+                                Math.abs(it.second).toLong()  - (outputState.stockPrice.quantity * outputState.quantity * outputState.terms.margin).toLong()
+                                , outputState.lender))
                     }
-                //}
-                it
-            }
+                } else if (serviceHub.myInfo.legalIdentity == outputLender) {
+                    //Add collateral as lender if requirec
+                    if (it.second > 0.toLong()) {
+                        subFlow(CollateralPreparationFlow(it.first, outputState.terms.collateralType,
+                                Math.abs(it.second).toLong()  - (outputState.stockPrice.quantity * outputState.quantity * outputState.terms.margin).toLong()
+                                , outputState.borrower))
+                    }
+                }
+            it
+        }
 
             //STEP 7: Sign Tx and send back to initiator
             val signedTX: SignedTransaction = serviceHub.signInitialTransaction(builder.first)
