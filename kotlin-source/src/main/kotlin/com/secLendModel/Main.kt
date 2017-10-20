@@ -8,19 +8,19 @@ import com.secLendModel.flow.oracle.OracleFlow
 import com.secLendModel.flow.oracle.PriceRequestFlow
 import com.secLendModel.flow.oracle.PriceType
 import com.secLendModel.flow.securities.BuyFlow
-import com.secLendModel.flow.securitiesLending.LoanAgreementFlow
+import com.secLendModel.flow.securitiesLending.*
 import com.secLendModel.flow.securitiesLending.LoanIssuanceFlow.Initiator
 import com.secLendModel.flow.securitiesLending.LoanIssuanceFlow.Acceptor
-import com.secLendModel.flow.securitiesLending.LoanNetFlow
 import com.secLendModel.flow.securitiesLending.LoanNetFlow.NetInitiator
-import com.secLendModel.flow.securitiesLending.LoanPartialTerminationFlowTerminationFlow
 import com.secLendModel.flow.securitiesLending.LoanUpdateFlow.Updator
 import com.secLendModel.flow.securitiesLending.LoanUpdateFlow.UpdateAcceptor
 import com.secLendModel.flow.securitiesLending.LoanTerminationFlow.Terminator
 import com.secLendModel.flow.securitiesLending.LoanTerminationFlow.TerminationAcceptor
 import com.secLendModel.flow.securitiesLending.LoanPartialTerminationFlowTerminationFlow.PartTerminator
 import com.secLendModel.flow.securitiesLending.LoanPartialTerminationFlowTerminationFlow.PartTerminationAcceptor
-import com.secLendModel.flow.securitiesLending.LoanTerms
+import com.secLendModel.flow.securitiesLending.SynIntegrationFlow.SynIssueLoan
+import com.secLendModel.flow.securitiesLending.SynIntegrationFlow.ExitLoan
+
 import net.corda.core.contracts.Amount
 import net.corda.core.contracts.UniqueIdentifier
 import net.corda.core.contracts.*
@@ -198,6 +198,8 @@ class Simulation(options : String?) {
             //val id4 = borrowSecurities(it.second, false)
 
         }
+        //TEST SYN INTRGRATION
+        synIntegrationTest(parties[0].second, true)
         //Test Loan with cash collateral
         //Loan CBA to demonstrate loan netting
         //val id5 = LoanSecuritySpecific(parties[0].second, true, parties[1].second, "Cash", "CBA")
@@ -273,7 +275,9 @@ class Simulation(options : String?) {
             startFlowPermission<NetInitiator>(),
             startFlowPermission<LoanNetFlow.NetAcceptor>(),
             startFlowPermission<LoanPartialTerminationFlowTerminationFlow.PartTerminator>(),
-            startFlowPermission<LoanPartialTerminationFlowTerminationFlow.PartTerminationAcceptor>()
+            startFlowPermission<LoanPartialTerminationFlowTerminationFlow.PartTerminationAcceptor>(),
+            startFlowPermission<SynIntegrationFlow.SynIssueLoan>(),
+            startFlowPermission<SynIntegrationFlow.ExitLoan>()
     )
     private fun allocateOracleRequestPermissions() : Set<String> = setOf(
             startFlowPermission<PriceRequestFlow>(),
@@ -537,6 +541,32 @@ class Simulation(options : String?) {
     private fun partialTerminateLoan(id: UniqueIdentifier, initiator: CordaRPCOps, amountToTerminate: Int) {
         initiator.startFlow(::PartTerminator, id, amountToTerminate).returnValue.getOrThrow()
         println("Loan with ID '$id' partiall terminated with amount $amountToTerminate")
+    }
+
+    private fun synIntegrationTest(me: CordaRPCOps, BorrowerInitiates : Boolean): Unit {
+        val rand = Random()
+        val stockIndex = rand.nextInt(CODES.size - 0) + 0
+        //Quantity between 10,000 and 50,000 shares
+        val quantity = (rand.nextInt(500 + 1 - 100) + 100) * 100
+        //Price between $50.00 and $110.00  per share (decimal)
+        val dollaryDoos : BigDecimal = BigDecimal((rand.nextDouble() + 0.1) * (rand.nextInt(110 + 1 - 50) + 50))
+        val sharePrice = Amount.fromDecimal(dollaryDoos, CURRENCY)
+        //Percentage
+        val margin : Double = 0.05
+        val rebate : Double = 0.01
+        //Days
+        val length = 30
+        val stockOnLoan : UniqueIdentifier
+        //Pick a random party to be the borrower
+        val randomBorrower = parties.filter { it.first != me.nodeIdentity().legalIdentity }[rand.nextInt(parties.size - 1)].second
+        //Storage container for loan terms
+        val loanTerms = LoanTerms(CODES[0], quantity, sharePrice,
+                me.nodeIdentity().legalIdentity,
+                randomBorrower.nodeIdentity().legalIdentity,
+                margin, rebate, length, "Cash")
+        println("Syn issue loan test")
+        me.startFlow(::SynIssueLoan, loanTerms)
+        return;
     }
 }
 
