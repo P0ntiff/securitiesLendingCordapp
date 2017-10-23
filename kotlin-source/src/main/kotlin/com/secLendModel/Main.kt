@@ -81,6 +81,14 @@ val STOCKS = listOf(
         "Rio Tinto Ltd Ordinary Fully Paid",
         "National Australia Bank Ltd Ordinary Fully Paid"
 )
+
+val ISIN = listOf(
+        "AU000000GBT8",
+        "AU000000CBA7",
+        "AU000000RIO1",
+        "AU000000NAB4"
+
+)
 val MARKET = setOf(ServiceInfo(ServiceType.corda.getSubType("issuer.GBT")),
         ServiceInfo(ServiceType.corda.getSubType("issuer.CBA")),
         ServiceInfo(ServiceType.corda.getSubType("issuer.RIO")),

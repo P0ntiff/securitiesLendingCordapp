@@ -3,6 +3,8 @@ package com.secLendModel.flow.securitiesLending
 import co.paralleluniverse.fibers.Suspendable
 import com.secLendModel.CODES
 import com.secLendModel.CURRENCY
+import com.secLendModel.ISIN
+import com.secLendModel.STOCKS
 import net.corda.core.contracts.Amount
 import net.corda.core.crypto.location
 import net.corda.core.flows.FlowLogic
@@ -64,6 +66,26 @@ object SynIntegrationFlow {
     }
 
     class messageProcessor() {
+
+        fun codeToString(code: String) : String {
+            val index = CODES.indexOf(code)
+            if (index != -1 && index < STOCKS.size) {
+                return STOCKS[index]
+            } else {
+                return "Invalid Code"
+            }
+        }
+
+        fun codeToISIN(code: String) : String {
+            val index = CODES.indexOf(code)
+            if (index != -1 && index < ISIN.size) {
+                return ISIN[index]
+            } else {
+                return "Invalid Code"
+            }
+        }
+
+
         fun getLoanTerms(synMessage: String) {
 
         }
@@ -72,7 +94,8 @@ object SynIntegrationFlow {
             //FOR TESTING WRITE TO THIS FILE AND CAN COMPARE
             val seperator = "|"
             val defaultCurrency = "AUD"
-            val writer = PrintWriter("examplesyn.txt")
+            //dat file format required by syn
+            val writer = PrintWriter("examplesyn.dat")
             //Write the header
             writer.append("0|Activity|DBAUS|20160307||ACG|NEW||DB_Global1.csv|DBAUS\n")
             val dateString = time.year.toString()+""+time.dayOfMonth.toString()+""+time.monthValue.toString()
@@ -83,7 +106,7 @@ object SynIntegrationFlow {
             //Format of a syn message is txt file.
             writer.append("1"+seperator) //Record type default is one
             writer.append(dateString+seperator) //Effective date TODO Loan could potentially store the start date, probably not needed
-            writer.append(""+seperator) //Maturity date or term date if the loan is fixed length //TODO Loan Terms should have a fixed length bool field
+            writer.append(""+seperator) //Maturity date or term date if the loan is fixed length //TODO Loan Terms should have a fixed length bool field or we just say none of thme are fixed length?
             writer.append(""+seperator) //Date of final repayment starts as blank, only present when fully repaid
             writer.append(""+seperator) //Security settlement date -> Only present if settled
             writer.append(""+seperator) //Cash settlement date -> blank if not yet settled or if non cash or cash DVP trade
@@ -103,21 +126,21 @@ object SynIntegrationFlow {
             writer.append(dateString+seperator) //Trade date
             writer.append(dateString+seperator) //Security settlement due date
             writer.append("CHESS"+seperator) //Security settlement mode
-            writer.append("20172010"+seperator) //Cash settlement due date
+            writer.append(dateString+seperator) //Cash settlement due date
             writer.append("WIRE"+seperator) //Cash settlement mode
             writer.append("E"+seperator) //Security main code type -> A-Sedol, B-ISIN, C-Cusip,D-Quick, E-Ticker, F-In-House cross reference //TODO: Okay to use ticket here?
             writer.append(loanTerms.code+seperator) //Security main code
             writer.append(loanTerms.code+seperator) //Security ticket (in this case same as main code)
             writer.append(loanTerms.code+seperator) //Security in house (in this case still the same)
-            writer.append("AU000000GBT8"+seperator) //Security ISIN Code //TODO: Make a list of this where we store our codes and have a function to retrieve ISN from code. Currenyly hardcoding GBT
+            writer.append(codeToISIN(loanTerms.code)+seperator) //Security ISIN Code //TODO: Make a list of this where we store our codes and have a function to retrieve ISN from code. Currenyly hardcoding GBT
             writer.append(""+seperator) //Security quick code //TODO Whats this
             writer.append(""+seperator) //Security SEDOL code //TODO Whats this
             writer.append(""+seperator) //Security CUSPID code //TODO Whats this
             writer.append(""+seperator) //Security pricing identifier code //TODO Whats this
             writer.append("COM"+seperator) //Security class -> using common but not sure what the other classes are
             writer.append("N"+seperator) //Security bond indicator -> no as we are using regular securities at this point
-            writer.append("GBST Holdings Ltd"+seperator)  //TODO: May need a code to name function as well
-            writer.append("GBST Holdings Ltd"+seperator) //Security Issue name
+            writer.append(codeToString(loanTerms.code)+seperator)  //Security company name
+            writer.append(codeToString(loanTerms.code)+seperator) //Security Issue name
             writer.append(defaultCurrency+seperator)
             writer.append("0"+seperator) // Accured Interest
             writer.append(""+seperator) //Internal comment
@@ -302,7 +325,8 @@ object SynIntegrationFlow {
             //FOR TESTING WRITE TO THIS FILE AND CAN COMPARE
             val seperator = "|"
             val defaultCurrency = "AUD"
-            val writer = PrintWriter("examplesyn.txt")
+            //dat file format required by syn
+            val writer = PrintWriter("examplesyn.dat")
             //Write the header
             writer.append("0|Activity|DBAUS|20160307||ACG|NEW||DB_Global1.csv|DBAUS\n")
 
@@ -336,15 +360,15 @@ object SynIntegrationFlow {
             writer.append(loanTerms.code+seperator) //Security main code
             writer.append(loanTerms.code+seperator) //Security ticket (in this case same as main code)
             writer.append(loanTerms.code+seperator) //Security in house (in this case still the same)
-            writer.append("AU000000GBT8"+seperator) //Security ISIN Code //TODO: Make a list of this where we store our codes and have a function to retrieve ISN from code. Currenyly hardcoding GBT
+            writer.append(codeToISIN(loanTerms.code)+seperator) //Security ISIN Code //TODO: Make a list of this where we store our codes and have a function to retrieve ISN from code. Currenyly hardcoding GBT
             writer.append(""+seperator) //Security quick code //TODO Whats this
             writer.append(""+seperator) //Security SEDOL code //TODO Whats this
             writer.append(""+seperator) //Security CUSPID code //TODO Whats this
             writer.append(""+seperator) //Security pricing identifier code //TODO Whats this
             writer.append("COM"+seperator) //Security class -> using common but not sure what the other classes are
             writer.append("N"+seperator) //Security bond indicator -> no as we are using regular securities at this point
-            writer.append("GBST Holdings Ltd"+seperator)  //TODO: May need a code to name function as well
-            writer.append("GBST Holdings Ltd"+seperator) //Security Issue name
+            writer.append(codeToString(loanTerms.code)+seperator)  //Security company name
+            writer.append(codeToString(loanTerms.code)+seperator) //Security Issue name
             writer.append(defaultCurrency+seperator)
             writer.append("0"+seperator) // Accured Interest
             writer.append(""+seperator) //Internal comment
