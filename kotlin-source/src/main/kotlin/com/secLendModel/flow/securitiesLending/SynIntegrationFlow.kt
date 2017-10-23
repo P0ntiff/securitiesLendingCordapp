@@ -2,16 +2,14 @@ package com.secLendModel.flow.securitiesLending
 
 import co.paralleluniverse.fibers.Suspendable
 import com.secLendModel.CODES
-import com.secLendModel.CURRENCY
 import com.secLendModel.ISIN
 import com.secLendModel.STOCKS
-import net.corda.core.contracts.Amount
+import net.corda.core.contracts.UniqueIdentifier
 import net.corda.core.crypto.location
 import net.corda.core.flows.FlowLogic
 import net.corda.core.flows.InitiatingFlow
 import net.corda.core.flows.StartableByRPC
 import net.corda.core.identity.Party
-import net.corda.core.node.ServiceHub
 import org.apache.commons.io.IOUtils
 import java.io.PrintWriter
 import java.time.LocalDateTime
@@ -34,7 +32,10 @@ object SynIntegrationFlow {
             //STEP 1: Generate the file to indicate loan issuance
             val myIdentity = serviceHub.myInfo.legalIdentity
             val time = LocalDateTime.now()
-            SynIntegrationFlow.messageProcessor().getSynMessageIssue(loanTerms, myIdentity, time)
+            //TODO check this but because of some fields in the syn file, the loan needs to be sent on corda first.
+            //todo other option is generate a loanID here, then if syn accepts the loan we generate a loan with a specific ID? Could work.
+            val loanID : UniqueIdentifier = subFlow(LoanIssuanceFlow.Initiator(loanTerms))
+            SynIntegrationFlow.messageProcessor().getSynMessageIssue(loanTerms, myIdentity, time, loanID)
 
             //STEP 2: Wait for Syn to respond, on yes continue the process, on no exit
             //SynIntegrationFlow.messageProcessor().readFromSyn()
@@ -48,18 +49,18 @@ object SynIntegrationFlow {
     }
 
 
-    open class ExitLoan(val loanTerms: LoanTerms) : FlowLogic<Unit>() {
+    open class ExitLoan(val loanTerms: LoanTerms, val LoanID : UniqueIdentifier) : FlowLogic<Unit>() {
         @Suspendable
         override fun call(): Unit {
             //STEP 1: Generate the file to indicate loan exit
             val myIdentity = serviceHub.myInfo.legalIdentity
-            SynIntegrationFlow.messageProcessor().getSynMessageExit(loanTerms, myIdentity)
+            val time = LocalDateTime.now()
+            SynIntegrationFlow.messageProcessor().getSynMessageExit(loanTerms, myIdentity, time, LoanID)
 
             //STEP 3: Wait for Syn to respond, on yes continue the process
             SynIntegrationFlow.messageProcessor().readFromSyn()
 
             //STEP 3: Conduct the actual loan Exit.
-            subFlow(LoanIssuanceFlow.Initiator(loanTerms))
             return
         }
 
@@ -90,7 +91,7 @@ object SynIntegrationFlow {
 
         }
 
-        fun getSynMessageIssue(loanTerms : LoanTerms, myIdentity: Party, time: LocalDateTime) {
+        fun getSynMessageIssue(loanTerms : LoanTerms, myIdentity: Party, time: LocalDateTime, LoanID : UniqueIdentifier) {
             //FOR TESTING WRITE TO THIS FILE AND CAN COMPARE
             val seperator = "|"
             val defaultCurrency = "AUD"
@@ -114,7 +115,7 @@ object SynIntegrationFlow {
             writer.append((loanTerms.quantity * loanTerms.stockPrice.quantity).toString()+seperator) //Activity value
             writer.append(defaultCurrency+seperator) //Loan value currency code
             writer.append(loanTerms.stockPrice.quantity.toString()+seperator) //Activity price
-            writer.append("12345"+seperator) //TODO: This should probably be the loans unique ID but we can only get that once the loan is created -> should we create loan before this stage
+            writer.append(LoanID.toString()+seperator) //ID for this loan -> note this means the loan is issued before these details are sent to syn, if syn rejects could be some problems
             writer.append((loanTerms.quantity * loanTerms.stockPrice.quantity).toString()+seperator) //Market value of loan in market currency //TODO: What is unit of quotation (guessing this is local currency)
             writer.append("PL"+seperator) //Activity type -> currently is pending trade, after DVP on Corda this is updated
             writer.append("0"+seperator) //Activity loan rate -> //TODO Should add this loanRate/Fee term to the loanTerms
@@ -132,7 +133,7 @@ object SynIntegrationFlow {
             writer.append(loanTerms.code+seperator) //Security main code
             writer.append(loanTerms.code+seperator) //Security ticket (in this case same as main code)
             writer.append(loanTerms.code+seperator) //Security in house (in this case still the same)
-            writer.append(codeToISIN(loanTerms.code)+seperator) //Security ISIN Code //TODO: Make a list of this where we store our codes and have a function to retrieve ISN from code. Currenyly hardcoding GBT
+            writer.append(codeToISIN(loanTerms.code)+seperator) //Security ISIN Code
             writer.append(""+seperator) //Security quick code //TODO Whats this
             writer.append(""+seperator) //Security SEDOL code //TODO Whats this
             writer.append(""+seperator) //Security CUSPID code //TODO Whats this
@@ -157,7 +158,7 @@ object SynIntegrationFlow {
             writer.append(timeString+seperator) // Acitivty time relative to activity input date
             writer.append(""+seperator) //Finder code
             writer.append("0"+seperator) //Fomder fee rate
-            writer.append(loanTerms.toString().hashCode().toString()+seperator) //System generated unique identifier //TODO: How do i generate this? Maybe just hash something for now
+            writer.append(LoanID.toString()+seperator) //System generated unique identifier -> currently using the loans unique ID in corda
             writer.append("T"+seperator) // Trade / Collateral indicator
             writer.append(""+seperator) // Link reference //TODO Whats this
             if (loanTerms.collateralType == "Cash") {
@@ -182,35 +183,34 @@ object SynIntegrationFlow {
             writer.append(LoanChecks.getCounterParty(loanTerms, myIdentity).toString()+seperator) //Counter party cross reference
             writer.append(LoanChecks.getCounterParty(loanTerms, myIdentity).toString()+seperator) //Counter party major code
             writer.append(""+seperator) //Own Switf BIC code
-            writer.append("AUDWIRE"+seperator) //Cash clearer code TODO this is defaulted from the example issue
+            writer.append("AUDWIRE"+seperator) //Cash clearer code TODO this is defaulted from the example issue, same as below
             writer.append(""+seperator) //Cash clearer switft BIC
             writer.append(""+seperator) //Cash clearer account num
             writer.append(""+seperator) //cash clearer sub account
             writer.append(""+seperator) //cash clearer account ref
-            writer.append(""+seperator) //cash clearer contract
-            writer.append(""+seperator) //Cash clearer name
-            writer.append(""+seperator) //Security clearer code
+            writer.append("Stephanie Wright"+seperator) //cash clearer contact
+            writer.append("DEUTSCHE BANK AG"+seperator) //Cash clearer name
+            writer.append("AUD"+seperator) //Security clearer code
             writer.append(""+seperator) //Security clearer swift BIC
             writer.append(""+seperator) //Security clearer account number
             writer.append(""+seperator) //Security clearer sub-account
             writer.append(""+seperator) //Security clearer account reference
-            writer.append(""+seperator) //Security clearer contact
-            writer.append(""+seperator) //Security clearer name
-            writer.append(""+seperator) //CL cash clearer code
+            writer.append("Stephanie Wright"+seperator) //Security clearer contact
+            writer.append("DEUTSCHE BANK AG"+seperator) //Security clearer name
+            writer.append("AUD"+seperator) //CL cash clearer code
             writer.append(""+seperator) //CL cash clearer swift BIC
-            writer.append(""+seperator) //CL Cash clearer account number
+            writer.append("6102473"+seperator) //CL Cash clearer account number
             writer.append(""+seperator) // CL Cash clearer sub-account
             writer.append(""+seperator) //CL cash clearer account reference
-            writer.append(""+seperator) //CL cash clearer contact
-            writer.append(""+seperator) //CL cash clearer name
-            writer.append(""+seperator) //CL security clearer code
+            writer.append("KATE DALE"+seperator) //CL cash clearer contact
+            writer.append("JP MORGAN CHASE BANK (SYDNEY BRANCH)"+seperator) //CL cash clearer name
+            writer.append("AUD"+seperator) //CL security clearer code
             writer.append(""+seperator) //CL security clearer swift BIC
-            writer.append(""+seperator) //CL security clearer swift BIC
-            writer.append(""+seperator) //CL security clearer account number
+            writer.append("6102473"+seperator) //CL security clearer account number
             writer.append(""+seperator) //CL security clearer sub-account
             writer.append(""+seperator) //CL security clearer account reference
-            writer.append(""+seperator) //CL security clearer contact
-            writer.append(""+seperator) //CL security clearer name
+            writer.append("KATE DALE"+seperator) //CL security clearer contact
+            writer.append("JP MORGAN CHASE BANK (SYDNEY BRANCH)"+seperator) //CL security clearer name
             writer.append(loanTerms.rebate.toString()+seperator) //Current trade rate, fee or a rebate
             writer.append((loanTerms.quantity * loanTerms.stockPrice.quantity).toString()+seperator) //Initial loan value
             writer.append(loanTerms.quantity.toString()+seperator) //Initial loan quantity
@@ -313,7 +313,7 @@ object SynIntegrationFlow {
 
             //Seems these two are on the last line
             writer.append("\n");
-            writer.append("9"+seperator) //redenomination flag 1-Currency Only, 2-Currency and Quantity, 3-Quantity only TODO dont understand what this is
+            writer.append("9"+seperator) //redenomination flag 1-Currency Only, 2-Currency and Quantity, 3-Quantity only TODO dont understand what this is or why the examples have 9 on there
             writer.append("1") //internal comments line 2 -> this seems to be the total num of txns to process in this one .dat file
 
 
@@ -321,7 +321,8 @@ object SynIntegrationFlow {
             writer.close()
         }
 
-        fun getSynMessageExit(loanTerms : LoanTerms, myIdentity: Party) {
+        //TODO this is currently the same as issue so need to change a few fields
+        fun getSynMessageExit(loanTerms : LoanTerms, myIdentity: Party, time: LocalDateTime, LoanID : UniqueIdentifier) {
             //FOR TESTING WRITE TO THIS FILE AND CAN COMPARE
             val seperator = "|"
             val defaultCurrency = "AUD"
@@ -329,12 +330,15 @@ object SynIntegrationFlow {
             val writer = PrintWriter("examplesyn.dat")
             //Write the header
             writer.append("0|Activity|DBAUS|20160307||ACG|NEW||DB_Global1.csv|DBAUS\n")
-
+            val dateString = time.year.toString()+""+time.dayOfMonth.toString()+""+time.monthValue.toString()
+            val timeString = time.format(DateTimeFormatter.ISO_TIME).toString()
+            println(dateString)
+            println(timeString)
             //generates a syn message from a specific set of loanTerms
             //Format of a syn message is txt file.
             writer.append("1"+seperator) //Record type default is one
-            writer.append("20172010"+seperator) //Effective date//TODO: Loan terms should store the start date
-            writer.append(""+seperator) //Maturity date or term date if the loan is fixed length //TODO Loan Terms should have a fixed length bool field
+            writer.append(dateString+seperator) //Effective date TODO Loan could potentially store the start date, probably not needed
+            writer.append(""+seperator) //Maturity date or term date if the loan is fixed length //TODO Loan Terms should have a fixed length bool field or we just say none of thme are fixed length?
             writer.append(""+seperator) //Date of final repayment starts as blank, only present when fully repaid
             writer.append(""+seperator) //Security settlement date -> Only present if settled
             writer.append(""+seperator) //Cash settlement date -> blank if not yet settled or if non cash or cash DVP trade
@@ -342,7 +346,7 @@ object SynIntegrationFlow {
             writer.append((loanTerms.quantity * loanTerms.stockPrice.quantity).toString()+seperator) //Activity value
             writer.append(defaultCurrency+seperator) //Loan value currency code
             writer.append(loanTerms.stockPrice.quantity.toString()+seperator) //Activity price
-            writer.append("12345"+seperator) //TODO: This should probably be the loans unique ID but we can only get that once the loan is created -> should we create loan before this stage
+            writer.append(LoanID.toString()+seperator) //ID for this loan -> note this means the loan is issued before these details are sent to syn, if syn rejects could be some problems
             writer.append((loanTerms.quantity * loanTerms.stockPrice.quantity).toString()+seperator) //Market value of loan in market currency //TODO: What is unit of quotation (guessing this is local currency)
             writer.append("PL"+seperator) //Activity type -> currently is pending trade, after DVP on Corda this is updated
             writer.append("0"+seperator) //Activity loan rate -> //TODO Should add this loanRate/Fee term to the loanTerms
@@ -351,10 +355,10 @@ object SynIntegrationFlow {
             writer.append(defaultCurrency+seperator) //Minimum fee currency
             writer.append(((loanTerms.margin+1) * 100).toString()+seperator) //Required margin (as a percent It seems)
             writer.append("0"+seperator) //Cash prepayment rate
-            writer.append("20172010"+seperator) //Trade date //TODO: Same as date before, need to store this in loanTerms
-            writer.append("20172010"+seperator) //Security settlement due date
+            writer.append(dateString+seperator) //Trade date
+            writer.append(dateString+seperator) //Security settlement due date
             writer.append("CHESS"+seperator) //Security settlement mode
-            writer.append("20172010"+seperator) //Cash settlement due date
+            writer.append(dateString+seperator) //Cash settlement due date
             writer.append("WIRE"+seperator) //Cash settlement mode
             writer.append("E"+seperator) //Security main code type -> A-Sedol, B-ISIN, C-Cusip,D-Quick, E-Ticker, F-In-House cross reference //TODO: Okay to use ticket here?
             writer.append(loanTerms.code+seperator) //Security main code
@@ -380,9 +384,9 @@ object SynIntegrationFlow {
             writer.append("0"+seperator) // Domestic tax percentage
             writer.append(""+seperator) // Fund or cost centre identifier
             writer.append(""+seperator) // Fund or cost cetnre cross reference code
-            writer.append("20172010"+seperator) // Activity input date -> entry date of activity. Same todo as other date stuff
+            writer.append(dateString+seperator) // Activity input date -> entry date of activity. TODO Make sure activity input date can be the same as effective date (aka this instance of time)
             writer.append(""+seperator) // Fund or cost centre major
-            writer.append("23:45:42"+seperator) // Acitivty time relative to activity input date
+            writer.append(timeString+seperator) // Acitivty time relative to activity input date
             writer.append(""+seperator) //Finder code
             writer.append("0"+seperator) //Fomder fee rate
             writer.append(loanTerms.toString().hashCode().toString()+seperator) //System generated unique identifier //TODO: How do i generate this? Maybe just hash something for now
@@ -410,35 +414,34 @@ object SynIntegrationFlow {
             writer.append(LoanChecks.getCounterParty(loanTerms, myIdentity).toString()+seperator) //Counter party cross reference
             writer.append(LoanChecks.getCounterParty(loanTerms, myIdentity).toString()+seperator) //Counter party major code
             writer.append(""+seperator) //Own Switf BIC code
-            writer.append("AUDWIRE"+seperator) //Cash clearer code TODO this is defaulted from the example issue
+            writer.append("AUDWIRE"+seperator) //Cash clearer code TODO this is defaulted from the example issue, same as below
             writer.append(""+seperator) //Cash clearer switft BIC
             writer.append(""+seperator) //Cash clearer account num
             writer.append(""+seperator) //cash clearer sub account
             writer.append(""+seperator) //cash clearer account ref
-            writer.append(""+seperator) //cash clearer contract
-            writer.append(""+seperator) //Cash clearer name
-            writer.append(""+seperator) //Security clearer code
+            writer.append("Stephanie Wright"+seperator) //cash clearer contact
+            writer.append("DEUTSCHE BANK AG"+seperator) //Cash clearer name
+            writer.append("AUD"+seperator) //Security clearer code
             writer.append(""+seperator) //Security clearer swift BIC
             writer.append(""+seperator) //Security clearer account number
             writer.append(""+seperator) //Security clearer sub-account
             writer.append(""+seperator) //Security clearer account reference
-            writer.append(""+seperator) //Security clearer contact
-            writer.append(""+seperator) //Security clearer name
-            writer.append(""+seperator) //CL cash clearer code
+            writer.append("Stephanie Wright"+seperator) //Security clearer contact
+            writer.append("DEUTSCHE BANK AG"+seperator) //Security clearer name
+            writer.append("AUD"+seperator) //CL cash clearer code
             writer.append(""+seperator) //CL cash clearer swift BIC
-            writer.append(""+seperator) //CL Cash clearer account number
+            writer.append("6102473"+seperator) //CL Cash clearer account number
             writer.append(""+seperator) // CL Cash clearer sub-account
             writer.append(""+seperator) //CL cash clearer account reference
-            writer.append(""+seperator) //CL cash clearer contact
-            writer.append(""+seperator) //CL cash clearer name
-            writer.append(""+seperator) //CL security clearer code
+            writer.append("KATE DALE"+seperator) //CL cash clearer contact
+            writer.append("JP MORGAN CHASE BANK (SYDNEY BRANCH)"+seperator) //CL cash clearer name
+            writer.append("AUD"+seperator) //CL security clearer code
             writer.append(""+seperator) //CL security clearer swift BIC
-            writer.append(""+seperator) //CL security clearer swift BIC
-            writer.append(""+seperator) //CL security clearer account number
+            writer.append("6102473"+seperator) //CL security clearer account number
             writer.append(""+seperator) //CL security clearer sub-account
             writer.append(""+seperator) //CL security clearer account reference
-            writer.append(""+seperator) //CL security clearer contact
-            writer.append(""+seperator) //CL security clearer name
+            writer.append("KATE DALE"+seperator) //CL security clearer contact
+            writer.append("JP MORGAN CHASE BANK (SYDNEY BRANCH)"+seperator) //CL security clearer name
             writer.append(loanTerms.rebate.toString()+seperator) //Current trade rate, fee or a rebate
             writer.append((loanTerms.quantity * loanTerms.stockPrice.quantity).toString()+seperator) //Initial loan value
             writer.append(loanTerms.quantity.toString()+seperator) //Initial loan quantity
@@ -446,8 +449,8 @@ object SynIntegrationFlow {
             writer.append("N"+seperator) //Cash pool settlment
             writer.append("KNIGPET"+seperator) //User ID originator of the activity from the SB+ userid todo what is this actually, in example they use KNIGPET
             writer.append(""+seperator) //Authorization user ID
-            writer.append("20172010"+seperator) //Authorization date todo same as other dates
-            writer.append("23:45:42"+seperator) //Authorization time todo same as other time
+            writer.append(dateString+seperator) //Authorization date
+            writer.append(timeString+seperator) //Authorization time
             writer.append(""+seperator) //Final return flag todo whats this
             writer.append("N"+seperator) //Own counterparty security indicator -> Y if instruction details are overrideen on trade or return
             writer.append("N"+seperator) //Own counterparty cash indicator ‘Y’ if instruction details are overridden on Trade or Return
@@ -510,7 +513,7 @@ object SynIntegrationFlow {
             writer.append("0"+seperator) //inclusive coupon payment amount
             writer.append("0"+seperator) //inclusive coupon re-investment interest
             writer.append("0"+seperator) //rolled accrual value
-            writer.append("20172010"+seperator) //original trade settlement due date -> due date of the initial trade //TODO: Date stuff again
+            writer.append(dateString+seperator) //original trade settlement due date -> due date of the initial trade //TODO: Date stuff again
             writer.append("0"+seperator) //cash pool value
             writer.append("Y"+seperator) //Instructions required Y/N
             writer.append((loanTerms.quantity * loanTerms.stockPrice.quantity).toString()+seperator) //market value of loan in loan currency
