@@ -16,6 +16,7 @@ import net.corda.core.schemas.QueryableState
 import net.corda.core.serialization.CordaSerializable
 import net.corda.core.transactions.TransactionBuilder
 import java.security.PublicKey
+import java.time.LocalDateTime
 import java.util.*
 
 
@@ -44,7 +45,8 @@ class SecurityLoan : Contract {
     data class Terms(val lengthOfLoan: Int,
                      val margin: Double,
                      val rebate: Double,
-                     val collateralType: String //Collateral type is either Cash, or a supported security code eg GBT, CBA, NAB, RIO
+                     val collateralType: String, //Collateral type is either Cash, or a supported security code eg GBT, CBA, NAB, RIO
+                     val effectiveDate: LocalDateTime
                      )
 
     data class State(val quantity: Int,
@@ -281,7 +283,7 @@ class SecurityLoan : Contract {
                       loanTerms: LoanTerms,
                       notary: Party): TransactionBuilder{
         val state = TransactionState(State(loanTerms.quantity, loanTerms.code, loanTerms.stockPrice, loanTerms.stockPrice, loanTerms.lender, loanTerms.borrower,
-                Terms(loanTerms.lengthOfLoan, loanTerms.margin, loanTerms.rebate, loanTerms.collateralType)), notary)
+                Terms(loanTerms.lengthOfLoan, loanTerms.margin, loanTerms.rebate, loanTerms.collateralType, loanTerms.effectiveDate)), notary)
         tx.addOutputState(state)
         //Tx signed by the lender
         tx.addCommand(SecurityLoan.Commands.Issue(), loanTerms.lender.owningKey, loanTerms.borrower.owningKey)
@@ -326,11 +328,11 @@ class SecurityLoan : Contract {
             //More shares are borrowed by borrower then lent by lender, output state is a borrower to borrower
             tx.addOutputState(TransactionState(State(Math.abs(outputSharesSum), secLoan.state.data.code, secLoan.state.data.currentStockPrice, secLoan.state.data.currentStockPrice,
                     secLoan.state.data.lender, secLoan.state.data.borrower,
-                    Terms(secLoan.state.data.terms.lengthOfLoan, 0.05, secLoan.state.data.terms.rebate, secLoan.state.data.terms.collateralType)), notary))
+                    Terms(secLoan.state.data.terms.lengthOfLoan, 0.05, secLoan.state.data.terms.rebate, secLoan.state.data.terms.collateralType, secLoan.state.data.terms.effectiveDate)), notary))
         } else {
             tx.addOutputState(TransactionState(State(Math.abs(outputSharesSum), secLoan.state.data.code, secLoan.state.data.currentStockPrice, secLoan.state.data.currentStockPrice,
                     secLoan.state.data.borrower, secLoan.state.data.lender,
-                    Terms(secLoan.state.data.terms.lengthOfLoan, 0.05, secLoan.state.data.terms.rebate, secLoan.state.data.terms.collateralType)), notary))
+                    Terms(secLoan.state.data.terms.lengthOfLoan, 0.05, secLoan.state.data.terms.rebate, secLoan.state.data.terms.collateralType, secLoan.state.data.terms.effectiveDate)), notary))
         }
         tx.addCommand(SecurityLoan.Commands.Net(), lender.owningKey, borrower.owningKey)
         //Otherwise there is no output state, we simply terminate both loans. This is checked in flow
@@ -347,7 +349,8 @@ class SecurityLoan : Contract {
         tx.addInputState(originalSecLoan)
         tx.addOutputState(TransactionState(State(newAmount, originalSecLoan.state.data.code, originalSecLoan.state.data.currentStockPrice, originalSecLoan.state.data.currentStockPrice,
                 originalSecLoan.state.data.lender, originalSecLoan.state.data.borrower,
-                Terms(originalSecLoan.state.data.terms.lengthOfLoan, originalSecLoan.state.data.terms.margin, originalSecLoan.state.data.terms.rebate, originalSecLoan.state.data.terms.collateralType)), notary))
+                Terms(originalSecLoan.state.data.terms.lengthOfLoan, originalSecLoan.state.data.terms.margin, originalSecLoan.state.data.terms.rebate, originalSecLoan.state.data.terms.collateralType,
+                        originalSecLoan.state.data.terms.effectiveDate)), notary))
         tx.addCommand(SecurityLoan.Commands.PartialExit(), lender.owningKey, borrower.owningKey)
         return tx
     }

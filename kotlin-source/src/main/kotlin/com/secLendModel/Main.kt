@@ -56,6 +56,7 @@ import net.corda.testing.driver.PortAllocation
 import net.corda.testing.driver.driver
 import org.bouncycastle.asn1.x500.X500Name
 import java.math.BigDecimal
+import java.time.LocalDateTime
 import java.util.*
 
 //CONSTANTS:
@@ -407,7 +408,7 @@ class Simulation(options : String?) {
         val loanTerms = LoanTerms(CODES[stockIndex], quantity, sharePrice,
                 me.nodeIdentity().legalIdentity,
                 randomBorrower.nodeIdentity().legalIdentity,
-                margin, rebate, length, "Cash")
+                margin, rebate, length, "Cash", LocalDateTime.now())
         when (BorrowerInitiates) {
             true -> {
                 //Counter party initiates the deal
@@ -450,7 +451,7 @@ class Simulation(options : String?) {
         val loanTerms = LoanTerms(code, quantity, sharePrice,
                 me.nodeIdentity().legalIdentity,
                 borrower.nodeIdentity().legalIdentity,
-                margin, rebate, length, collateralType)
+                margin, rebate, length, collateralType, LocalDateTime.now())
         when (BorrowerInitiates) {
             true -> {
                 //Counter party initiates the deal
@@ -490,7 +491,7 @@ class Simulation(options : String?) {
         val loanTerms = LoanTerms(CODES[stockIndex], quantity, sharePrice,
                 randomLender.nodeIdentity().legalIdentity,
                 me.nodeIdentity().legalIdentity,
-                margin, rebate, length, "Cash")
+                margin, rebate, length, "Cash", LocalDateTime.now())
         when (BorrowerInitiates) {
             true -> {
                 //We initiate the deal
@@ -571,7 +572,7 @@ class Simulation(options : String?) {
         val loanTerms = LoanTerms(CODES[0], quantity, sharePrice,
                 me.nodeIdentity().legalIdentity,
                 randomBorrower.nodeIdentity().legalIdentity,
-                margin, rebate, length, "Cash")
+                margin, rebate, length, "Cash", LocalDateTime.now())
         println("Syn issue loan test")
         me.startFlow(::SynIssueLoan, loanTerms)
         return;

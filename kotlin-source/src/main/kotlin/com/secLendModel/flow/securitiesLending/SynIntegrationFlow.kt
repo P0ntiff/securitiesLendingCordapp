@@ -4,6 +4,8 @@ import co.paralleluniverse.fibers.Suspendable
 import com.secLendModel.CODES
 import com.secLendModel.ISIN
 import com.secLendModel.STOCKS
+import com.secLendModel.contract.SecurityLoan
+import net.corda.core.contracts.StateAndRef
 import net.corda.core.contracts.UniqueIdentifier
 import net.corda.core.crypto.location
 import net.corda.core.flows.FlowLogic
@@ -31,11 +33,10 @@ object SynIntegrationFlow {
         override fun call(): Unit {
             //STEP 1: Generate the file to indicate loan issuance
             val myIdentity = serviceHub.myInfo.legalIdentity
-            val time = LocalDateTime.now()
             //TODO check this but because of some fields in the syn file, the loan needs to be sent on corda first.
             //todo other option is generate a loanID here, then if syn accepts the loan we generate a loan with a specific ID? Could work.
             val loanID : UniqueIdentifier = subFlow(LoanIssuanceFlow.Initiator(loanTerms))
-            SynIntegrationFlow.messageProcessor().getSynMessageIssue(loanTerms, myIdentity, time, loanID)
+            SynIntegrationFlow.messageProcessor().getSynMessageIssue(loanTerms, myIdentity, loanID)
 
             //STEP 2: Wait for Syn to respond, on yes continue the process, on no exit
             //SynIntegrationFlow.messageProcessor().readFromSyn()
@@ -53,14 +54,17 @@ object SynIntegrationFlow {
         @Suspendable
         override fun call(): Unit {
             //STEP 1: Generate the file to indicate loan exit
+            //First get the actual loan incase some fields of its current state are needed in the getMessageExot
+            val secLoan = subFlow(LoanRetrievalFlow(LoanID))
+            val loanTerms = LoanChecks.stateToLoanTerms(secLoan.state.data)
             val myIdentity = serviceHub.myInfo.legalIdentity
-            val time = LocalDateTime.now()
-            SynIntegrationFlow.messageProcessor().getSynMessageExit(loanTerms, myIdentity, time, LoanID)
+            SynIntegrationFlow.messageProcessor().getSynMessageExit(secLoan, myIdentity, LoanID, loanTerms)
 
-            //STEP 3: Wait for Syn to respond, on yes continue the process
-            SynIntegrationFlow.messageProcessor().readFromSyn()
+            //STEP 2: Wait for Syn to respond, on yes continue the process
+            //SynIntegrationFlow.messageProcessor().readFromSyn()
 
             //STEP 3: Conduct the actual loan Exit.
+            subFlow(LoanTerminationFlow.Terminator(LoanID))
             return
         }
 
@@ -91,7 +95,7 @@ object SynIntegrationFlow {
 
         }
 
-        fun getSynMessageIssue(loanTerms : LoanTerms, myIdentity: Party, time: LocalDateTime, LoanID : UniqueIdentifier) {
+        fun getSynMessageIssue(loanTerms : LoanTerms, myIdentity: Party, LoanID : UniqueIdentifier) {
             //FOR TESTING WRITE TO THIS FILE AND CAN COMPARE
             val seperator = "|"
             val defaultCurrency = "AUD"
@@ -99,8 +103,8 @@ object SynIntegrationFlow {
             val writer = PrintWriter("examplesyn.dat")
             //Write the header
             writer.append("0|Activity|DBAUS|20160307||ACG|NEW||DB_Global1.csv|DBAUS\n")
-            val dateString = time.year.toString()+""+time.dayOfMonth.toString()+""+time.monthValue.toString()
-            val timeString = time.format(DateTimeFormatter.ISO_TIME).toString()
+            val dateString = loanTerms.effectiveDate.year.toString()+""+loanTerms.effectiveDate.dayOfMonth.toString()+""+loanTerms.effectiveDate.monthValue.toString()
+            val timeString = loanTerms.effectiveDate.format(DateTimeFormatter.ISO_TIME).toString()
             println(dateString)
             println(timeString)
             //generates a syn message from a specific set of loanTerms
@@ -322,7 +326,7 @@ object SynIntegrationFlow {
         }
 
         //TODO this is currently the same as issue so need to change a few fields
-        fun getSynMessageExit(loanTerms : LoanTerms, myIdentity: Party, time: LocalDateTime, LoanID : UniqueIdentifier) {
+        fun getSynMessageExit(loan : StateAndRef<SecurityLoan.State>, myIdentity: Party, LoanID : UniqueIdentifier, loanTerms: LoanTerms) {
             //FOR TESTING WRITE TO THIS FILE AND CAN COMPARE
             val seperator = "|"
             val defaultCurrency = "AUD"
@@ -330,8 +334,8 @@ object SynIntegrationFlow {
             val writer = PrintWriter("examplesyn.dat")
             //Write the header
             writer.append("0|Activity|DBAUS|20160307||ACG|NEW||DB_Global1.csv|DBAUS\n")
-            val dateString = time.year.toString()+""+time.dayOfMonth.toString()+""+time.monthValue.toString()
-            val timeString = time.format(DateTimeFormatter.ISO_TIME).toString()
+            val dateString = loan.state.data.terms.effectiveDate.year.toString()+""+loan.state.data.terms.effectiveDate.dayOfMonth.toString()+""+loan.state.data.terms.effectiveDate.monthValue.toString()
+            val timeString = loan.state.data.terms.effectiveDate.format(DateTimeFormatter.ISO_TIME).toString()
             println(dateString)
             println(timeString)
             //generates a syn message from a specific set of loanTerms
@@ -340,20 +344,20 @@ object SynIntegrationFlow {
             writer.append(dateString+seperator) //Effective date TODO Loan could potentially store the start date, probably not needed
             writer.append(""+seperator) //Maturity date or term date if the loan is fixed length //TODO Loan Terms should have a fixed length bool field or we just say none of thme are fixed length?
             writer.append(""+seperator) //Date of final repayment starts as blank, only present when fully repaid
-            writer.append(""+seperator) //Security settlement date -> Only present if settled
-            writer.append(""+seperator) //Cash settlement date -> blank if not yet settled or if non cash or cash DVP trade
-            writer.append(loanTerms.quantity.toString()+seperator) //Active quantity
-            writer.append((loanTerms.quantity * loanTerms.stockPrice.quantity).toString()+seperator) //Activity value
+            writer.append(dateString+seperator) //Security settlement date -> Only present if settled. Am assuming securities were settled on the day of issue here as this is the exit for the loan
+            writer.append(dateString+seperator) //Cash settlement date -> blank if not yet settled or if non cash or cash DVP trade
+            writer.append(loan.state.data.quantity.toString()+seperator) //Active quantity
+            writer.append((loan.state.data.quantity * loan.state.data.currentStockPrice.quantity).toString()+seperator) //Activity value TODO Should this now be the current stock price and not the original price
             writer.append(defaultCurrency+seperator) //Loan value currency code
-            writer.append(loanTerms.stockPrice.quantity.toString()+seperator) //Activity price
+            writer.append(loan.state.data.stockPrice.quantity.toString()+seperator) //Activity price
             writer.append(LoanID.toString()+seperator) //ID for this loan -> note this means the loan is issued before these details are sent to syn, if syn rejects could be some problems
-            writer.append((loanTerms.quantity * loanTerms.stockPrice.quantity).toString()+seperator) //Market value of loan in market currency //TODO: What is unit of quotation (guessing this is local currency)
+            writer.append((loan.state.data.quantity * loan.state.data.currentStockPrice.quantity).toString()+seperator) //Market value of loan in market currency //TODO: What is unit of quotation (guessing this is local currency)
             writer.append("PL"+seperator) //Activity type -> currently is pending trade, after DVP on Corda this is updated
             writer.append("0"+seperator) //Activity loan rate -> //TODO Should add this loanRate/Fee term to the loanTerms
             writer.append("B"+seperator) //TODO: What is posting transaction type
             writer.append("0"+seperator) //Minimum fee
             writer.append(defaultCurrency+seperator) //Minimum fee currency
-            writer.append(((loanTerms.margin+1) * 100).toString()+seperator) //Required margin (as a percent It seems)
+            writer.append(((loan.state.data.terms.margin+1) * 100).toString()+seperator) //Required margin (as a percent It seems)
             writer.append("0"+seperator) //Cash prepayment rate
             writer.append(dateString+seperator) //Trade date
             writer.append(dateString+seperator) //Security settlement due date
@@ -361,25 +365,25 @@ object SynIntegrationFlow {
             writer.append(dateString+seperator) //Cash settlement due date
             writer.append("WIRE"+seperator) //Cash settlement mode
             writer.append("E"+seperator) //Security main code type -> A-Sedol, B-ISIN, C-Cusip,D-Quick, E-Ticker, F-In-House cross reference //TODO: Okay to use ticket here?
-            writer.append(loanTerms.code+seperator) //Security main code
-            writer.append(loanTerms.code+seperator) //Security ticket (in this case same as main code)
-            writer.append(loanTerms.code+seperator) //Security in house (in this case still the same)
-            writer.append(codeToISIN(loanTerms.code)+seperator) //Security ISIN Code //TODO: Make a list of this where we store our codes and have a function to retrieve ISN from code. Currenyly hardcoding GBT
+            writer.append(loan.state.data.code+seperator) //Security main code
+            writer.append(loan.state.data.code+seperator) //Security ticket (in this case same as main code)
+            writer.append(loan.state.data.code+seperator) //Security in house (in this case still the same)
+            writer.append(codeToISIN(loan.state.data.code)+seperator) //Security ISIN Code //TODO: Make a list of this where we store our codes and have a function to retrieve ISN from code. Currenyly hardcoding GBT
             writer.append(""+seperator) //Security quick code //TODO Whats this
             writer.append(""+seperator) //Security SEDOL code //TODO Whats this
             writer.append(""+seperator) //Security CUSPID code //TODO Whats this
             writer.append(""+seperator) //Security pricing identifier code //TODO Whats this
             writer.append("COM"+seperator) //Security class -> using common but not sure what the other classes are
             writer.append("N"+seperator) //Security bond indicator -> no as we are using regular securities at this point
-            writer.append(codeToString(loanTerms.code)+seperator)  //Security company name
-            writer.append(codeToString(loanTerms.code)+seperator) //Security Issue name
+            writer.append(codeToString(loan.state.data.code)+seperator)  //Security company name
+            writer.append(codeToString(loan.state.data.code)+seperator) //Security Issue name
             writer.append(defaultCurrency+seperator)
             writer.append("0"+seperator) // Accured Interest
             writer.append(""+seperator) //Internal comment
             writer.append(""+seperator) //External comment
             writer.append("KNIGPET"+seperator) //Dealer identifier //TODO What is this -> have copied from the example one for now
             writer.append("N"+seperator) //Ammenedment
-            writer.append(((loanTerms.margin+1) * 100).toString()+seperator) //Net dividend percentage //TODO How do i calculate this? For now im just doing total percentage
+            writer.append(((loan.state.data.terms.margin+1) * 100).toString()+seperator) //Net dividend percentage //TODO How do i calculate this? For now im just doing total percentage
             writer.append("0"+seperator) // Overseas tax percentage
             writer.append("0"+seperator) // Domestic tax percentage
             writer.append(""+seperator) // Fund or cost centre identifier
@@ -389,15 +393,15 @@ object SynIntegrationFlow {
             writer.append(timeString+seperator) // Acitivty time relative to activity input date
             writer.append(""+seperator) //Finder code
             writer.append("0"+seperator) //Fomder fee rate
-            writer.append(loanTerms.toString().hashCode().toString()+seperator) //System generated unique identifier //TODO: How do i generate this? Maybe just hash something for now
+            writer.append(loan.state.data.linearId.toString()+seperator) //System generated unique identifier //TODO: How do i generate this? Maybe just hash something for now
             writer.append("T"+seperator) // Trade / Collateral indicator
             writer.append(""+seperator) // Link reference //TODO Whats this
-            if (loanTerms.collateralType == "Cash") {
+            if (loan.state.data.terms.collateralType == "Cash") {
                 writer.append("C"+seperator) //Collateral type C = cash, N = non cash
             } else {
                 writer.append("N"+seperator) //Collateral type C = cash, N = non cash
             }
-            if (loanTerms.borrower == myIdentity) {
+            if (loan.state.data.borrower == myIdentity) {
                 writer.append("B"+seperator) // Borrow/Loan indicator -> B is us borrowing
             } else {
                 writer.append("L"+seperator) // Borrow/Loan indicator -> L is us lending
@@ -442,9 +446,9 @@ object SynIntegrationFlow {
             writer.append(""+seperator) //CL security clearer account reference
             writer.append("KATE DALE"+seperator) //CL security clearer contact
             writer.append("JP MORGAN CHASE BANK (SYDNEY BRANCH)"+seperator) //CL security clearer name
-            writer.append(loanTerms.rebate.toString()+seperator) //Current trade rate, fee or a rebate
-            writer.append((loanTerms.quantity * loanTerms.stockPrice.quantity).toString()+seperator) //Initial loan value
-            writer.append(loanTerms.quantity.toString()+seperator) //Initial loan quantity
+            writer.append(loan.state.data.terms.rebate.toString()+seperator) //Current trade rate, fee or a rebate
+            writer.append((loan.state.data.quantity * loan.state.data.stockPrice.quantity).toString()+seperator) //Initial loan value
+            writer.append(loan.state.data.quantity.toString()+seperator) //Initial loan quantity
             writer.append("N"+seperator) //Recalled indicator
             writer.append("N"+seperator) //Cash pool settlment
             writer.append("KNIGPET"+seperator) //User ID originator of the activity from the SB+ userid todo what is this actually, in example they use KNIGPET
@@ -489,7 +493,7 @@ object SynIntegrationFlow {
             writer.append("0"+seperator) //new price after mark -> copied from example,
             writer.append("1"+seperator) //num of fund/locations or cost centres
             writer.append("0"+seperator) //num of this fund/location or cost cetnre
-            writer.append((loanTerms.quantity * loanTerms.stockPrice.quantity).toString()+seperator) //cash activity quantity
+            writer.append((loan.state.data.quantity * loan.state.data.currentStockPrice.quantity).toString()+seperator) //cash activity quantity
             writer.append(""+seperator) //dividend ex date
             writer.append(""+seperator) //dividend record date
             writer.append(""+seperator) //dividend payment date
@@ -516,7 +520,7 @@ object SynIntegrationFlow {
             writer.append(dateString+seperator) //original trade settlement due date -> due date of the initial trade //TODO: Date stuff again
             writer.append("0"+seperator) //cash pool value
             writer.append("Y"+seperator) //Instructions required Y/N
-            writer.append((loanTerms.quantity * loanTerms.stockPrice.quantity).toString()+seperator) //market value of loan in loan currency
+            writer.append((loan.state.data.quantity * loan.state.data.currentStockPrice.quantity).toString()+seperator) //market value of loan in loan currency
             writer.append(""+seperator) //activity rate sign
             writer.append(""+seperator) //pre payment rate sign
             writer.append(""+seperator) //current rate sign
@@ -533,11 +537,11 @@ object SynIntegrationFlow {
             writer.append("DBAUS"+seperator) //own cash clearer special instructions
             writer.append(""+seperator) //counterparty security clearer special instructions
             writer.append(""+seperator) //counterparty cash clearer special instructions
-            writer.append(loanTerms.stockPrice.quantity.toString()+seperator) //activity price to 7dp
+            writer.append(loan.state.data.currentStockPrice.quantity.toString()+seperator) //activity price to 7dp
             writer.append("0"+seperator) //new price after mark to 7dp -> price hasnt changed
             writer.append("T"+seperator) //activity file level -> Detail record level.  Can be T-Trade, F-Fund, C-Cost Centre
             writer.append("0"+seperator) //accrual paid
-            writer.append((loanTerms.quantity * loanTerms.stockPrice.quantity).toString()+seperator) //activity quantity to 2dp
+            writer.append((loan.state.data.quantity * loan.state.data.currentStockPrice.quantity).toString()+seperator) //activity quantity to 2dp
             writer.append((loanTerms.quantity * loanTerms.stockPrice.quantity).toString()+seperator) //initial quantity to 2dp
             writer.append((loanTerms.quantity * loanTerms.stockPrice.quantity).toString()+seperator) //cash activity quantity to 2dp
             writer.append("AUS"+seperator) //security country of issue

@@ -61,7 +61,7 @@ object LoanTerminationFlow {
                 ptx = try {
                     subFlow(SecuritiesPreparationFlow(builder, secLoanTerms.code, secLoanTerms.quantity, counterParty)).first
                 } catch (e: InsufficientBalanceException) {
-                    throw SecurityException("Insufficient holding: ${e.message}", e)
+                    throw Exception("Insufficient holding: ${e.message}", e)
                 }
             }
 
