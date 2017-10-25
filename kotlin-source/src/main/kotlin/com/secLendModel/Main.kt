@@ -88,6 +88,13 @@ val ISIN = listOf(
         "AU000000CBA7",
         "AU000000RIO1",
         "AU000000NAB4"
+)
+
+val SEDOL = listOf(
+        "B08XJF8",
+        "6215035",
+        "0718875",
+        "6624608"
 
 )
 val MARKET = setOf(ServiceInfo(ServiceType.corda.getSubType("issuer.GBT")),

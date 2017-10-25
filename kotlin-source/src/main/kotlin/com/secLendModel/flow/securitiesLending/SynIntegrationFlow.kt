@@ -3,6 +3,7 @@ package com.secLendModel.flow.securitiesLending
 import co.paralleluniverse.fibers.Suspendable
 import com.secLendModel.CODES
 import com.secLendModel.ISIN
+import com.secLendModel.SEDOL
 import com.secLendModel.STOCKS
 import com.secLendModel.contract.SecurityLoan
 import net.corda.core.contracts.StateAndRef
@@ -86,6 +87,15 @@ object SynIntegrationFlow {
             }
         }
 
+        fun codeToSedol(code: String) : String {
+            val index = CODES.indexOf(code)
+            if (index != -1 && index< SEDOL.size) {
+                return SEDOL[index]
+            } else {
+                return "Invalid Code"
+            }
+        }
+
 
         fun getLoanTerms(synMessage: String) {
 
@@ -120,7 +130,7 @@ object SynIntegrationFlow {
             writer.append(defaultCurrency+seperator) //Loan value currency code
             writer.append(loanTerms.stockPrice.quantity.toString()+seperator) //Activity price
             writer.append(LoanID.toString()+seperator) //ID for this loan -> note this means the loan is issued before these details are sent to syn, if syn rejects could be some problems
-            writer.append((loanTerms.quantity * loanTerms.stockPrice.quantity).toString()+seperator) //Market value of loan in market currency //TODO: What is unit of quotation - defaulting this to 1 rn
+            writer.append((loanTerms.quantity * loanTerms.stockPrice.quantity).toString()+seperator) //Market value of loan in market currency //TODO currently setting uniq of quotation to 1
             writer.append("PL"+seperator) //Activity type -> currently is pending trade, after DVP on Corda this is updated
             writer.append("0"+seperator) //Activity loan rate -> //TODO Should add this loanRate/Fee term to the loanTerms
             writer.append("B"+seperator) //TODO: What is posting transaction type
@@ -137,18 +147,18 @@ object SynIntegrationFlow {
             /** Not Required Start*/
             writer.append("WIRE"+seperator) //Cash settlement mode
             /** Not Required End*/
-            writer.append("E"+seperator) //Security main code type -> A-Sedol, B-ISIN, C-Cusip,D-Quick, E-Ticker, F-In-House cross reference //TODO: Okay to use ticket here?
+            writer.append("E"+seperator) //Security main code type -> A-Sedol, B-ISIN, C-Cusip,D-Quick, E-Ticker, F-In-House cross reference
             writer.append(loanTerms.code+seperator) //Security main code
             writer.append(loanTerms.code+seperator) //Security ticket (in this case same as main code)
             writer.append(loanTerms.code+seperator) //Security in house (in this case still the same)
             writer.append(codeToISIN(loanTerms.code)+seperator) //Security ISIN Code
             /** Not Required Start*/
-            writer.append(""+seperator) //Security quick code //TODO Whats this
+            writer.append(""+seperator) //Security quick code
             /** Not Required End*/
-            writer.append(""+seperator) //Security SEDOL code //TODO Whats this
+            writer.append(codeToSedol(loanTerms.code)+seperator) //Security SEDOL code
             /** Not Required Start*/
-            writer.append(""+seperator) //Security CUSPID code //TODO Whats this
-            writer.append(""+seperator) //Security pricing identifier code //TODO Whats this
+            writer.append(""+seperator) //Security CUSPID code
+            writer.append(""+seperator) //Security pricing identifier code
             /** Not Required End*/
             writer.append("COM"+seperator) //Security class -> using common but not sure what the other classes are
             writer.append("N"+seperator) //Security bond indicator -> no as we are using regular securities at this point
@@ -167,7 +177,7 @@ object SynIntegrationFlow {
             writer.append(""+seperator) // Fund or cost centre identifier
             writer.append(""+seperator) // Fund or cost cetnre cross reference code
             /** Not Required End*/
-            writer.append(dateString+seperator) // Activity input date -> entry date of activity. TODO Make sure activity input date can be the same as effective date (aka this instance of time)
+            writer.append(dateString+seperator) // Activity input date -> entry date of activity.
             /** Not Required Start*/
             writer.append(""+seperator) // Fund or cost centre major
             /** Not Required End*/
@@ -208,7 +218,7 @@ object SynIntegrationFlow {
             writer.append(LoanChecks.getCounterParty(loanTerms, myIdentity).toString()+seperator) //Counter party major code
             /** Not Required Start*/
             writer.append(""+seperator) //Own Switf BIC code
-            writer.append("AUDWIRE"+seperator) //Cash clearer code TODO this is defaulted from the example issue, same as below
+            writer.append("AUDWIRE"+seperator) //Cash clearer code
             writer.append(""+seperator) //Cash clearer switft BIC
             writer.append(""+seperator) //Cash clearer account num
             writer.append(""+seperator) //cash clearer sub account
@@ -257,7 +267,7 @@ object SynIntegrationFlow {
             writer.append(dateString+seperator) //Authorization date
             writer.append(timeString+seperator) //Authorization time
             /** Not Required Start*/
-            writer.append(""+seperator) //Final return flag todo whats this
+            writer.append(""+seperator) //Final return flag
             /** Not Required End*/
             writer.append("N"+seperator) //Own counterparty security indicator -> Y if instruction details are overrideen on trade or return
             writer.append("N"+seperator) //Own counterparty cash indicator ‘Y’ if instruction details are overridden on Trade or Return
@@ -334,7 +344,7 @@ object SynIntegrationFlow {
             writer.append("0"+seperator) //inclusive coupon payment amount
             writer.append("0"+seperator) //inclusive coupon re-investment interest
             writer.append("0"+seperator) //rolled accrual value
-            writer.append(dateString+seperator) //original trade settlement due date -> due date of the initial trade //TODO: Date stuff again
+            writer.append(dateString+seperator) //original trade settlement due date -> due date of the initial trade
             writer.append("0"+seperator) //cash pool value
             writer.append("Y"+seperator) //Instructions required Y/N
             writer.append((loanTerms.quantity * loanTerms.stockPrice.quantity).toString()+seperator) //market value of loan in loan currency
@@ -371,7 +381,7 @@ object SynIntegrationFlow {
 
             //Seems these two are on the last line
             writer.append("\n");
-            writer.append("9"+seperator) //redenomination flag 1-Currency Only, 2-Currency and Quantity, 3-Quantity only TODO dont understand what this is or why the examples have 9 on there
+            writer.append("9"+seperator) //redenomination flag 1-Currency Only, 2-Currency and Quantity, 3-Quantity only - 9 is the flag for Syn stuff
             writer.append("1") //internal comments line 2 -> this seems to be the total num of txns to process in this one .dat file
 
 
@@ -395,9 +405,9 @@ object SynIntegrationFlow {
             //generates a syn message from a specific set of loanTerms
             //Format of a syn message is txt file.
             writer.append("1"+seperator) //Record type default is one
-            writer.append(dateString+seperator) //Effective date TODO Loan could potentially store the start date.
+            writer.append(dateString+seperator) //Effective date
             /** Not Required Start*/
-            writer.append(""+seperator) //Maturity date or term date if the loan is fixed length //TODO Loan Terms should have a fixed length bool field or we just say none of thme are fixed length?
+            writer.append(""+seperator) //Maturity date or term date if the loan is fixed length
             writer.append(""+seperator) //Date of final repayment starts as blank, only present when fully repaid
             /** Not Required End*/
             writer.append(dateString+seperator) //Security settlement date -> Only present if settled. Am assuming securities were settled on the day of issue here as this is the exit for the loan
@@ -409,7 +419,7 @@ object SynIntegrationFlow {
             writer.append(defaultCurrency+seperator) //Loan value currency code
             writer.append(loan.state.data.stockPrice.quantity.toString()+seperator) //Activity price
             writer.append(LoanID.toString()+seperator) //ID for this loan -> note this means the loan is issued before these details are sent to syn, if syn rejects could be some problems
-            writer.append((loan.state.data.quantity * loan.state.data.currentStockPrice.quantity).toString()+seperator) //Market value of loan in market currency //TODO: What is unit of quotation (guessing this is local currency)
+            writer.append((loan.state.data.quantity * loan.state.data.currentStockPrice.quantity).toString()+seperator) //Market value of loan in market currency TODO unit of quotation currently 1
             writer.append("PL"+seperator) //Activity type -> currently is pending trade, after DVP on Corda this is updated
             writer.append("0"+seperator) //Activity loan rate -> //TODO Should add this loanRate/Fee term to the loanTerms
             writer.append("B"+seperator) //TODO: What is posting transaction type
@@ -426,18 +436,18 @@ object SynIntegrationFlow {
             /** Not Required Start*/
             writer.append("WIRE"+seperator) //Cash settlement mode
             /** Not Required End*/
-            writer.append("E"+seperator) //Security main code type -> A-Sedol, B-ISIN, C-Cusip,D-Quick, E-Ticker, F-In-House cross reference //TODO: Okay to use ticket here?
+            writer.append("E"+seperator) //Security main code type -> A-Sedol, B-ISIN, C-Cusip,D-Quick, E-Ticker, F-In-House cross reference
             writer.append(loan.state.data.code+seperator) //Security main code
             writer.append(loan.state.data.code+seperator) //Security ticket (in this case same as main code)
             writer.append(loan.state.data.code+seperator) //Security in house (in this case still the same)
-            writer.append(codeToISIN(loan.state.data.code)+seperator) //Security ISIN Code //TODO: Make a list of this where we store our codes and have a function to retrieve ISN from code. Currenyly hardcoding GBT
+            writer.append(codeToISIN(loan.state.data.code)+seperator) //Security ISIN Code
             /** Not Required Start*/
-            writer.append(""+seperator) //Security quick code //TODO Whats this
+            writer.append(""+seperator) //Security quick code
             /** Not Required End*/
-            writer.append(""+seperator) //Security SEDOL code //TODO Whats this
+            writer.append(codeToSedol(loanTerms.code)+seperator) //Security SEDOL code
             /** Not Required Start*/
-            writer.append(""+seperator) //Security CUSPID code //TODO Whats this
-            writer.append(""+seperator) //Security pricing identifier code //TODO Whats this
+            writer.append(""+seperator) //Security CUSPID code
+            writer.append(""+seperator) //Security pricing identifier code
             /** Not Required End*/
             writer.append("COM"+seperator) //Security class -> using common but not sure what the other classes are
             writer.append("N"+seperator) //Security bond indicator -> no as we are using regular securities at this point
@@ -456,7 +466,7 @@ object SynIntegrationFlow {
             writer.append(""+seperator) // Fund or cost centre identifier
             writer.append(""+seperator) // Fund or cost cetnre cross reference code
             /** Not Required End*/
-            writer.append(dateString+seperator) // Activity input date -> entry date of activity. TODO Make sure activity input date can be the same as effective date (aka this instance of time)
+            writer.append(dateString+seperator) // Activity input date -> entry date of activity.
             /** Not Required Start*/
             writer.append(""+seperator) // Fund or cost centre major
             /** Not Required End*/
@@ -465,10 +475,10 @@ object SynIntegrationFlow {
             writer.append(""+seperator) //Finder code
             /** Not Required End*/
             writer.append("0"+seperator) //Fomder fee rate
-            writer.append(loan.state.data.linearId.toString()+seperator) //System generated unique identifier //TODO: How do i generate this? Maybe just hash something for now
+            writer.append(loan.state.data.linearId.toString()+seperator) //System generated unique identifier
             writer.append("T"+seperator) // Trade / Collateral indicator
             /** Not Required Start*/
-            writer.append(""+seperator) // Link reference //TODO Whats this
+            writer.append(""+seperator) // Link reference
             /** Not Required End*/
             if (loan.state.data.terms.collateralType == "Cash") {
                 writer.append("C"+seperator) //Collateral type C = cash, N = non cash
@@ -660,7 +670,7 @@ object SynIntegrationFlow {
 
             //Seems these two are on the last line
             writer.append("\n");
-            writer.append("9"+seperator) //redenomination flag 1-Currency Only, 2-Currency and Quantity, 3-Quantity only TODO dont understand what this is
+            writer.append("9"+seperator) //redenomination flag 1-Currency Only, 2-Currency and Quantity, 3-Quantity only - 9 is the default for syn stuff
             writer.append("1") //internal comments line 2 -> this seems to be the total num of txns to process in this one .dat file
 
 
