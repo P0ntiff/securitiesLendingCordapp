@@ -12,9 +12,7 @@ import net.corda.core.flows.FlowLogic
 import net.corda.core.flows.InitiatingFlow
 import net.corda.core.flows.StartableByRPC
 import net.corda.core.identity.Party
-import org.apache.commons.io.IOUtils
 import java.io.PrintWriter
-import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
 /**
@@ -39,7 +37,6 @@ object SynIntegrationFlow {
             SynIntegrationFlow.messageProcessor().getSynMessageIssue(loanTerms, myIdentity, loanID)
 
             //STEP 2: Wait for Syn to respond, on yes continue the process, on no exit
-            //SynIntegrationFlow.messageProcessor().readFromSyn()
 
             //STEP 3: Conduct the actual loan issuance and commit to ledger
             //subFlow(LoanIssuanceFlow.Initiator(loanTerms))
@@ -61,7 +58,6 @@ object SynIntegrationFlow {
             SynIntegrationFlow.messageProcessor().getSynMessageExit(secLoan, myIdentity, LoanID, loanTerms)
 
             //STEP 2: Wait for Syn to respond, on yes continue the process
-            //SynIntegrationFlow.messageProcessor().readFromSyn()
 
             //STEP 3: Conduct the actual loan Exit.
             subFlow(LoanTerminationFlow.Terminator(LoanID))
@@ -70,7 +66,7 @@ object SynIntegrationFlow {
 
     }
 
-    class messageProcessor() {
+    class messageProcessor {
 
         fun codeToString(code: String) : String {
             val index = CODES.indexOf(code)
@@ -110,38 +106,50 @@ object SynIntegrationFlow {
             //generates a syn message from a specific set of loanTerms
             //Format of a syn message is txt file.
             writer.append("1"+seperator) //Record type default is one
-            writer.append(dateString+seperator) //Effective date TODO Loan could potentially store the start date, probably not needed
-            writer.append(""+seperator) //Maturity date or term date if the loan is fixed length //TODO Loan Terms should have a fixed length bool field or we just say none of thme are fixed length?
+            writer.append(dateString+seperator) //Effective date -> note this is stored within the loans terms now
+            /** Not Required Start*/
+            writer.append(""+seperator) //Maturity date or term date if the loan is fixed length
             writer.append(""+seperator) //Date of final repayment starts as blank, only present when fully repaid
+            /** Not Required End*/
             writer.append(""+seperator) //Security settlement date -> Only present if settled
+            /** Not Required Start*/
             writer.append(""+seperator) //Cash settlement date -> blank if not yet settled or if non cash or cash DVP trade
+            /** Not Required End*/
             writer.append(loanTerms.quantity.toString()+seperator) //Active quantity
             writer.append((loanTerms.quantity * loanTerms.stockPrice.quantity).toString()+seperator) //Activity value
             writer.append(defaultCurrency+seperator) //Loan value currency code
             writer.append(loanTerms.stockPrice.quantity.toString()+seperator) //Activity price
             writer.append(LoanID.toString()+seperator) //ID for this loan -> note this means the loan is issued before these details are sent to syn, if syn rejects could be some problems
-            writer.append((loanTerms.quantity * loanTerms.stockPrice.quantity).toString()+seperator) //Market value of loan in market currency //TODO: What is unit of quotation (guessing this is local currency)
+            writer.append((loanTerms.quantity * loanTerms.stockPrice.quantity).toString()+seperator) //Market value of loan in market currency //TODO: What is unit of quotation - defaulting this to 1 rn
             writer.append("PL"+seperator) //Activity type -> currently is pending trade, after DVP on Corda this is updated
             writer.append("0"+seperator) //Activity loan rate -> //TODO Should add this loanRate/Fee term to the loanTerms
             writer.append("B"+seperator) //TODO: What is posting transaction type
             writer.append("0"+seperator) //Minimum fee
             writer.append(defaultCurrency+seperator) //Minimum fee currency
+            /** Not Required Start*/
             writer.append(((loanTerms.margin+1) * 100).toString()+seperator) //Required margin (as a percent It seems)
+            /** Not Required End*/
             writer.append("0"+seperator) //Cash prepayment rate
             writer.append(dateString+seperator) //Trade date
             writer.append(dateString+seperator) //Security settlement due date
             writer.append("CHESS"+seperator) //Security settlement mode
             writer.append(dateString+seperator) //Cash settlement due date
+            /** Not Required Start*/
             writer.append("WIRE"+seperator) //Cash settlement mode
+            /** Not Required End*/
             writer.append("E"+seperator) //Security main code type -> A-Sedol, B-ISIN, C-Cusip,D-Quick, E-Ticker, F-In-House cross reference //TODO: Okay to use ticket here?
             writer.append(loanTerms.code+seperator) //Security main code
             writer.append(loanTerms.code+seperator) //Security ticket (in this case same as main code)
             writer.append(loanTerms.code+seperator) //Security in house (in this case still the same)
             writer.append(codeToISIN(loanTerms.code)+seperator) //Security ISIN Code
+            /** Not Required Start*/
             writer.append(""+seperator) //Security quick code //TODO Whats this
+            /** Not Required End*/
             writer.append(""+seperator) //Security SEDOL code //TODO Whats this
+            /** Not Required Start*/
             writer.append(""+seperator) //Security CUSPID code //TODO Whats this
             writer.append(""+seperator) //Security pricing identifier code //TODO Whats this
+            /** Not Required End*/
             writer.append("COM"+seperator) //Security class -> using common but not sure what the other classes are
             writer.append("N"+seperator) //Security bond indicator -> no as we are using regular securities at this point
             writer.append(codeToString(loanTerms.code)+seperator)  //Security company name
@@ -155,16 +163,24 @@ object SynIntegrationFlow {
             writer.append(((loanTerms.margin+1) * 100).toString()+seperator) //Net dividend percentage //TODO How do i calculate this? For now im just doing total percentage
             writer.append("0"+seperator) // Overseas tax percentage
             writer.append("0"+seperator) // Domestic tax percentage
+            /** Not Required Start*/
             writer.append(""+seperator) // Fund or cost centre identifier
             writer.append(""+seperator) // Fund or cost cetnre cross reference code
+            /** Not Required End*/
             writer.append(dateString+seperator) // Activity input date -> entry date of activity. TODO Make sure activity input date can be the same as effective date (aka this instance of time)
+            /** Not Required Start*/
             writer.append(""+seperator) // Fund or cost centre major
+            /** Not Required End*/
             writer.append(timeString+seperator) // Acitivty time relative to activity input date
+            /** Not Required Start*/
             writer.append(""+seperator) //Finder code
+            /** Not Required End*/
             writer.append("0"+seperator) //Fomder fee rate
             writer.append(LoanID.toString()+seperator) //System generated unique identifier -> currently using the loans unique ID in corda
             writer.append("T"+seperator) // Trade / Collateral indicator
+            /** Not Required Start*/
             writer.append(""+seperator) // Link reference //TODO Whats this
+            /** Not Required End*/
             if (loanTerms.collateralType == "Cash") {
                 writer.append("C"+seperator) //Collateral type C = cash, N = non cash
             } else {
@@ -180,12 +196,17 @@ object SynIntegrationFlow {
             writer.append("Y"+seperator) //Callable indicator -> can this be called over recodrd date
             writer.append("Y"+seperator) //DvP indicator
             writer.append("F"+seperator) //First/Last day indicator -> Interest payment calculation type F-First Day, L-Last Day, B-Both, FS-First SEN, LS-Last SEN, BS-Both SEN.  ‘S’ indicates SEN rate todo
+            /** Not Required Start*/
             writer.append(""+seperator) //Fail code
+            /** Not Required End*/
             writer.append(LoanChecks.getCounterParty(loanTerms, myIdentity).toString()+seperator) //Counter party code
             writer.append(LoanChecks.getCounterParty(loanTerms, myIdentity).name.toString()+seperator) //Counter party name
+            /** Not Required Start*/
             writer.append(""+seperator) //Counter party swift code
+            /** Not Required End*/
             writer.append(LoanChecks.getCounterParty(loanTerms, myIdentity).toString()+seperator) //Counter party cross reference
             writer.append(LoanChecks.getCounterParty(loanTerms, myIdentity).toString()+seperator) //Counter party major code
+            /** Not Required Start*/
             writer.append(""+seperator) //Own Switf BIC code
             writer.append("AUDWIRE"+seperator) //Cash clearer code TODO this is defaulted from the example issue, same as below
             writer.append(""+seperator) //Cash clearer switft BIC
@@ -194,13 +215,17 @@ object SynIntegrationFlow {
             writer.append(""+seperator) //cash clearer account ref
             writer.append("Stephanie Wright"+seperator) //cash clearer contact
             writer.append("DEUTSCHE BANK AG"+seperator) //Cash clearer name
+            /** Not Required End*/
             writer.append("AUD"+seperator) //Security clearer code
+            /** Not Required End*/
             writer.append(""+seperator) //Security clearer swift BIC
             writer.append(""+seperator) //Security clearer account number
             writer.append(""+seperator) //Security clearer sub-account
             writer.append(""+seperator) //Security clearer account reference
+            /** Not Required Start*/
             writer.append("Stephanie Wright"+seperator) //Security clearer contact
             writer.append("DEUTSCHE BANK AG"+seperator) //Security clearer name
+            /** Not Required Start*/
             writer.append("AUD"+seperator) //CL cash clearer code
             writer.append(""+seperator) //CL cash clearer swift BIC
             writer.append("6102473"+seperator) //CL Cash clearer account number
@@ -208,30 +233,41 @@ object SynIntegrationFlow {
             writer.append(""+seperator) //CL cash clearer account reference
             writer.append("KATE DALE"+seperator) //CL cash clearer contact
             writer.append("JP MORGAN CHASE BANK (SYDNEY BRANCH)"+seperator) //CL cash clearer name
+            /** Not Required End*/
             writer.append("AUD"+seperator) //CL security clearer code
+            /** Not Required Start*/
             writer.append(""+seperator) //CL security clearer swift BIC
+            /** Not Required End*/
             writer.append("6102473"+seperator) //CL security clearer account number
+            /** Not Required Start*/
             writer.append(""+seperator) //CL security clearer sub-account
             writer.append(""+seperator) //CL security clearer account reference
+            /** Not Required End*/
             writer.append("KATE DALE"+seperator) //CL security clearer contact
             writer.append("JP MORGAN CHASE BANK (SYDNEY BRANCH)"+seperator) //CL security clearer name
             writer.append(loanTerms.rebate.toString()+seperator) //Current trade rate, fee or a rebate
             writer.append((loanTerms.quantity * loanTerms.stockPrice.quantity).toString()+seperator) //Initial loan value
             writer.append(loanTerms.quantity.toString()+seperator) //Initial loan quantity
             writer.append("N"+seperator) //Recalled indicator
+            /** Not Required Start*/
             writer.append("N"+seperator) //Cash pool settlment
+            /** Not Required End*/
             writer.append("KNIGPET"+seperator) //User ID originator of the activity from the SB+ userid todo what is this actually, in example they use KNIGPET
             writer.append(""+seperator) //Authorization user ID
             writer.append(dateString+seperator) //Authorization date
             writer.append(timeString+seperator) //Authorization time
+            /** Not Required Start*/
             writer.append(""+seperator) //Final return flag todo whats this
+            /** Not Required End*/
             writer.append("N"+seperator) //Own counterparty security indicator -> Y if instruction details are overrideen on trade or return
             writer.append("N"+seperator) //Own counterparty cash indicator ‘Y’ if instruction details are overridden on Trade or Return
             writer.append("N"+seperator) //counterparty security indicator ‘Y’ if instruction details are overridden on Trade or Return
             writer.append("N"+seperator) //counterparty cash indicator ‘Y’ if instruction details are overridden on Trade or Return
+            /** Not Required Start*/
             writer.append(""+seperator) //Intercompany ref -> only present for trades set up through intercompany processing
             writer.append(""+seperator) //Location code -> Lenders Module only.  Populated for fund level activities and for principal borrow and principal collateral items
             writer.append(""+seperator) //Location cross ref -> Lenders Module only.  Populated for fund level activities and for principal borrow and principal collateral items
+            /** Not Required End*/
             writer.append("N"+seperator) //Repo type trade ->Y/N.  Set to ‘Y’ if trade was entered through Repo Trade Input or is a US Dollar Repo Trade.  Set to ’N’ if not Rep type trade
             writer.append("N"+seperator) //Monthly billing -> Y/N.  Only used if Repo Type Trade = ‘Y’.  Set to ‘Y’ if the Repo trade is to be billed monthly.  Leave blank for non-repo trades.
             writer.append("N"+seperator) //System settled -> Y/N.  Only set to ’Y’ if the Settlement Activity has been created automatically as a result of Maturity options processing.  Only applicable to SL, CL, SR, CR, RI
@@ -239,6 +275,7 @@ object SynIntegrationFlow {
             writer.append("N"+seperator) //Associated transaction -> Y/N.  Set to ‘Y’ for a ‘PR’ or ‘XPR’ which has an associated ‘PI’ or ‘XPI’.  Also set to ‘Y’ for a ‘PI’ or ‘XPI’ which has an associated ‘PR’ or ‘XPR’/
             writer.append("0"+seperator) //Coupon accural days TODO what is this
             writer.append("N"+seperator) //Security settlement suppressed -> Y/N.  Only set to ‘Y’ if ‘N’ entered to Settlement instructions flag on Trade Authorisation screen, only applicable to PL, XPL, PR, and XPR.
+            /** Not Required Start*/
             writer.append(""+seperator) //Crest own data participant identifier
             writer.append(""+seperator) //Crest counterparty data participant identifier
             writer.append(""+seperator) //Crest account identifier
@@ -246,37 +283,48 @@ object SynIntegrationFlow {
             writer.append(""+seperator) //Crest trade system or origin
             writer.append(""+seperator) //Crest NC condition
             writer.append(""+seperator) //Crest bargin conditions
+            /** Not Required End*/
             writer.append("0"+seperator) //Crest priority
+            /** Not Required Start*/
             writer.append(""+seperator) //Crest participant country of residence
             writer.append(""+seperator) //crest cash movement type
             writer.append(""+seperator) //crest payment type
             writer.append(""+seperator) //crest security category identifier
             writer.append(""+seperator) //crest concentration limit
+            /** Not Required End*/
             writer.append("0"+seperator) //crest dbv consideration
             writer.append(LoanChecks.getCounterParty(loanTerms, myIdentity).name.location+seperator) //counterparty security clearer address line 1 //TODO:  Check what to do here for these 4
             writer.append(LoanChecks.getCounterParty(loanTerms, myIdentity).name.location+seperator) //counterparty security clearer address line 2
+            /** Not Required Start*/
             writer.append(LoanChecks.getCounterParty(loanTerms, myIdentity).name.location+seperator) //counterparty cash clearer address line 1
             writer.append(LoanChecks.getCounterParty(loanTerms, myIdentity).name.location+seperator) //counterparty cash clearer address line 2
             writer.append(""+seperator) //From repo trade ref
             writer.append(""+seperator) //to repo trade ref
+            /** Not Required End*/
             writer.append("0"+seperator) //new price after mark -> copied from example,
             writer.append("1"+seperator) //num of fund/locations or cost centres
             writer.append("0"+seperator) //num of this fund/location or cost cetnre
             writer.append((loanTerms.quantity * loanTerms.stockPrice.quantity).toString()+seperator) //cash activity quantity
+            /** Not Required Start*/
             writer.append(""+seperator) //dividend ex date
             writer.append(""+seperator) //dividend record date
             writer.append(""+seperator) //dividend payment date
             writer.append(""+seperator) //dividend currency
+            /** Not Required End*/
             writer.append("0"+seperator) //gross rate per share
             writer.append("0"+seperator) //net rate per share
             writer.append("0"+seperator) //coupon rate for bonds
             writer.append("0"+seperator) //dividend claim value
             writer.append("0"+seperator) //overseas tax max
             writer.append("0"+seperator) //domestic tax max
+            /** Not Required Start*/
             writer.append(""+seperator) //pay/receieve indicator
             writer.append(""+seperator) //dividend paid date
+            /** Not Required End*/
             writer.append("0"+seperator) //dividend paid amount
+            /** Not Required End*/
             writer.append(""+seperator) //dividend payment type
+            /** Not Required Start*/
             writer.append("0"+seperator) //start clean price
             writer.append("0"+seperator) //start clean principle
             writer.append("0"+seperator) //start coupon accrual
@@ -290,11 +338,13 @@ object SynIntegrationFlow {
             writer.append("0"+seperator) //cash pool value
             writer.append("Y"+seperator) //Instructions required Y/N
             writer.append((loanTerms.quantity * loanTerms.stockPrice.quantity).toString()+seperator) //market value of loan in loan currency
+            /** Not Required Start*/
             writer.append(""+seperator) //activity rate sign
             writer.append(""+seperator) //pre payment rate sign
             writer.append(""+seperator) //current rate sign
             writer.append(""+seperator) //finder fee rate sign
             writer.append(""+seperator) //Security class cross ref
+            /** Not Required End*/
             writer.append("N"+seperator) //Auto settled indicator
             writer.append("Y"+seperator) //mark trade indicator
             writer.append(""+seperator) //agency reference //TODO this
@@ -303,9 +353,13 @@ object SynIntegrationFlow {
             writer.append("0"+seperator) //own cash agency type -> same as above
             writer.append("105"+seperator) //non-cash collateral haircut percentage //TODO: This either needs to be added as a field to the loan or calculated from loan
             writer.append("DBAUS"+seperator) //own security clearer special instructions //TODO: Again this is just default copied from the example
+            /** Not Required Start*/
             writer.append("DBAUS"+seperator) //own cash clearer special instructions
+            /** Not Required End*/
             writer.append(""+seperator) //counterparty security clearer special instructions
+            /** Not Required Start*/
             writer.append(""+seperator) //counterparty cash clearer special instructions
+            /** Not Required End*/
             writer.append(loanTerms.stockPrice.quantity.toString()+seperator) //activity price to 7dp
             writer.append("0"+seperator) //new price after mark to 7dp -> price hasnt changed
             writer.append("T"+seperator) //activity file level -> Detail record level.  Can be T-Trade, F-Fund, C-Cost Centre
@@ -341,11 +395,15 @@ object SynIntegrationFlow {
             //generates a syn message from a specific set of loanTerms
             //Format of a syn message is txt file.
             writer.append("1"+seperator) //Record type default is one
-            writer.append(dateString+seperator) //Effective date TODO Loan could potentially store the start date, probably not needed
+            writer.append(dateString+seperator) //Effective date TODO Loan could potentially store the start date.
+            /** Not Required Start*/
             writer.append(""+seperator) //Maturity date or term date if the loan is fixed length //TODO Loan Terms should have a fixed length bool field or we just say none of thme are fixed length?
             writer.append(""+seperator) //Date of final repayment starts as blank, only present when fully repaid
+            /** Not Required End*/
             writer.append(dateString+seperator) //Security settlement date -> Only present if settled. Am assuming securities were settled on the day of issue here as this is the exit for the loan
+            /** Not Required Start*/
             writer.append(dateString+seperator) //Cash settlement date -> blank if not yet settled or if non cash or cash DVP trade
+            /** Not Required End*/
             writer.append(loan.state.data.quantity.toString()+seperator) //Active quantity
             writer.append((loan.state.data.quantity * loan.state.data.currentStockPrice.quantity).toString()+seperator) //Activity value TODO Should this now be the current stock price and not the original price
             writer.append(defaultCurrency+seperator) //Loan value currency code
@@ -357,22 +415,30 @@ object SynIntegrationFlow {
             writer.append("B"+seperator) //TODO: What is posting transaction type
             writer.append("0"+seperator) //Minimum fee
             writer.append(defaultCurrency+seperator) //Minimum fee currency
+            /** Not Required Start*/
             writer.append(((loan.state.data.terms.margin+1) * 100).toString()+seperator) //Required margin (as a percent It seems)
+            /** Not Required End*/
             writer.append("0"+seperator) //Cash prepayment rate
             writer.append(dateString+seperator) //Trade date
             writer.append(dateString+seperator) //Security settlement due date
             writer.append("CHESS"+seperator) //Security settlement mode
             writer.append(dateString+seperator) //Cash settlement due date
+            /** Not Required Start*/
             writer.append("WIRE"+seperator) //Cash settlement mode
+            /** Not Required End*/
             writer.append("E"+seperator) //Security main code type -> A-Sedol, B-ISIN, C-Cusip,D-Quick, E-Ticker, F-In-House cross reference //TODO: Okay to use ticket here?
             writer.append(loan.state.data.code+seperator) //Security main code
             writer.append(loan.state.data.code+seperator) //Security ticket (in this case same as main code)
             writer.append(loan.state.data.code+seperator) //Security in house (in this case still the same)
             writer.append(codeToISIN(loan.state.data.code)+seperator) //Security ISIN Code //TODO: Make a list of this where we store our codes and have a function to retrieve ISN from code. Currenyly hardcoding GBT
+            /** Not Required Start*/
             writer.append(""+seperator) //Security quick code //TODO Whats this
+            /** Not Required End*/
             writer.append(""+seperator) //Security SEDOL code //TODO Whats this
+            /** Not Required Start*/
             writer.append(""+seperator) //Security CUSPID code //TODO Whats this
             writer.append(""+seperator) //Security pricing identifier code //TODO Whats this
+            /** Not Required End*/
             writer.append("COM"+seperator) //Security class -> using common but not sure what the other classes are
             writer.append("N"+seperator) //Security bond indicator -> no as we are using regular securities at this point
             writer.append(codeToString(loan.state.data.code)+seperator)  //Security company name
@@ -386,16 +452,24 @@ object SynIntegrationFlow {
             writer.append(((loan.state.data.terms.margin+1) * 100).toString()+seperator) //Net dividend percentage //TODO How do i calculate this? For now im just doing total percentage
             writer.append("0"+seperator) // Overseas tax percentage
             writer.append("0"+seperator) // Domestic tax percentage
+            /** Not Required Start*/
             writer.append(""+seperator) // Fund or cost centre identifier
             writer.append(""+seperator) // Fund or cost cetnre cross reference code
+            /** Not Required End*/
             writer.append(dateString+seperator) // Activity input date -> entry date of activity. TODO Make sure activity input date can be the same as effective date (aka this instance of time)
+            /** Not Required Start*/
             writer.append(""+seperator) // Fund or cost centre major
+            /** Not Required End*/
             writer.append(timeString+seperator) // Acitivty time relative to activity input date
+            /** Not Required Start*/
             writer.append(""+seperator) //Finder code
+            /** Not Required End*/
             writer.append("0"+seperator) //Fomder fee rate
             writer.append(loan.state.data.linearId.toString()+seperator) //System generated unique identifier //TODO: How do i generate this? Maybe just hash something for now
             writer.append("T"+seperator) // Trade / Collateral indicator
+            /** Not Required Start*/
             writer.append(""+seperator) // Link reference //TODO Whats this
+            /** Not Required End*/
             if (loan.state.data.terms.collateralType == "Cash") {
                 writer.append("C"+seperator) //Collateral type C = cash, N = non cash
             } else {
@@ -411,12 +485,17 @@ object SynIntegrationFlow {
             writer.append("Y"+seperator) //Callable indicator -> can this be called over recodrd date
             writer.append("Y"+seperator) //DvP indicator
             writer.append("F"+seperator) //First/Last day indicator -> Interest payment calculation type F-First Day, L-Last Day, B-Both, FS-First SEN, LS-Last SEN, BS-Both SEN.  ‘S’ indicates SEN rate todo
+            /** Not Required Start*/
             writer.append(""+seperator) //Fail code
+            /** Not Required End*/
             writer.append(LoanChecks.getCounterParty(loanTerms, myIdentity).toString()+seperator) //Counter party code
             writer.append(LoanChecks.getCounterParty(loanTerms, myIdentity).name.toString()+seperator) //Counter party name
+            /** Not Required Start*/
             writer.append(""+seperator) //Counter party swift code
+            /** Not Required End*/
             writer.append(LoanChecks.getCounterParty(loanTerms, myIdentity).toString()+seperator) //Counter party cross reference
             writer.append(LoanChecks.getCounterParty(loanTerms, myIdentity).toString()+seperator) //Counter party major code
+            /** Not Required Start */
             writer.append(""+seperator) //Own Switf BIC code
             writer.append("AUDWIRE"+seperator) //Cash clearer code TODO this is defaulted from the example issue, same as below
             writer.append(""+seperator) //Cash clearer switft BIC
@@ -425,13 +504,17 @@ object SynIntegrationFlow {
             writer.append(""+seperator) //cash clearer account ref
             writer.append("Stephanie Wright"+seperator) //cash clearer contact
             writer.append("DEUTSCHE BANK AG"+seperator) //Cash clearer name
+            /** Not Required End*/
             writer.append("AUD"+seperator) //Security clearer code
+            /** Not Required Start*/
             writer.append(""+seperator) //Security clearer swift BIC
             writer.append(""+seperator) //Security clearer account number
             writer.append(""+seperator) //Security clearer sub-account
             writer.append(""+seperator) //Security clearer account reference
+            /** Not Required End*/
             writer.append("Stephanie Wright"+seperator) //Security clearer contact
             writer.append("DEUTSCHE BANK AG"+seperator) //Security clearer name
+            /** Not Required Start*/
             writer.append("AUD"+seperator) //CL cash clearer code
             writer.append(""+seperator) //CL cash clearer swift BIC
             writer.append("6102473"+seperator) //CL Cash clearer account number
@@ -439,30 +522,41 @@ object SynIntegrationFlow {
             writer.append(""+seperator) //CL cash clearer account reference
             writer.append("KATE DALE"+seperator) //CL cash clearer contact
             writer.append("JP MORGAN CHASE BANK (SYDNEY BRANCH)"+seperator) //CL cash clearer name
+            /** Not Required End*/
             writer.append("AUD"+seperator) //CL security clearer code
+            /** Not Required Start*/
             writer.append(""+seperator) //CL security clearer swift BIC
+            /** Not Required End*/
             writer.append("6102473"+seperator) //CL security clearer account number
+            /** Not Required Start*/
             writer.append(""+seperator) //CL security clearer sub-account
             writer.append(""+seperator) //CL security clearer account reference
+            /** Not Required End*/
             writer.append("KATE DALE"+seperator) //CL security clearer contact
             writer.append("JP MORGAN CHASE BANK (SYDNEY BRANCH)"+seperator) //CL security clearer name
             writer.append(loan.state.data.terms.rebate.toString()+seperator) //Current trade rate, fee or a rebate
             writer.append((loan.state.data.quantity * loan.state.data.stockPrice.quantity).toString()+seperator) //Initial loan value
             writer.append(loan.state.data.quantity.toString()+seperator) //Initial loan quantity
             writer.append("N"+seperator) //Recalled indicator
+            /** Not Required Start*/
             writer.append("N"+seperator) //Cash pool settlment
+            /** Not Required End*/
             writer.append("KNIGPET"+seperator) //User ID originator of the activity from the SB+ userid todo what is this actually, in example they use KNIGPET
             writer.append(""+seperator) //Authorization user ID
-            writer.append(dateString+seperator) //Authorization date
+            writer.append(dateString+seperator) //Authorization date todo for exit should this be the initial date of the date of exit (aka today)
             writer.append(timeString+seperator) //Authorization time
-            writer.append(""+seperator) //Final return flag todo whats this
+            /** Not Required Start*/
+            writer.append("Y"+seperator) //Final return flag todo whats this -> think this should be yes because this is a pending return?
+            /** Not Required End*/
             writer.append("N"+seperator) //Own counterparty security indicator -> Y if instruction details are overrideen on trade or return
             writer.append("N"+seperator) //Own counterparty cash indicator ‘Y’ if instruction details are overridden on Trade or Return
             writer.append("N"+seperator) //counterparty security indicator ‘Y’ if instruction details are overridden on Trade or Return
             writer.append("N"+seperator) //counterparty cash indicator ‘Y’ if instruction details are overridden on Trade or Return
+            /** Not Required Start*/
             writer.append(""+seperator) //Intercompany ref -> only present for trades set up through intercompany processing
             writer.append(""+seperator) //Location code -> Lenders Module only.  Populated for fund level activities and for principal borrow and principal collateral items
             writer.append(""+seperator) //Location cross ref -> Lenders Module only.  Populated for fund level activities and for principal borrow and principal collateral items
+            /** Not Required End*/
             writer.append("N"+seperator) //Repo type trade ->Y/N.  Set to ‘Y’ if trade was entered through Repo Trade Input or is a US Dollar Repo Trade.  Set to ’N’ if not Rep type trade
             writer.append("N"+seperator) //Monthly billing -> Y/N.  Only used if Repo Type Trade = ‘Y’.  Set to ‘Y’ if the Repo trade is to be billed monthly.  Leave blank for non-repo trades.
             writer.append("N"+seperator) //System settled -> Y/N.  Only set to ’Y’ if the Settlement Activity has been created automatically as a result of Maturity options processing.  Only applicable to SL, CL, SR, CR, RI
@@ -470,6 +564,7 @@ object SynIntegrationFlow {
             writer.append("N"+seperator) //Associated transaction -> Y/N.  Set to ‘Y’ for a ‘PR’ or ‘XPR’ which has an associated ‘PI’ or ‘XPI’.  Also set to ‘Y’ for a ‘PI’ or ‘XPI’ which has an associated ‘PR’ or ‘XPR’/
             writer.append("0"+seperator) //Coupon accural days TODO what is this
             writer.append("N"+seperator) //Security settlement suppressed -> Y/N.  Only set to ‘Y’ if ‘N’ entered to Settlement instructions flag on Trade Authorisation screen, only applicable to PL, XPL, PR, and XPR.
+            /** Not Required Start*/
             writer.append(""+seperator) //Crest own data participant identifier
             writer.append(""+seperator) //Crest counterparty data participant identifier
             writer.append(""+seperator) //Crest account identifier
@@ -477,37 +572,48 @@ object SynIntegrationFlow {
             writer.append(""+seperator) //Crest trade system or origin
             writer.append(""+seperator) //Crest NC condition
             writer.append(""+seperator) //Crest bargin conditions
+            /** Not Required End*/
             writer.append("0"+seperator) //Crest priority
+            /** Not Required Start*/
             writer.append(""+seperator) //Crest participant country of residence
             writer.append(""+seperator) //crest cash movement type
             writer.append(""+seperator) //crest payment type
             writer.append(""+seperator) //crest security category identifier
             writer.append(""+seperator) //crest concentration limit
+            /** Not Required End*/
             writer.append("0"+seperator) //crest dbv consideration
             writer.append(LoanChecks.getCounterParty(loanTerms, myIdentity).name.location+seperator) //counterparty security clearer address line 1 //TODO:  Check what to do here for these 4
             writer.append(LoanChecks.getCounterParty(loanTerms, myIdentity).name.location+seperator) //counterparty security clearer address line 2
+            /** Not Required Start*/
             writer.append(LoanChecks.getCounterParty(loanTerms, myIdentity).name.location+seperator) //counterparty cash clearer address line 1
             writer.append(LoanChecks.getCounterParty(loanTerms, myIdentity).name.location+seperator) //counterparty cash clearer address line 2
             writer.append(""+seperator) //From repo trade ref
             writer.append(""+seperator) //to repo trade ref
+            /** Not Required End*/
             writer.append("0"+seperator) //new price after mark -> copied from example,
             writer.append("1"+seperator) //num of fund/locations or cost centres
             writer.append("0"+seperator) //num of this fund/location or cost cetnre
             writer.append((loan.state.data.quantity * loan.state.data.currentStockPrice.quantity).toString()+seperator) //cash activity quantity
+            /** Not Required Start*/
             writer.append(""+seperator) //dividend ex date
             writer.append(""+seperator) //dividend record date
             writer.append(""+seperator) //dividend payment date
             writer.append(""+seperator) //dividend currency
+            /** Not Required End*/
             writer.append("0"+seperator) //gross rate per share
             writer.append("0"+seperator) //net rate per share
             writer.append("0"+seperator) //coupon rate for bonds
             writer.append("0"+seperator) //dividend claim value
             writer.append("0"+seperator) //overseas tax max
             writer.append("0"+seperator) //domestic tax max
+            /** Not Required Start*/
             writer.append(""+seperator) //pay/receieve indicator
             writer.append(""+seperator) //dividend paid date
+            /** Not Required End*/
             writer.append("0"+seperator) //dividend paid amount
+            /** Not Required Start*/
             writer.append(""+seperator) //dividend payment type
+            /** Not Required End*/
             writer.append("0"+seperator) //start clean price
             writer.append("0"+seperator) //start clean principle
             writer.append("0"+seperator) //start coupon accrual
@@ -521,11 +627,13 @@ object SynIntegrationFlow {
             writer.append("0"+seperator) //cash pool value
             writer.append("Y"+seperator) //Instructions required Y/N
             writer.append((loan.state.data.quantity * loan.state.data.currentStockPrice.quantity).toString()+seperator) //market value of loan in loan currency
+            /** Not Required Start*/
             writer.append(""+seperator) //activity rate sign
             writer.append(""+seperator) //pre payment rate sign
             writer.append(""+seperator) //current rate sign
             writer.append(""+seperator) //finder fee rate sign
             writer.append(""+seperator) //Security class cross ref
+            /** Not Required End*/
             writer.append("N"+seperator) //Auto settled indicator
             writer.append("Y"+seperator) //mark trade indicator
             writer.append(""+seperator) //agency reference //TODO this
@@ -534,9 +642,13 @@ object SynIntegrationFlow {
             writer.append("0"+seperator) //own cash agency type -> same as above
             writer.append("105"+seperator) //non-cash collateral haircut percentage //TODO: This either needs to be added as a field to the loan or calculated from loan
             writer.append("DBAUS"+seperator) //own security clearer special instructions //TODO: Again this is just default copied from the example
+            /** Not Required Start*/
             writer.append("DBAUS"+seperator) //own cash clearer special instructions
+            /** Not Required End*/
             writer.append(""+seperator) //counterparty security clearer special instructions
+            /** Not Required Start*/
             writer.append(""+seperator) //counterparty cash clearer special instructions
+            /** Not Required End*/
             writer.append(loan.state.data.currentStockPrice.quantity.toString()+seperator) //activity price to 7dp
             writer.append("0"+seperator) //new price after mark to 7dp -> price hasnt changed
             writer.append("T"+seperator) //activity file level -> Detail record level.  Can be T-Trade, F-Fund, C-Cost Centre
@@ -556,23 +668,6 @@ object SynIntegrationFlow {
             writer.close()
         }
 
-
-        fun readFromSyn() {
-            //Open the file as a string
-            val fileContents = IOUtils.toString(Thread.currentThread().contextClassLoader.getResourceAsStream("example_prices.txt"), Charsets.UTF_8.name())
-
-            //Read from file
-
-            //Close file and return
-        }
-
-        fun writeToSyn(msg : String) {
-            //Open the file
-
-            //Write the msg
-
-            //Close file and return
-        }
     }
 
     /** Further development/Other possibly needed functions
