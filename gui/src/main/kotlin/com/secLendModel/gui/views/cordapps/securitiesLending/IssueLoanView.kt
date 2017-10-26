@@ -38,6 +38,7 @@ import net.corda.core.serialization.OpaqueBytes
 import net.corda.core.transactions.TransactionBuilder
 import org.controlsfx.dialog.ExceptionDialog
 import tornadofx.*
+import java.time.LocalDateTime
 
 /**
  * Created by raymondm on 21/08/2017.
@@ -163,7 +164,7 @@ class IssueLoanView : Fragment() {
                             val priceTx = TransactionBuilder()
                             val priceQuery = rpcProxy.value?.startFlow(PriceRequestFlow::PriceQueryFlow, codeCB.value )
                             val loanTerms = LoanTerms(codeCB.value, amountTextField.text.toInt(), priceQuery!!.returnValue.get(), lender, borrower,
-                                    marginTextField.text.toDouble(), rebateTextField.text.toDouble(), lengthTextField.text.toInt(), collateralTypeCB.value)
+                                    marginTextField.text.toDouble(), rebateTextField.text.toDouble(), lengthTextField.text.toInt(), collateralTypeCB.value, LocalDateTime.now())
                             rpcProxy.value?.startFlow(LoanIssuanceFlow::Initiator, loanTerms) as FlowHandle<Unit>
 
                     }

@@ -37,6 +37,7 @@ import net.corda.core.messaging.FlowHandle
 import net.corda.core.messaging.startFlow
 import net.corda.core.transactions.TransactionBuilder
 import org.omg.PortableServer.THREAD_POLICY_ID
+import java.time.LocalDateTime
 import java.util.concurrent.Delayed
 
 /**
@@ -82,7 +83,7 @@ class MainView : View() {
                 val myInfo = rpcProxy.value!!.nodeIdentity().legalIdentity
                 val otherParty = parties.filter { it.advertisedServices.isEmpty() && it.legalIdentity != myInfo  && it.legalIdentity.name.commonName == "Commbank" }.single().legalIdentity
                 val loanTerms = LoanTerms("CBA", 1200, Amount(2535, CURRENCY), otherParty, myInfo,
-                        0.05, 0.05, 100, "Cash")
+                        0.05, 0.05, 100, "Cash", LocalDateTime.now())
                 val loanTermsReturned = rpcProxy.value?.startFlow(LoanAgreementFlow::Borrower, loanTerms)!!.returnValue.getOrThrow()
 
                 runInFxApplicationThread {
@@ -95,7 +96,7 @@ class MainView : View() {
                     }
                 }
                 val loanTerms2 = LoanTerms("CBA", 1200, Amount(2535, CURRENCY), myInfo, otherParty,
-                        0.05, 0.05, 100, "Cash")
+                        0.05, 0.05, 100, "Cash", LocalDateTime.now())
                 val loanTermsReturned2 = rpcProxy.value?.startFlow(LoanAgreementFlow::Borrower, loanTerms2)!!.returnValue.getOrThrow()
             }
         }
@@ -152,46 +153,46 @@ class MainView : View() {
         println(otherParty)
         //Loan borrow 1200 CBA w/cash collateral
         val loanTerms = LoanTerms("CBA", 1200, Amount(2535, CURRENCY), otherParty, myInfo,
-                0.05, 0.05, 100, "Cash")
+                0.05, 0.05, 100, "Cash", LocalDateTime.now())
         val flow = rpcProxy.value?.startFlow(LoanIssuanceFlow::Initiator, loanTerms)!!.returnValue.getOrThrow()
 
         val loanTerms2 = LoanTerms("CBA", 3000, Amount(2122, CURRENCY), myInfo, otherParty,
-                0.07, 0.05, 100, "Cash")
+                0.07, 0.05, 100, "Cash", LocalDateTime.now())
         val flow2 = rpcProxy.value?.startFlow(LoanIssuanceFlow::Initiator, loanTerms2)!!.returnValue.getOrThrow()
 
         val loanTerms9 = LoanTerms("CBA", 800, Amount(2421, CURRENCY), otherParty, myInfo,
-                0.04, 0.05, 100, "Cash")
+                0.04, 0.05, 100, "Cash", LocalDateTime.now())
         val flow9 = rpcProxy.value?.startFlow(LoanIssuanceFlow::Initiator, loanTerms9)!!.returnValue.getOrThrow()
 
         //Loan lend 900 RIO w/cash collateral
         val loanTerms3 = LoanTerms("RIO", 900, Amount(2356, CURRENCY), myInfo, otherParty,
-                0.05, 0.05, 100, "Cash")
+                0.05, 0.05, 100, "Cash", LocalDateTime.now())
         val flow3 = rpcProxy.value?.startFlow(LoanIssuanceFlow::Initiator, loanTerms3)!!.returnValue.getOrThrow()
 
         //Loan borrow 850 NAB w/cash collateral
         val loanTerms4 = LoanTerms("NAB", 850, Amount(2410, CURRENCY), otherParty, myInfo,
-                0.05, 0.05, 100, "Cash")
+                0.05, 0.05, 100, "Cash", LocalDateTime.now())
         val flow4 = rpcProxy.value?.startFlow(LoanIssuanceFlow::Initiator, loanTerms4)!!.returnValue.getOrThrow()
 
         //Loan borrow 500 CBA w/GBT collateral
         val loanTerms5 = LoanTerms("CBA", 500, Amount(2750, CURRENCY), otherParty, myInfo,
-                0.05, 0.05, 100, "GBT")
+                0.05, 0.05, 100, "GBT", LocalDateTime.now())
         val flow5 = rpcProxy.value?.startFlow(LoanIssuanceFlow::Initiator, loanTerms5)!!.returnValue.getOrThrow()
 
         //Loan lend 350 CBA w/GBT collateral
         val loanTerms6 = LoanTerms("CBA", 350, Amount(2195, CURRENCY), myInfo, otherParty,
-                0.05, 0.05, 100, "GBT")
+                0.05, 0.05, 100, "GBT", LocalDateTime.now())
         val flow6 = rpcProxy.value?.startFlow(LoanIssuanceFlow::Initiator, loanTerms6)!!.returnValue.getOrThrow()
 
         //Loan lend 250 RIO w/GBT collateral
         val loanTerms7 = LoanTerms("RIO", 250, Amount(2888, CURRENCY), myInfo, otherParty,
-                0.05, 0.05, 100, "GBT")
+                0.05, 0.05, 100, "GBT", LocalDateTime.now())
         val flow7 = rpcProxy.value?.startFlow(LoanIssuanceFlow::Initiator, loanTerms7)!!.returnValue.getOrThrow()
 
 
         //Loan borrow 550 NAB w/GBT collateral
         val loanTerms8 = LoanTerms("NAB", 550, Amount(3253, CURRENCY), otherParty, myInfo,
-                0.05, 0.05, 100, "GBT")
+                0.05, 0.05, 100, "GBT", LocalDateTime.now())
         val flow8 = rpcProxy.value?.startFlow(LoanIssuanceFlow::Initiator, loanTerms8)!!.returnValue.getOrThrow()
 
 
