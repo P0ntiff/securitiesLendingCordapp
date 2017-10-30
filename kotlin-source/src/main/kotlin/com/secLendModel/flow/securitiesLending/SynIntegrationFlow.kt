@@ -14,6 +14,7 @@ import net.corda.core.flows.InitiatingFlow
 import net.corda.core.flows.StartableByRPC
 import net.corda.core.identity.Party
 import java.io.PrintWriter
+import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
 /**
@@ -32,15 +33,18 @@ object SynIntegrationFlow {
         override fun call(): Unit {
             //STEP 1: Generate the file to indicate loan issuance
             val myIdentity = serviceHub.myInfo.legalIdentity
-            //TODO check this but because of some fields in the syn file, the loan needs to be sent on corda first.
-            //todo other option is generate a loanID here, then if syn accepts the loan we generate a loan with a specific ID? Could work.
-            val loanID : UniqueIdentifier = subFlow(LoanIssuanceFlow.Initiator(loanTerms))
+            /** Unique ID is simply generated as part of the secLoan contract, could move it out of the flow and provide a unique ID within loanIssuanceFlow (perhaps as an optional flow?)
+             * problem arises here in trying to override the linearID state - doesnt allow the uniqueID to be supplied. Best option is to try generate the loan, if syn says no immediately exit
+             * the loan (at this point no fee is charged so not an issue, once there is a fee will need an exit without fee flow).
+             */
+            val loanID: UniqueIdentifier = subFlow(LoanIssuanceFlow.Initiator(loanTerms))
             SynIntegrationFlow.messageProcessor().getSynMessageIssue(loanTerms, myIdentity, loanID)
 
-            //STEP 2: Wait for Syn to respond, on yes continue the process, on no exit
+            //STEP 2: Wait for Syn to respond, on yes continue the process, on no exit the loan
+            //if (synResponse == no) {
+                //subFlow(LoanTerminateFlow.Terminator(loanTerms))
+            //}
 
-            //STEP 3: Conduct the actual loan issuance and commit to ledger
-            //subFlow(LoanIssuanceFlow.Initiator(loanTerms))
 
             return
         }
@@ -96,7 +100,6 @@ object SynIntegrationFlow {
             }
         }
 
-
         fun getLoanTerms(synMessage: String) {
 
         }
@@ -109,7 +112,8 @@ object SynIntegrationFlow {
             val writer = PrintWriter("examplesyn.dat")
             //Write the header
             writer.append("0|Activity|DBAUS|20160307||ACG|NEW||DB_Global1.csv|DBAUS\n")
-            val dateString = loanTerms.effectiveDate.year.toString()+""+loanTerms.effectiveDate.dayOfMonth.toString()+""+loanTerms.effectiveDate.monthValue.toString()
+            //val dateString = loanTerms.effectiveDate.year.toString()+""+loanTerms.effectiveDate.dayOfMonth.toString()+""+loanTerms.effectiveDate.monthValue.toString()
+            val dateString = ""+loanTerms.effectiveDate.year.toString()+loanTerms.effectiveDate.monthValue.toString()+loanTerms.effectiveDate.dayOfMonth.toString()
             val timeString = loanTerms.effectiveDate.format(DateTimeFormatter.ISO_TIME).toString()
             println(dateString)
             println(timeString)
@@ -238,7 +242,7 @@ object SynIntegrationFlow {
             /** Not Required Start*/
             writer.append("AUD"+seperator) //CL cash clearer code
             writer.append(""+seperator) //CL cash clearer swift BIC
-            writer.append("6102473"+seperator) //CL Cash clearer account number
+            writer.append("6000000"+seperator) //CL Cash clearer account number
             writer.append(""+seperator) // CL Cash clearer sub-account
             writer.append(""+seperator) //CL cash clearer account reference
             writer.append("KATE DALE"+seperator) //CL cash clearer contact
@@ -650,7 +654,7 @@ object SynIntegrationFlow {
             writer.append("N"+seperator) //matched investment indicator
             writer.append("0"+seperator) //own security agency type -> 0-No Link, 1-Euroclear, 2-Cedel, 3-Kassenverein, 4-Citibank, 5-DTC, 6-Telex, 7-Polaris, 8-JP Morgan, 9-SWIFT, 10-Talisman, 11-Canadian Depository (CDS), 12-Debt Clearing System (DCS), 13-CGO (Central Gifts Office), 14-CREST, 15-Bank of New York (BONY), 16-Generic BULK instructions
             writer.append("0"+seperator) //own cash agency type -> same as above
-            writer.append("105"+seperator) //non-cash collateral haircut percentage //TODO: This either needs to be added as a field to the loan or calculated from loan
+            writer.append("105"+seperator) //non-cash collateral haircut percentage //TODO: This either needs to be added as a field to the loan or calculated from loan -> although for now we arent doing non cash collateral
             writer.append("DBAUS"+seperator) //own security clearer special instructions //TODO: Again this is just default copied from the example
             /** Not Required Start*/
             writer.append("DBAUS"+seperator) //own cash clearer special instructions
@@ -666,7 +670,7 @@ object SynIntegrationFlow {
             writer.append((loan.state.data.quantity * loan.state.data.currentStockPrice.quantity).toString()+seperator) //activity quantity to 2dp
             writer.append((loanTerms.quantity * loanTerms.stockPrice.quantity).toString()+seperator) //initial quantity to 2dp
             writer.append((loanTerms.quantity * loanTerms.stockPrice.quantity).toString()+seperator) //cash activity quantity to 2dp
-            writer.append("AUS"+seperator) //security country of issue
+            writer.append("XASX"+seperator) //security country of issue
 
             //Seems these two are on the last line
             writer.append("\n");

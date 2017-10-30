@@ -34,6 +34,7 @@ object LoanIssuanceFlow {
     open class Initiator(val loanTerms : LoanTerms) : FlowLogic<UniqueIdentifier>() {
         @Suspendable
         override fun call(): UniqueIdentifier {
+            //TODO: Have an optional field for uniqueID -> if used then we need to have another flow for generating a loan provided with a unique ID. If its null we generate one and pass it to the generateIssue function
             val notary = serviceHub.networkMapCache.notaryNodes.single().notaryIdentity
             val counterParty = getCounterParty(loanTerms, serviceHub.myInfo.legalIdentity)
 
