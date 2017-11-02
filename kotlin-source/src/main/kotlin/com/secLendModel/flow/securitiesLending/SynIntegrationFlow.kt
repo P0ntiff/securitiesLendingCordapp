@@ -14,7 +14,6 @@ import net.corda.core.flows.InitiatingFlow
 import net.corda.core.flows.StartableByRPC
 import net.corda.core.identity.Party
 import java.io.PrintWriter
-import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
 /**
@@ -28,9 +27,9 @@ import java.time.format.DateTimeFormatter
 object SynIntegrationFlow {
     @StartableByRPC
     @InitiatingFlow
-    open class SynIssueLoan(val loanTerms: LoanTerms) : FlowLogic<Unit>() {
+    open class SynIssueLoan(val loanTerms: LoanTerms) : FlowLogic<UniqueIdentifier>() {
         @Suspendable
-        override fun call(): Unit {
+        override fun call(): UniqueIdentifier {
             //STEP 1: Generate the file to indicate loan issuance
             val myIdentity = serviceHub.myInfo.legalIdentity
             /** Unique ID is simply generated as part of the secLoan contract, could move it out of the flow and provide a unique ID within loanIssuanceFlow (perhaps as an optional flow?)
@@ -46,13 +45,13 @@ object SynIntegrationFlow {
             //}
 
 
-            return
+            return loanID
         }
 
     }
 
-
-    open class ExitLoan(val loanTerms: LoanTerms, val LoanID : UniqueIdentifier) : FlowLogic<Unit>() {
+    @StartableByRPC
+    open class SynExitLoan(val loanTerms: LoanTerms, val LoanID : UniqueIdentifier) : FlowLogic<Unit>() {
         @Suspendable
         override fun call(): Unit {
             //STEP 1: Generate the file to indicate loan exit
@@ -109,7 +108,7 @@ object SynIntegrationFlow {
             val seperator = "|"
             val defaultCurrency = "AUD"
             //dat file format required by syn
-            val writer = PrintWriter("examplesyn.dat")
+            val writer = PrintWriter("examplesynissue.dat")
             //Write the header
             writer.append("0|Activity|DBAUS|20160307||ACG|NEW||DB_Global1.csv|DBAUS\n")
             //val dateString = loanTerms.effectiveDate.year.toString()+""+loanTerms.effectiveDate.dayOfMonth.toString()+""+loanTerms.effectiveDate.monthValue.toString()
@@ -399,10 +398,10 @@ object SynIntegrationFlow {
             val seperator = "|"
             val defaultCurrency = "AUD"
             //dat file format required by syn
-            val writer = PrintWriter("examplesyn.dat")
+            val writer = PrintWriter("examplesynexit.dat")
             //Write the header
             writer.append("0|Activity|DBAUS|20160307||ACG|NEW||DB_Global1.csv|DBAUS\n")
-            val dateString = loan.state.data.terms.effectiveDate.year.toString()+""+loan.state.data.terms.effectiveDate.dayOfMonth.toString()+""+loan.state.data.terms.effectiveDate.monthValue.toString()
+            val dateString = loan.state.data.terms.effectiveDate.year.toString()+loan.state.data.terms.effectiveDate.monthValue.toString()+loan.state.data.terms.effectiveDate.dayOfMonth.toString()
             val timeString = loan.state.data.terms.effectiveDate.format(DateTimeFormatter.ISO_TIME).toString()
             println(dateString)
             println(timeString)
@@ -670,7 +669,7 @@ object SynIntegrationFlow {
             writer.append((loan.state.data.quantity * loan.state.data.currentStockPrice.quantity).toString()+seperator) //activity quantity to 2dp
             writer.append((loanTerms.quantity * loanTerms.stockPrice.quantity).toString()+seperator) //initial quantity to 2dp
             writer.append((loanTerms.quantity * loanTerms.stockPrice.quantity).toString()+seperator) //cash activity quantity to 2dp
-            writer.append("XASX"+seperator) //security country of issue
+            writer.append("AUS"+seperator) //security country of issue
 
             //Seems these two are on the last line
             writer.append("\n");

@@ -19,7 +19,7 @@ import com.secLendModel.flow.securitiesLending.LoanTerminationFlow.TerminationAc
 import com.secLendModel.flow.securitiesLending.LoanPartialTerminationFlowTerminationFlow.PartTerminator
 import com.secLendModel.flow.securitiesLending.LoanPartialTerminationFlowTerminationFlow.PartTerminationAcceptor
 import com.secLendModel.flow.securitiesLending.SynIntegrationFlow.SynIssueLoan
-import com.secLendModel.flow.securitiesLending.SynIntegrationFlow.ExitLoan
+import com.secLendModel.flow.securitiesLending.SynIntegrationFlow.SynExitLoan
 
 import net.corda.core.contracts.Amount
 import net.corda.core.contracts.UniqueIdentifier
@@ -215,7 +215,8 @@ class Simulation(options : String?) {
 
         }
         //TEST SYN INTRGRATION - > Generates a random loan on the ledger and outputs an example.dat file to be loaded into Syn
-        synIntegrationTest(parties[0].second, true)
+        val synID = synIntegrationTest(parties[0].second, true)
+        synIntegrationExit(parties[0].second,synID)
         //Test Loan with cash collateral
         //Loan CBA to demonstrate loan netting
         //val id5 = LoanSecuritySpecific(parties[0].second, true, parties[1].second, "Cash", "CBA")
@@ -292,8 +293,9 @@ class Simulation(options : String?) {
             startFlowPermission<LoanNetFlow.NetAcceptor>(),
             startFlowPermission<LoanPartialTerminationFlowTerminationFlow.PartTerminator>(),
             startFlowPermission<LoanPartialTerminationFlowTerminationFlow.PartTerminationAcceptor>(),
+            startFlowPermission<LoanRetrievalFlow>(),
             startFlowPermission<SynIntegrationFlow.SynIssueLoan>(),
-            startFlowPermission<SynIntegrationFlow.ExitLoan>()
+            startFlowPermission<SynIntegrationFlow.SynExitLoan>()
     )
     private fun allocateOracleRequestPermissions() : Set<String> = setOf(
             startFlowPermission<PriceRequestFlow>(),
@@ -559,7 +561,7 @@ class Simulation(options : String?) {
         println("Loan with ID '$id' partiall terminated with amount $amountToTerminate")
     }
 
-    private fun synIntegrationTest(me: CordaRPCOps, BorrowerInitiates : Boolean): Unit {
+    private fun synIntegrationTest(me: CordaRPCOps, BorrowerInitiates : Boolean): UniqueIdentifier {
         val rand = Random()
         val stockIndex = rand.nextInt(CODES.size - 0) + 0
         //Quantity between 10,000 and 50,000 shares
@@ -581,8 +583,15 @@ class Simulation(options : String?) {
                 randomBorrower.nodeIdentity().legalIdentity,
                 margin, rebate, length, "Cash", LocalDateTime.now())
         println("Syn issue loan test")
-        me.startFlow(::SynIssueLoan, loanTerms)
-        return;
+        val linearID = me.startFlow(::SynIssueLoan, loanTerms).returnValue.getOrThrow()
+        return linearID;
+    }
+
+    private fun synIntegrationExit(me: CordaRPCOps,  id : UniqueIdentifier) {
+        val loan = me.startFlow(::LoanRetrievalFlow, id).returnValue.getOrThrow()
+        val actualTerms = LoanChecks.stateToLoanTerms(loan.state.data)
+        me.startFlow(::SynExitLoan, actualTerms, id)
+        return
     }
 }
 
