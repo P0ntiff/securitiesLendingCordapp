@@ -578,7 +578,7 @@ class Simulation(options : String?) {
         //Pick a random party to be the borrower
         val randomBorrower = parties.filter { it.first != me.nodeIdentity().legalIdentity }[rand.nextInt(parties.size - 1)].second
         //Storage container for loan terms
-        val loanTerms = LoanTerms(CODES[0], quantity, sharePrice,
+        val loanTerms = LoanTerms(CODES[1], quantity, sharePrice,
                 me.nodeIdentity().legalIdentity,
                 randomBorrower.nodeIdentity().legalIdentity,
                 margin, rebate, length, "Cash", LocalDateTime.now())

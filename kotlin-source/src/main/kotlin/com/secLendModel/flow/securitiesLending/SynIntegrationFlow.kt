@@ -99,10 +99,11 @@ object SynIntegrationFlow {
             }
         }
 
-        fun getLoanTerms(synMessage: String) {
-
-        }
-
+        /** Generates a correctly outputted Global1 text file for a SBL Pending Lend.
+         * This file can then be processed by Syn to genereate the actual asset transfer.
+         * Note that some terms are simply set to defaults provided by the example Global1 files - such as cash borrower
+         * accounts, account names, etc.
+         */
         fun getSynMessageIssue(loanTerms : LoanTerms, myIdentity: Party, LoanID : UniqueIdentifier) {
             //FOR TESTING WRITE TO THIS FILE AND CAN COMPARE
             val seperator = "|"
@@ -111,11 +112,8 @@ object SynIntegrationFlow {
             val writer = PrintWriter("examplesynissue.dat")
             //Write the header
             writer.append("0|Activity|DBAUS|20160307||ACG|NEW||DB_Global1.csv|DBAUS\n")
-            //val dateString = loanTerms.effectiveDate.year.toString()+""+loanTerms.effectiveDate.dayOfMonth.toString()+""+loanTerms.effectiveDate.monthValue.toString()
             val dateString = ""+loanTerms.effectiveDate.year.toString()+loanTerms.effectiveDate.monthValue.toString()+loanTerms.effectiveDate.dayOfMonth.toString()
             val timeString = loanTerms.effectiveDate.format(DateTimeFormatter.ISO_TIME).toString()
-            println(dateString)
-            println(timeString)
             //generates a syn message from a specific set of loanTerms
             //Format of a syn message is txt file.
             writer.append("1"+seperator) //Record type default is one
@@ -251,7 +249,7 @@ object SynIntegrationFlow {
             /** Not Required Start*/
             writer.append(""+seperator) //CL security clearer swift BIC
             /** Not Required End*/
-            writer.append("6102473"+seperator) //CL security clearer account number
+            writer.append("6000000"+seperator) //CL security clearer account number
             /** Not Required Start*/
             writer.append(""+seperator) //CL security clearer sub-account
             writer.append(""+seperator) //CL security clearer account reference
@@ -380,7 +378,7 @@ object SynIntegrationFlow {
             writer.append((loanTerms.quantity * loanTerms.stockPrice.quantity).toString()+seperator) //activity quantity to 2dp
             writer.append((loanTerms.quantity * loanTerms.stockPrice.quantity).toString()+seperator) //initial quantity to 2dp
             writer.append((loanTerms.quantity * loanTerms.stockPrice.quantity).toString()+seperator) //cash activity quantity to 2dp
-            writer.append("AUS"+seperator) //security country of issue
+            writer.append("AUD"+seperator) //security country of issue
 
             //Seems these two are on the last line
             writer.append("\n");
@@ -392,7 +390,11 @@ object SynIntegrationFlow {
             writer.close()
         }
 
-        //TODO this is currently the same as issue so need to change a few fields
+        /** Generates a correctly outputted Global1 text file for a SBL Pending Return (PR).
+         * This file can then be processed by Syn to genereate the actual asset transfer/return of a loan.
+         * Note that as in issue, some terms are simply set to defaults provided by the example Global1 files - such as cash borrower
+         * accounts, account names, etc.
+         */
         fun getSynMessageExit(loan : StateAndRef<SecurityLoan.State>, myIdentity: Party, LoanID : UniqueIdentifier, loanTerms: LoanTerms) {
             //FOR TESTING WRITE TO THIS FILE AND CAN COMPARE
             val seperator = "|"
@@ -403,8 +405,6 @@ object SynIntegrationFlow {
             writer.append("0|Activity|DBAUS|20160307||ACG|NEW||DB_Global1.csv|DBAUS\n")
             val dateString = loan.state.data.terms.effectiveDate.year.toString()+loan.state.data.terms.effectiveDate.monthValue.toString()+loan.state.data.terms.effectiveDate.dayOfMonth.toString()
             val timeString = loan.state.data.terms.effectiveDate.format(DateTimeFormatter.ISO_TIME).toString()
-            println(dateString)
-            println(timeString)
             //generates a syn message from a specific set of loanTerms
             //Format of a syn message is txt file.
             writer.append("1"+seperator) //Record type default is one
@@ -423,7 +423,7 @@ object SynIntegrationFlow {
             writer.append(loan.state.data.stockPrice.quantity.toString()+seperator) //Activity price
             writer.append(LoanID.toString()+seperator) //ID for this loan -> note this means the loan is issued before these details are sent to syn, if syn rejects could be some problems
             writer.append((loan.state.data.quantity * loan.state.data.currentStockPrice.quantity).toString()+seperator) //Market value of loan in market currency TODO unit of quotation currently 1
-            writer.append("PL"+seperator) //Activity type -> currently is pending trade, after DVP on Corda this is updated
+            writer.append("PR"+seperator) //Activity type -> currently is pending trade, after DVP on Corda this is updated
             writer.append("0"+seperator) //Activity loan rate -> //TODO Should add this loanRate/Fee term to the loanTerms
             writer.append("B"+seperator) //TODO: What is posting transaction type
             writer.append("0"+seperator) //Minimum fee
@@ -530,7 +530,7 @@ object SynIntegrationFlow {
             /** Not Required Start*/
             writer.append("AUD"+seperator) //CL cash clearer code
             writer.append(""+seperator) //CL cash clearer swift BIC
-            writer.append("6102473"+seperator) //CL Cash clearer account number
+            writer.append("6000000"+seperator) //CL Cash clearer account number
             writer.append(""+seperator) // CL Cash clearer sub-account
             writer.append(""+seperator) //CL cash clearer account reference
             writer.append("KATE DALE"+seperator) //CL cash clearer contact
@@ -540,7 +540,7 @@ object SynIntegrationFlow {
             /** Not Required Start*/
             writer.append(""+seperator) //CL security clearer swift BIC
             /** Not Required End*/
-            writer.append("6102473"+seperator) //CL security clearer account number
+            writer.append("6000000"+seperator) //CL security clearer account number
             /** Not Required Start*/
             writer.append(""+seperator) //CL security clearer sub-account
             writer.append(""+seperator) //CL security clearer account reference
@@ -669,7 +669,7 @@ object SynIntegrationFlow {
             writer.append((loan.state.data.quantity * loan.state.data.currentStockPrice.quantity).toString()+seperator) //activity quantity to 2dp
             writer.append((loanTerms.quantity * loanTerms.stockPrice.quantity).toString()+seperator) //initial quantity to 2dp
             writer.append((loanTerms.quantity * loanTerms.stockPrice.quantity).toString()+seperator) //cash activity quantity to 2dp
-            writer.append("AUS"+seperator) //security country of issue
+            writer.append("AUD"+seperator) //security country of issue
 
             //Seems these two are on the last line
             writer.append("\n");
