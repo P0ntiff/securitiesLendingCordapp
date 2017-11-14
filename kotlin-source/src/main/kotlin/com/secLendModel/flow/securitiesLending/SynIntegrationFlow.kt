@@ -22,6 +22,16 @@ import java.time.format.DateTimeFormatter
  * This Syn Integration flow is used to integrate the Cordapp with the Syn system. It allows the cordapp to generate
  * loan txns and then send this request off to syn - who will do the actual transfer of assets. Once this is processed
  * this flow will commit the txn to the corda ledger. Essentially mirroring the real world asset transfer.
+ *
+ * Steps for use
+ * 1. Run Main.kt - this will generate two files in the build, exaplesynissue.dat and examplesynexit.dat
+ * 2. Launch the ANGDEMO virtual machine, found @J:\Products\Syn\ANG Demo v1.0
+ * 3. Launch first 4 executables in the startup folder on the VM dekstop
+ * 4. Copy the examplesynissue and examplesynexit files to the VM and rename them with the format DTMMDDNUM.DAT (NUM can be any 3 digit number)
+ * 5. Place the renamed examplesynissue file into the G1S1 incoming files folder (found @)
+ * 6. Run the SBLG1S1 CAF
+ * 7. Open chrome and launch the Syn webapp.
+ * 8. Once you can see the loan issue under messages, copy the examplesynexit into the same G1S1 incoming folder
  */
 
 object SynIntegrationFlow {
@@ -51,7 +61,7 @@ object SynIntegrationFlow {
     }
 
     @StartableByRPC
-    open class SynExitLoan(val loanTerms: LoanTerms, val LoanID : UniqueIdentifier) : FlowLogic<Unit>() {
+    open class SynExitLoan(val loanTerms: LoanTerms, val LoanID : UniqueIdentifier, val amountToTerminate: Int) : FlowLogic<Unit>() {
         @Suspendable
         override fun call(): Unit {
             //STEP 1: Generate the file to indicate loan exit
@@ -59,12 +69,16 @@ object SynIntegrationFlow {
             val secLoan = subFlow(LoanRetrievalFlow(LoanID))
             val loanTerms = LoanChecks.stateToLoanTerms(secLoan.state.data)
             val myIdentity = serviceHub.myInfo.legalIdentity
-            SynIntegrationFlow.messageProcessor().getSynMessageExit(secLoan, myIdentity, LoanID, loanTerms)
+            SynIntegrationFlow.messageProcessor().getSynMessageExit(secLoan, myIdentity, LoanID, loanTerms, amountToTerminate)
 
             //STEP 2: Wait for Syn to respond, on yes continue the process
 
             //STEP 3: Conduct the actual loan Exit.
-            subFlow(LoanTerminationFlow.Terminator(LoanID))
+            if (amountToTerminate == loanTerms.quantity) {
+                subFlow(LoanTerminationFlow.Terminator(LoanID))
+            } else {
+                subFlow(LoanPartialTerminationFlowTerminationFlow.PartTerminator(LoanID, amountToTerminate))
+            }
             return
         }
 
@@ -130,7 +144,7 @@ object SynIntegrationFlow {
             writer.append((loanTerms.quantity * loanTerms.stockPrice.quantity).toString()+seperator) //Activity value
             writer.append(defaultCurrency+seperator) //Loan value currency code
             writer.append(loanTerms.stockPrice.quantity.toString()+seperator) //Activity price
-            writer.append(LoanID.toString()+seperator) //ID for this loan -> note this means the loan is issued before these details are sent to syn, if syn rejects could be some problems
+            writer.append(LoanID.toString().subSequence(0, 10).toString()+seperator) //ID for this loan -> note this means the loan is issued before these details are sent to syn, if syn rejects could be some problems
             writer.append((loanTerms.quantity * loanTerms.stockPrice.quantity).toString()+seperator) //Market value of loan in market currency //TODO currently setting uniq of quotation to 1
             writer.append("PL"+seperator) //Activity type -> currently is pending trade, after DVP on Corda this is updated
             writer.append("0"+seperator) //Activity loan rate -> //TODO Should add this loanRate/Fee term to the loanTerms
@@ -187,7 +201,7 @@ object SynIntegrationFlow {
             writer.append(""+seperator) //Finder code
             /** Not Required End*/
             writer.append("0"+seperator) //Fomder fee rate
-            writer.append(LoanID.toString()+seperator) //System generated unique identifier -> currently using the loans unique ID in corda
+            writer.append(LoanID.toString().subSequence(0,10).toString()+seperator) //System generated unique identifier -> currently using the loans unique ID in corda
             writer.append("T"+seperator) // Trade / Collateral indicator
             /** Not Required Start*/
             writer.append(""+seperator) // Link reference //TODO Whats this
@@ -315,7 +329,8 @@ object SynIntegrationFlow {
             writer.append("0"+seperator) //new price after mark -> copied from example,
             writer.append("1"+seperator) //num of fund/locations or cost centres
             writer.append("0"+seperator) //num of this fund/location or cost cetnre
-            writer.append((loanTerms.quantity * loanTerms.stockPrice.quantity).toString()+seperator) //cash activity quantity
+            //writer.append((loanTerms.quantity * loanTerms.stockPrice.quantity).toString()+seperator) //cash activity quantity todo this is actually loan amount
+            writer.append((loanTerms.quantity).toString()+seperator)
             /** Not Required Start*/
             writer.append(""+seperator) //dividend ex date
             writer.append(""+seperator) //dividend record date
@@ -375,9 +390,12 @@ object SynIntegrationFlow {
             writer.append("0"+seperator) //new price after mark to 7dp -> price hasnt changed
             writer.append("T"+seperator) //activity file level -> Detail record level.  Can be T-Trade, F-Fund, C-Cost Centre
             writer.append("0"+seperator) //accrual paid
-            writer.append((loanTerms.quantity * loanTerms.stockPrice.quantity).toString()+seperator) //activity quantity to 2dp
-            writer.append((loanTerms.quantity * loanTerms.stockPrice.quantity).toString()+seperator) //initial quantity to 2dp
-            writer.append((loanTerms.quantity * loanTerms.stockPrice.quantity).toString()+seperator) //cash activity quantity to 2dp
+            //writer.append((loanTerms.quantity * loanTerms.stockPrice.quantity).toString()+seperator) //activity quantity to 2dp
+            //writer.append((loanTerms.quantity * loanTerms.stockPrice.quantity).toString()+seperator) //initial quantity to 2dp
+            //writer.append((loanTerms.quantity * loanTerms.stockPrice.quantity).toString()+seperator) //cash activity quantity to 2dp
+            writer.append((loanTerms.quantity.toString()+seperator)) //activity quantity to 2dp
+            writer.append((loanTerms.quantity.toString()+seperator)) //initial quantity to 2dp
+            writer.append((loanTerms.quantity).toString()+seperator) //cash activity quantity to 2dp
             writer.append("AUD"+seperator) //security country of issue
 
             //Seems these two are on the last line
@@ -395,7 +413,8 @@ object SynIntegrationFlow {
          * Note that as in issue, some terms are simply set to defaults provided by the example Global1 files - such as cash borrower
          * accounts, account names, etc.
          */
-        fun getSynMessageExit(loan : StateAndRef<SecurityLoan.State>, myIdentity: Party, LoanID : UniqueIdentifier, loanTerms: LoanTerms) {
+        fun getSynMessageExit(loan : StateAndRef<SecurityLoan.State>, myIdentity: Party, LoanID : UniqueIdentifier, loanTerms: LoanTerms,
+                              amountToTerminate: Int) {
             //FOR TESTING WRITE TO THIS FILE AND CAN COMPARE
             val seperator = "|"
             val defaultCurrency = "AUD"
@@ -417,13 +436,14 @@ object SynIntegrationFlow {
             /** Not Required Start*/
             writer.append(dateString+seperator) //Cash settlement date -> blank if not yet settled or if non cash or cash DVP trade
             /** Not Required End*/
-            writer.append(loan.state.data.quantity.toString()+seperator) //Active quantity
-            writer.append((loan.state.data.quantity * loan.state.data.currentStockPrice.quantity).toString()+seperator) //Activity value TODO Should this now be the current stock price and not the original price
+            //TODO not sure if for PR the activity quantity should be the quantity of stock left or not? try return half and see if that works
+            writer.append((loan.state.data.quantity - amountToTerminate).toString()+seperator) //Active quantity //todo for some reason if we try to return all securities syn rejects it
+            writer.append(((loan.state.data.quantity - amountToTerminate) * loan.state.data.currentStockPrice.quantity).toString()+seperator) //Activity value TODO Should this now be the current stock price and not the original price
             writer.append(defaultCurrency+seperator) //Loan value currency code
             writer.append(loan.state.data.stockPrice.quantity.toString()+seperator) //Activity price
-            writer.append(LoanID.toString()+seperator) //ID for this loan -> note this means the loan is issued before these details are sent to syn, if syn rejects could be some problems
-            writer.append((loan.state.data.quantity * loan.state.data.currentStockPrice.quantity).toString()+seperator) //Market value of loan in market currency TODO unit of quotation currently 1
-            writer.append("PR"+seperator) //Activity type -> currently is pending trade, after DVP on Corda this is updated
+            writer.append(LoanID.toString().subSequence(0, 10).toString()+seperator) //ID for this loan -> note this means the loan is issued before these details are sent to syn, if syn rejects could be some problems
+            writer.append(((loan.state.data.quantity - amountToTerminate) * loan.state.data.currentStockPrice.quantity).toString()+seperator) //Market value of loan in market currency TODO unit of quotation currently 1
+            writer.append("PR"+seperator) //Activity type -> PR = pending return
             writer.append("0"+seperator) //Activity loan rate -> //TODO Should add this loanRate/Fee term to the loanTerms
             writer.append("B"+seperator) //TODO: What is posting transaction type
             writer.append("0"+seperator) //Minimum fee
@@ -478,7 +498,7 @@ object SynIntegrationFlow {
             writer.append(""+seperator) //Finder code
             /** Not Required End*/
             writer.append("0"+seperator) //Fomder fee rate
-            writer.append(loan.state.data.linearId.toString()+seperator) //System generated unique identifier
+            writer.append(loan.state.data.linearId.toString().subSequence(0,10).toString()+seperator) //System generated unique identifier
             writer.append("T"+seperator) // Trade / Collateral indicator
             /** Not Required Start*/
             writer.append(""+seperator) // Link reference
@@ -606,7 +626,8 @@ object SynIntegrationFlow {
             writer.append("0"+seperator) //new price after mark -> copied from example,
             writer.append("1"+seperator) //num of fund/locations or cost centres
             writer.append("0"+seperator) //num of this fund/location or cost cetnre
-            writer.append((loan.state.data.quantity * loan.state.data.currentStockPrice.quantity).toString()+seperator) //cash activity quantity
+            //writer.append((loan.state.data.quantity * loan.state.data.currentStockPrice.quantity).toString()+seperator) //cash activity quantity //TODO this is actually the loan amount
+            writer.append((loan.state.data.quantity - amountToTerminate).toString()+seperator)
             /** Not Required Start*/
             writer.append(""+seperator) //dividend ex date
             writer.append(""+seperator) //dividend record date
@@ -666,9 +687,13 @@ object SynIntegrationFlow {
             writer.append("0"+seperator) //new price after mark to 7dp -> price hasnt changed
             writer.append("T"+seperator) //activity file level -> Detail record level.  Can be T-Trade, F-Fund, C-Cost Centre
             writer.append("0"+seperator) //accrual paid
-            writer.append((loan.state.data.quantity * loan.state.data.currentStockPrice.quantity).toString()+seperator) //activity quantity to 2dp
-            writer.append((loanTerms.quantity * loanTerms.stockPrice.quantity).toString()+seperator) //initial quantity to 2dp
-            writer.append((loanTerms.quantity * loanTerms.stockPrice.quantity).toString()+seperator) //cash activity quantity to 2dp
+            //TODO: Confirm this fix works
+            //writer.append((loan.state.data.quantity * loan.state.data.currentStockPrice.quantity).toString()+seperator) //activity quantity to 2dp
+            //writer.append((loanTerms.quantity * loanTerms.stockPrice.quantity).toString()+seperator) //initial quantity to 2dp
+            //writer.append((loanTerms.quantity * loanTerms.stockPrice.quantity).toString()+seperator) //cash activity quantity to 2dp
+            writer.append(((loan.state.data.quantity - amountToTerminate).toString()+seperator)) //activity quantity to 2dp
+            writer.append((loanTerms.quantity.toString()+seperator)) //initial quantity to 2dp
+            writer.append((loanTerms.quantity - amountToTerminate).toString()+seperator) //cash activity quantity to 2dp
             writer.append("AUD"+seperator) //security country of issue
 
             //Seems these two are on the last line

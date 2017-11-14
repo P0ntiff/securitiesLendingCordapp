@@ -216,7 +216,7 @@ class Simulation(options : String?) {
         }
         //TEST SYN INTRGRATION - > Generates a random loan on the ledger and outputs an example.dat file to be loaded into Syn
         val synID = synIntegrationTest(parties[0].second, true)
-        synIntegrationExit(parties[0].second,synID)
+        synIntegrationExit(parties[0].second,synID, 100)
         //Test Loan with cash collateral
         //Loan CBA to demonstrate loan netting
         //val id5 = LoanSecuritySpecific(parties[0].second, true, parties[1].second, "Cash", "CBA")
@@ -587,10 +587,11 @@ class Simulation(options : String?) {
         return linearID;
     }
 
-    private fun synIntegrationExit(me: CordaRPCOps,  id : UniqueIdentifier) {
+    private fun synIntegrationExit(me: CordaRPCOps,  id : UniqueIdentifier, percentToTerminate: Int) {
         val loan = me.startFlow(::LoanRetrievalFlow, id).returnValue.getOrThrow()
         val actualTerms = LoanChecks.stateToLoanTerms(loan.state.data)
-        me.startFlow(::SynExitLoan, actualTerms, id)
+        val amountToTerminate = loan.state.data.quantity * percentToTerminate/100
+        me.startFlow(::SynExitLoan, actualTerms, id, amountToTerminate)
         return
     }
 }
