@@ -16,6 +16,8 @@ import net.corda.core.identity.AbstractParty
 import net.corda.core.identity.AnonymousParty
 import net.corda.core.identity.Party
 import net.corda.core.transactions.TransactionBuilder
+import net.corda.finance.contracts.asset.Cash
+import net.corda.finance.contracts.asset.OnLedgerAsset
 
 /** Collateral prep flow for preparing a specified type of collateral for a tx.
  * This flow gets called as a subflow whenever collateral needs to be added to a transaction. It checks the type of
@@ -55,9 +57,13 @@ class CollateralPreparationFlow(val builder : TransactionBuilder,
         //Check the type of collateral and add appropriately
         if (collateralType == SecurityLoan.collateralType.cash) {
             //Add cash collateral
-            newTx = serviceHub.vaultService.generateSpend(tx,
+//            newTx = serviceHub.vaultService.generateSpend(tx,
+//                    Amount((totalValue).toLong(), CURRENCY),
+//                    AnonymousParty(to.owningKey)).first
+            Cash.generateSpend(serviceHub, tx,
                     Amount((totalValue).toLong(), CURRENCY),
-                    AnonymousParty(to.owningKey)).first
+                    AnonymousParty(to.owningKey))
+            newTx = tx
         }
         else {
             //Calculate the price of the security and how many securities are needed to reach the required value.

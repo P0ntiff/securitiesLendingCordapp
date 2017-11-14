@@ -44,9 +44,9 @@ class SecuritiesPreparationFlow(val builder : TransactionBuilder,
                                    quantity: Int,
                                    to: AbstractParty) : Pair<TransactionBuilder, List<PublicKey>> {
         val criteria = QueryCriteria.VaultQueryCriteria(status = Vault.StateStatus.UNCONSUMED)
-        val equityStates = serviceHub.vaultQueryService.queryBy<SecurityClaim.State>(criteria)
+        val equityStates = serviceHub.vaultService.queryBy<SecurityClaim.State>(criteria)
         val desiredStates = equityStates.states.filter {
-            (it.state.data.owner == serviceHub.myInfo.legalIdentity)  &&
+            (it.state.data.owner == serviceHub.myInfo.legalIdentities.first())  &&
                     (it.state.data.code == code) // &&
         }
 

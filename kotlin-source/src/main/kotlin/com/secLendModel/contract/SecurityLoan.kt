@@ -3,18 +3,20 @@ package com.secLendModel.contract
 import com.secLendModel.CURRENCY
 import com.secLendModel.flow.securitiesLending.LoanTerms
 import com.secLendModel.schema.SecurityLoanSchemaV1
-import net.corda.contracts.asset.Cash
+//import net.corda.contracts.asset.Cash
 import net.corda.core.contracts.*
 import net.corda.core.crypto.SecureHash
 import net.corda.core.crypto.keys
-import net.corda.core.crypto.toBase58String
 import net.corda.core.identity.AbstractParty
 import net.corda.core.identity.Party
 import net.corda.core.schemas.MappedSchema
 import net.corda.core.schemas.PersistentState
 import net.corda.core.schemas.QueryableState
 import net.corda.core.serialization.CordaSerializable
+import net.corda.core.transactions.LedgerTransaction
 import net.corda.core.transactions.TransactionBuilder
+import net.corda.core.utilities.toBase58String
+import net.corda.finance.contracts.asset.Cash
 import java.security.PublicKey
 import java.time.LocalDateTime
 import java.util.*
@@ -24,7 +26,7 @@ import java.util.*
  *  SecurityLoan Contract class. --> See "SecurityLoan.State" for state.
  */
 class SecurityLoan : Contract {
-    override val legalContractReference: SecureHash = SecureHash.zeroHash
+    val legalContractReference: SecureHash = SecureHash.zeroHash
 
     interface Commands : CommandData {
         class Issue : TypeOnlyCommandData(), Commands
@@ -63,13 +65,13 @@ class SecurityLoan : Contract {
          */
         override val participants: List<AbstractParty> get() = listOf(lender, borrower)
 
-        override fun isRelevant(ourKeys: Set<PublicKey>): Boolean {
+        fun isRelevant(ourKeys: Set<PublicKey>): Boolean {
             return ourKeys.intersect(participants.flatMap {
                 it.owningKey.keys
             }).isNotEmpty()
         }
 
-        override val contract get() = SecurityLoan()
+        val contract get() = SecurityLoan()
 
         override fun toString(): String{
             return "SecurityLoan: ${borrower.name} owes ${lender.name} $quantity of $code shares. ID = ($linearId) Margin = ${terms.margin}"
@@ -103,7 +105,7 @@ class SecurityLoan : Contract {
      * This differs depending on the provided command. If any of the statements at the end of each function fail
      * this txn is rejected.
      */
-    override fun verify(tx: TransactionForContract): Unit {
+    override fun verify(tx: LedgerTransaction): Unit {
         val command = tx.commands.requireSingleCommand<SecurityLoan.Commands>()
         when (command.value) {
             is Commands.Issue -> requireThat {
@@ -115,7 +117,7 @@ class SecurityLoan : Contract {
                 //Validate the states depending on collateral type
                 if (secLoan.terms.collateralType == "Cash") {
                     //Do cash check
-                    tx.outputs.forEach {
+                    tx.outputStates.forEach {
                         if (it is Cash.State && it.owner == secLoan.lender) {
                             collateralTally += it.amount.quantity
                         }
@@ -125,7 +127,7 @@ class SecurityLoan : Contract {
                     }
                 } else {
                     //Do securities check
-                    tx.outputs.forEach {
+                    tx.outputStates.forEach {
                         if (it is SecurityClaim.State && it.owner == secLoan.lender) {
                             //TODO: We need a way to be able to get share price from within this contract
                             //val sharePrice = (PriceRequestFlow.PriceQueryFlow(it.code).call())
@@ -160,7 +162,7 @@ class SecurityLoan : Contract {
                 //Validate the states depending on collateral type
                 if (secLoan.terms.collateralType == "Cash") {
                     //Do cash check
-                    tx.outputs.forEach {
+                    tx.outputStates.forEach {
                         if (it is Cash.State && it.owner == secLoan.lender) {
                             collateralTally += it.amount.quantity
                         }
@@ -171,7 +173,7 @@ class SecurityLoan : Contract {
                     }
                 } else {
                     //Do securities check
-                    tx.outputs.forEach {
+                    tx.outputStates.forEach {
                         //TODO: this also picks up claim states going back to the lender, need to change this
                         if (it is SecurityClaim.State && it.owner == secLoan.lender) {
                             //TODO: We need a way to be able to get share price from within this contract
@@ -238,7 +240,7 @@ class SecurityLoan : Contract {
                 //Validate the states depending on collateral type
                 if (secLoan.terms.collateralType == "Cash") {
                     //Do cash check
-                    tx.outputs.forEach {
+                    tx.outputStates.forEach {
                         if (it is Cash.State && it.owner == secLoan.lender) {
                             collateralTally += it.amount.quantity
                         }
@@ -249,7 +251,7 @@ class SecurityLoan : Contract {
                     }
                 } else {
                     //Do securities check
-                    tx.outputs.forEach {
+                    tx.outputStates.forEach {
                         if (it is SecurityClaim.State && it.owner == secLoan.lender) {
                             //TODO: We need a way to be able to get share price from within this contract
                             //val sharePrice = subFlow(PriceRequestFlow.PriceQueryFlow(oracle.identity, it.code))
@@ -282,8 +284,8 @@ class SecurityLoan : Contract {
     fun generateIssue(tx: TransactionBuilder,
                       loanTerms: LoanTerms,
                       notary: Party): TransactionBuilder{
-        val state = TransactionState(State(loanTerms.quantity, loanTerms.code, loanTerms.stockPrice, loanTerms.stockPrice, loanTerms.lender, loanTerms.borrower,
-                Terms(loanTerms.lengthOfLoan, loanTerms.margin, loanTerms.rebate, loanTerms.collateralType, loanTerms.effectiveDate)), notary)
+        val state = TransactionState(data = State(loanTerms.quantity, loanTerms.code, loanTerms.stockPrice, loanTerms.stockPrice, loanTerms.lender, loanTerms.borrower,
+                Terms(loanTerms.lengthOfLoan, loanTerms.margin, loanTerms.rebate, loanTerms.collateralType, loanTerms.effectiveDate)), notary = notary, contract = "SecurityLoan")
         tx.addOutputState(state)
         //Tx signed by the lender
         tx.addCommand(SecurityLoan.Commands.Issue(), loanTerms.lender.owningKey, loanTerms.borrower.owningKey)
@@ -309,7 +311,8 @@ class SecurityLoan : Contract {
                        borrower: Party): TransactionBuilder{
         tx.addInputState(secLoan)
         //Copy the input state and create a new output state with a changed margin and a changed currentStockPrice
-        tx.addOutputState(TransactionState(secLoan.state.data.copy(currentStockPrice = priceUpdate,terms = secLoan.state.data.terms.copy(margin = marginUpdate)), secLoan.state.notary))
+        tx.addOutputState(TransactionState(data = secLoan.state.data.copy(currentStockPrice = priceUpdate,terms = secLoan.state.data.terms.copy(margin = marginUpdate)), notary = secLoan.state.notary,
+                contract = "SecurityLoan"))
         tx.addCommand(SecurityLoan.Commands.Update(), lender.owningKey, borrower.owningKey)
         return tx
     }
@@ -326,13 +329,15 @@ class SecurityLoan : Contract {
         //Note that during the net, the margin is defaulted to 0.05% for the new loan. Potentially is better ways to do this - eg as an input paramater from the party that calls the net?
         if (outputSharesSum < 0) {
             //More shares are borrowed by borrower then lent by lender, output state is a borrower to borrower
-            tx.addOutputState(TransactionState(State(Math.abs(outputSharesSum), secLoan.state.data.code, secLoan.state.data.currentStockPrice, secLoan.state.data.currentStockPrice,
+            tx.addOutputState(TransactionState(data = State(Math.abs(outputSharesSum), secLoan.state.data.code, secLoan.state.data.currentStockPrice, secLoan.state.data.currentStockPrice,
                     secLoan.state.data.lender, secLoan.state.data.borrower,
-                    Terms(secLoan.state.data.terms.lengthOfLoan, 0.05, secLoan.state.data.terms.rebate, secLoan.state.data.terms.collateralType, secLoan.state.data.terms.effectiveDate)), notary))
+                    Terms(secLoan.state.data.terms.lengthOfLoan, 0.05, secLoan.state.data.terms.rebate, secLoan.state.data.terms.collateralType, secLoan.state.data.terms.effectiveDate)), notary = notary,
+                    contract = "SecurityLoan"))
         } else {
-            tx.addOutputState(TransactionState(State(Math.abs(outputSharesSum), secLoan.state.data.code, secLoan.state.data.currentStockPrice, secLoan.state.data.currentStockPrice,
+            tx.addOutputState(TransactionState(data = State(Math.abs(outputSharesSum), secLoan.state.data.code, secLoan.state.data.currentStockPrice, secLoan.state.data.currentStockPrice,
                     secLoan.state.data.borrower, secLoan.state.data.lender,
-                    Terms(secLoan.state.data.terms.lengthOfLoan, 0.05, secLoan.state.data.terms.rebate, secLoan.state.data.terms.collateralType, secLoan.state.data.terms.effectiveDate)), notary))
+                    Terms(secLoan.state.data.terms.lengthOfLoan, 0.05, secLoan.state.data.terms.rebate, secLoan.state.data.terms.collateralType, secLoan.state.data.terms.effectiveDate)),notary = notary,
+                    contract = "SecurityLoan"))
         }
         tx.addCommand(SecurityLoan.Commands.Net(), lender.owningKey, borrower.owningKey)
         //Otherwise there is no output state, we simply terminate both loans. This is checked in flow
@@ -347,10 +352,10 @@ class SecurityLoan : Contract {
             notary: Party): TransactionBuilder {
         //Add the loan state as an input to the exit
         tx.addInputState(originalSecLoan)
-        tx.addOutputState(TransactionState(State(newAmount, originalSecLoan.state.data.code, originalSecLoan.state.data.currentStockPrice, originalSecLoan.state.data.currentStockPrice,
+        tx.addOutputState(TransactionState(data = State(newAmount, originalSecLoan.state.data.code, originalSecLoan.state.data.currentStockPrice, originalSecLoan.state.data.currentStockPrice,
                 originalSecLoan.state.data.lender, originalSecLoan.state.data.borrower,
                 Terms(originalSecLoan.state.data.terms.lengthOfLoan, originalSecLoan.state.data.terms.margin, originalSecLoan.state.data.terms.rebate, originalSecLoan.state.data.terms.collateralType,
-                        originalSecLoan.state.data.terms.effectiveDate)), notary))
+                        originalSecLoan.state.data.terms.effectiveDate)), notary = notary, contract = "SecurityLoan"))
         tx.addCommand(SecurityLoan.Commands.PartialExit(), lender.owningKey, borrower.owningKey)
         return tx
     }
