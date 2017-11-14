@@ -24,49 +24,53 @@ import com.secLendModel.flow.securitiesLending.SynIntegrationFlow.SynExitLoan
 import net.corda.core.contracts.Amount
 import net.corda.core.contracts.UniqueIdentifier
 import net.corda.core.contracts.*
-//import net.corda.core.utilities.getOrThrow
-import net.corda.core.getOrThrow
+import net.corda.core.utilities.getOrThrow
 import net.corda.core.identity.Party
 import net.corda.core.messaging.CordaRPCOps
 import net.corda.core.messaging.startFlow
 import net.corda.core.messaging.startTrackedFlow
-import net.corda.core.node.services.ServiceInfo
-//import net.corda.nodeapi.internal.ServiceInfo
-import net.corda.core.serialization.OpaqueBytes
-//import net.corda.core.utilities.OpaqueBytes
-import net.corda.flows.CashExitFlow
-//import net.corda.finance.flows.CashExitFlow
-import net.corda.flows.CashIssueFlow
-//import net.corda.finance.flows.CashIssueFlow
-import net.corda.flows.CashPaymentFlow
-//import net.corda.finance.flows.CashPaymentFlow
+//import net.corda.core.node.services.ServiceInfo
+import net.corda.nodeapi.internal.ServiceInfo
+//import net.corda.core.serialization.OpaqueBytes
+import net.corda.core.utilities.OpaqueBytes
+//import net.corda.flows.CashExitFlow
+import net.corda.finance.flows.CashExitFlow
+//import net.corda.flows.CashIssueFlow
+import net.corda.finance.flows.CashIssueFlow
+//import net.corda.flows.CashPaymentFlow
+import net.corda.finance.flows.CashPaymentFlow
 import net.corda.node.internal.AbstractNode
 import net.corda.node.internal.Node
-import net.corda.node.services.startFlowPermission
-//import net.corda.node.services.FlowPermissions.Companion.startFlowPermission
-//import net.corda.node.services.RPCUserService
+//import net.corda.node.services.startFlowPermission
+import net.corda.node.services.FlowPermissions.Companion.startFlowPermission
+import net.corda.node.services.RPCUserService
 import net.corda.client.mock.generateCurrency
-//import net.corda.finance.*
-import net.corda.nodeapi.User
+import net.corda.core.identity.CordaX500Name
+import net.corda.finance.flows.CashIssueAndPaymentFlow
 import net.corda.node.services.transactions.ValidatingNotaryService
-//import net.corda.nodeapi.internal.ServiceType
-import net.corda.core.node.services.ServiceType
+import net.corda.nodeapi.User
+//import net.corda.node.services.transactions.ValidatingNotaryService
+import net.corda.nodeapi.internal.ServiceType
+//import net.corda.core.node.services.ServiceType
 import net.corda.testing.driver.NodeHandle
+import net.corda.testing.driver.NodeParameters
 import net.corda.testing.driver.PortAllocation
 import net.corda.testing.driver.driver
 import org.bouncycastle.asn1.x500.X500Name
 import java.math.BigDecimal
 import java.time.LocalDateTime
 import java.util.*
+import net.corda.finance.DOLLARS
+
 
 //CONSTANTS:
 //Legal identities of parties in the network
-val EXCHANGE = X500Name("CN=ASX,O=ASX Ltd,L=Sydney,C=AU")
-val CENTRALBANK = X500Name("CN=RBA,O=ReserveBankOfAustralia,L=Canberra,C=AU")
-val NOTARY = X500Name("CN=Notary Service,O=R3,OU=corda,L=Zurich,C=CH,OU=corda.notary.validating")
-val ARNOLD = X500Name("CN=Commbank,O=Commonwealth Bank of Australia,L=Madrid,C=ES")
-val BARRY = X500Name("CN=ANZ,O=Australia and New Zealand Banking Group LTD,L=Rome,C=IT")
-val COLIN = X500Name("CN=NAB ,O=National Australia Bank,L=Paris,C=FR")
+val EXCHANGE = CordaX500Name("ASX","ASX Ltd","Sydney","AU")
+val CENTRALBANK = CordaX500Name("CRBA","ReserveBankOfAustralia","Canberra","AU")
+val NOTARY = CordaX500Name("Notary Service","R3","corda","Zurich","CH","corda.notary.validating")
+val ARNOLD = CordaX500Name("Commbank","Commonwealth Bank of Australia","Madrid","ES")
+val BARRY = CordaX500Name("ANZ","Australia and New Zealand Banking Group LTD","Rome","IT")
+val COLIN = CordaX500Name("NAB" ,"National Australia Bank","Paris","C=FR")
 //val ORACLE = X500Name("CN=Oracle SP,O=Oracle SP,L=Brisbane,C=AU")
 
 //Shares to be on issue by exchange
@@ -111,7 +115,7 @@ val CURRENCIES = setOf(
         ServiceInfo(ServiceType.corda.getSubType("cash"))
 )
 //Current currency in use
-@JvmField val AUD = currency("AUD")
+@JvmField val AUD = Currency.getInstance("AUD")
 val CURRENCY = AUD
 
 fun main(args: Array<String>) {
@@ -146,18 +150,24 @@ class Simulation(options : String?) {
     fun runSimulation() {
         driver(portAllocation = PortAllocation.Incremental(20000), isDebug = false) {
             //Normal Users
-            val arnold = startNode(ARNOLD, rpcUsers = arrayListOf(stdUser))
-            val barry = startNode(BARRY, rpcUsers = arrayListOf(stdUser))
-            val colin = startNode(COLIN, rpcUsers = arrayListOf(stdUser))
+            val arnoldParams = NodeParameters(providedName = ARNOLD, rpcUsers = arrayListOf(stdUser))
+            val barryParams = NodeParameters(providedName = BARRY, rpcUsers = arrayListOf(stdUser))
+            val colinParams = NodeParameters(providedName = COLIN, rpcUsers = arrayListOf(stdUser))
+            val arnold = startNode(defaultParameters = arnoldParams)
+            val barry = startNode(defaultParameters = barryParams)
+            val colin = startNode(defaultParameters = colinParams)
 
             //Special Users (i.e asset issuers and oracles)
-            val notary = startNode(NOTARY, advertisedServices = setOf(ServiceInfo(ValidatingNotaryService.type)))
+            val notaryParams = NodeParameters(providedName = NOTARY, advertisedServices = setOf(ServiceInfo(ValidatingNotaryService.type)))
+            val notary = startNode(defaultParameters = notaryParams)
             //Stock issuer AND stock price oracle
-            val exchange = startNode(EXCHANGE, rpcUsers = arrayListOf(specialUser),
+            val exchangeParams = NodeParameters(providedName = EXCHANGE, rpcUsers = arrayListOf(specialUser),
                     advertisedServices = MARKET.plus(ServiceInfo(PriceType.type)))
+            val exchange = startNode(defaultParameters = exchangeParams)
             //Cash issuer
-            val centralBank = startNode(CENTRALBANK, rpcUsers = arrayListOf(specialUser),
+            val centralbankParams = NodeParameters(providedName = CENTRALBANK, rpcUsers = arrayListOf(specialUser),
                     advertisedServices = CURRENCIES)
+            val centralBank = startNode(defaultParameters = centralbankParams)
 //            val oracle = startNode(ORACLE, advertisedServices = setOf(ServiceInfo(PriceType.type)))
 
             notaryNode = notary.get()
@@ -180,9 +190,10 @@ class Simulation(options : String?) {
 
         //Test cash and equities asset issue
         parties.forEach {
-            issueCash(centralBank, it.second, notaryNode.nodeInfo.notaryIdentity)
-            issueEquity(stockMarket, it.second, notaryNode.nodeInfo.notaryIdentity)
-            issueEquity(stockMarket, it.second, notaryNode.nodeInfo.notaryIdentity)
+            //Note changed from notaryNode.nodeInfo.notaryIdentity to this legalIdentitiesFirst
+            issueCash(centralBank, it.second, notaryNode.nodeInfo.legalIdentities.first())
+            issueEquity(stockMarket, it.second, notaryNode.nodeInfo.legalIdentities.first())
+            issueEquity(stockMarket, it.second, notaryNode.nodeInfo.legalIdentities.first())
         }
 
         //Test they can move stock and cash to another owner
@@ -215,9 +226,8 @@ class Simulation(options : String?) {
 
         }
         //TEST SYN INTRGRATION - > Generates a random loan on the ledger and outputs an example.dat file to be loaded into Syn
-        val synID = synIntegrationTest(parties[0].second, true)
-        synIntegrationExit(parties[0].second,synID, 100)
-        //TESTING BRANCH FOR VERSION 1 UPGRADE
+        //val synID = synIntegrationTest(parties[0].second, true)
+        //synIntegrationExit(parties[0].second,synID, 100)
         //Test Loan with cash collateral
         //Loan CBA to demonstrate loan netting
         //val id5 = LoanSecuritySpecific(parties[0].second, true, parties[1].second, "Cash", "CBA")
@@ -255,15 +265,16 @@ class Simulation(options : String?) {
         val cbRPC = cbClient.start(specialUser.username, specialUser.password).proxy
 
         parties.addAll(listOf(
-                aRPC.nodeIdentity().legalIdentity to aRPC,
-                bRPC.nodeIdentity().legalIdentity to bRPC)
+                //changed from nodeIdentity().legalIdentity
+                aRPC.nodeInfo().legalIdentities.first() to aRPC,
+                bRPC.nodeInfo().legalIdentities.first() to bRPC)
                 //cRPC.nodeIdentity().legalIdentity to cRPC)
         )
-        stockMarkets.add((eRPC.nodeIdentity().legalIdentity to eRPC))
-        cashIssuers.add((cbRPC.nodeIdentity().legalIdentity to cbRPC))
+        stockMarkets.add((eRPC.nodeInfo().legalIdentities.first() to eRPC))
+        cashIssuers.add((cbRPC.nodeInfo().legalIdentities.first() to cbRPC))
 
         arrayOf(notaryNode, arnoldNode, barryNode, exchangeNode, centralNode).forEach {
-            println("${it.nodeInfo.legalIdentity} started on ${it.configuration.rpcAddress}")
+            println("${it.nodeInfo.legalIdentities.first()} started on ${it.configuration.rpcAddress}")
         }
     }
 
@@ -320,9 +331,13 @@ class Simulation(options : String?) {
         val rand = Random()
         val dollaryDoos = BigDecimal((rand.nextInt(100 + 1 - 1) + 1) * 1000000)     // $1,000,000 to $100,000,000
         val amount = Amount.fromDecimal(dollaryDoos, CURRENCY)
+        //This has changed from being issued and sent to self issued and sent
+        //centralBank.startTrackedFlow(::CashIssueFlow, amount, OpaqueBytes.of(1), recipient.nodeInfo().legalIdentities.first(), notaryNode).returnValue.getOrThrow()
+        //Self issue cash and send in a single flow -> note the boolean field is for annonymous txns, could be something to look into
+        centralBank.startTrackedFlow(::CashIssueAndPaymentFlow, amount, OpaqueBytes.of(1), recipient.nodeInfo().legalIdentities.first(), false, notaryNode).returnValue.getOrThrow()
+        //centralBank.startTrackedFlow(::CashIssueFlow, amount, OpaqueBytes.of(1), notaryNode).returnValue.getOrThrow()
 
-        centralBank.startTrackedFlow(::CashIssueFlow, amount, OpaqueBytes.of(1), recipient.nodeIdentity().legalIdentity, notaryNode).returnValue.getOrThrow()
-        println("Cash Issue: ${amount} units of $CURRENCY issued to ${recipient.nodeIdentity().legalIdentity}")
+        println("Cash Issue: ${amount} units of $CURRENCY issued to ${recipient.nodeInfo().legalIdentities.first()}")
     }
 
     /** A simple CashPaymentFlow from sender to recipient. Sends a random amount of cash.
@@ -332,10 +347,10 @@ class Simulation(options : String?) {
         val rand = Random()
         val dollaryDoos = BigDecimal((rand.nextInt(100 + 1 - 1) + 1) * 10000)   //$10,000 to $1,000,000
         val amount = Amount.fromDecimal(dollaryDoos, CURRENCY)
-        val randomRecipient = parties.filter { it.first != sender.nodeIdentity().legalIdentity }[rand.nextInt(parties.size - 1)].first
+        val randomRecipient = parties.filter { it.first != sender.nodeInfo().legalIdentities.first() }[rand.nextInt(parties.size - 1)].first
 
         sender.startTrackedFlow(::CashPaymentFlow, amount, randomRecipient).returnValue.getOrThrow()
-        println("Cash Payment: ${dollaryDoos} units of $CURRENCY sent to ${randomRecipient} from ${sender.nodeIdentity().legalIdentity}")
+        println("Cash Payment: ${dollaryDoos} units of $CURRENCY sent to ${randomRecipient} from ${sender.nodeInfo().legalIdentities.first()}")
     }
 
     /** Grants holdings of each security issued on the ledger to a party on the ledger.
@@ -351,9 +366,9 @@ class Simulation(options : String?) {
             exchange.startTrackedFlow(::SecuritiesIssueFlow,
                     code,
                     figure,
-                    recipient.nodeIdentity().legalIdentity,
+                    recipient.nodeInfo().legalIdentities.first(),
                     notaryNode).returnValue.getOrThrow()
-            println("Stock Issue: $figure shares in $code (${STOCKS[CODES.indexOf(code)]}) issued to ${recipient.nodeIdentity().legalIdentity}")
+            println("Stock Issue: $figure shares in $code (${STOCKS[CODES.indexOf(code)]}) issued to ${recipient.nodeInfo().legalIdentities.first()}")
         }
     }
 
@@ -365,11 +380,11 @@ class Simulation(options : String?) {
         val rand = Random()
         val stockIndex = rand.nextInt(CODES.size)
         val figure = (rand.nextInt(300 + 1 - 100) + 100) * 100     //10,000 shares to 30,000 shares
-        val randomRecipient = parties.filter { it.first != sender.nodeIdentity().legalIdentity }[rand.nextInt(parties.size - 1)].first
+        val randomRecipient = parties.filter { it.first != sender.nodeInfo().legalIdentities.first() }[rand.nextInt(parties.size - 1)].first
 
         sender.startTrackedFlow(::OwnershipTransferFlow, CODES[stockIndex], figure, randomRecipient).returnValue.getOrThrow()
         println("Equity Transfer: ${figure} shares in '${CODES[stockIndex]}' transferred to recipient '" +
-                "${randomRecipient}' from sender '${sender.nodeIdentity().legalIdentity}'")
+                "${randomRecipient}' from sender '${sender.nodeInfo().legalIdentities.first()}'")
     }
 
     /** Selects a random stock (and a random quantity) for the sender to sell to the recipient for cash.
@@ -385,11 +400,11 @@ class Simulation(options : String?) {
         //Price between $50.00 and $110.00  per share (decimal)
         val dollaryDoos : BigDecimal = BigDecimal((rand.nextDouble() + 0.1) * (rand.nextInt(110 + 1 - 50) + 50))
         val sharePrice = Amount.fromDecimal(dollaryDoos, CURRENCY)
-        val randomBuyer = parties.filter { it.first != seller.nodeIdentity().legalIdentity }[rand.nextInt(parties.size - 1)].first
+        val randomBuyer = parties.filter { it.first != seller.nodeInfo().legalIdentities.first()}[rand.nextInt(parties.size - 1)].first
 
         seller.startFlow(::Seller, CODES[stockIndex], quantity, sharePrice, randomBuyer).returnValue.getOrThrow()
         println("Trade Finalised: ${quantity} shares in ${CODES[stockIndex]} at ${sharePrice} each sold to buyer '" +
-                "${randomBuyer}' by seller '${seller.nodeIdentity().legalIdentity}'")
+                "${randomBuyer}' by seller '${seller.nodeInfo().legalIdentities.first()}'")
     }
 
     /**Selects random stock and quantity to be loaned out to the borrower. These states are not exited yet
@@ -413,11 +428,11 @@ class Simulation(options : String?) {
         val length = 30
         val stockOnLoan : UniqueIdentifier
         //Pick a random party to be the borrower
-        val randomBorrower = parties.filter { it.first != me.nodeIdentity().legalIdentity }[rand.nextInt(parties.size - 1)].second
+        val randomBorrower = parties.filter { it.first != me.nodeInfo().legalIdentities.first() }[rand.nextInt(parties.size - 1)].second
         //Storage container for loan terms
         val loanTerms = LoanTerms(CODES[stockIndex], quantity, sharePrice,
-                me.nodeIdentity().legalIdentity,
-                randomBorrower.nodeIdentity().legalIdentity,
+                me.nodeInfo().legalIdentities.first(),
+                randomBorrower.nodeInfo().legalIdentities.first(),
                 margin, rebate, length, "Cash", LocalDateTime.now())
         when (BorrowerInitiates) {
             true -> {
@@ -430,7 +445,7 @@ class Simulation(options : String?) {
             }
         }
         println("Loan Finalised: ${quantity} shares in ${CODES[stockIndex]} at ${sharePrice} each loaned to borrower '" +
-                "${randomBorrower.nodeIdentity().legalIdentity}' by lender '${me.nodeIdentity().legalIdentity}' at a margin of ${margin}")
+                "${randomBorrower.nodeInfo().legalIdentities.first()}' by lender '${me.nodeInfo().legalIdentities.first()}' at a margin of ${margin}")
         return stockOnLoan
     }
 
@@ -459,8 +474,8 @@ class Simulation(options : String?) {
         //val randomBorrower = parties.filter { it.first != me.nodeIdentity().legalIdentity }[rand.nextInt(parties.size - 1)].second
         //Storage container for loan terms
         val loanTerms = LoanTerms(code, quantity, sharePrice,
-                me.nodeIdentity().legalIdentity,
-                borrower.nodeIdentity().legalIdentity,
+                me.nodeInfo().legalIdentities.first(),
+                borrower.nodeInfo().legalIdentities.first(),
                 margin, rebate, length, collateralType, LocalDateTime.now())
         when (BorrowerInitiates) {
             true -> {
@@ -473,7 +488,7 @@ class Simulation(options : String?) {
             }
         }
         println("Loan Finalised: ${quantity} shares in ${code} at ${sharePrice} each loaned to borrower '" +
-                "${borrower.nodeIdentity().legalIdentity}' by lender '${me.nodeIdentity().legalIdentity}' at a margin of ${margin}")
+                "${borrower.nodeInfo().legalIdentities.first()}' by lender '${me.nodeInfo().legalIdentities.first()}' at a margin of ${margin}")
         return stockOnLoan
     }
 
@@ -496,11 +511,11 @@ class Simulation(options : String?) {
         val length = 30
         val stockOnLoan : UniqueIdentifier
         //Pick a random party to be the lender
-        val randomLender = parties.filter { it.first != me.nodeIdentity().legalIdentity }[rand.nextInt(parties.size - 1)].second
+        val randomLender = parties.filter { it.first != me.nodeInfo().legalIdentities.first() }[rand.nextInt(parties.size - 1)].second
         //Storage container for loan terms
         val loanTerms = LoanTerms(CODES[stockIndex], quantity, sharePrice,
-                randomLender.nodeIdentity().legalIdentity,
-                me.nodeIdentity().legalIdentity,
+                randomLender.nodeInfo().legalIdentities.first(),
+                me.nodeInfo().legalIdentities.first(),
                 margin, rebate, length, "Cash", LocalDateTime.now())
         when (BorrowerInitiates) {
             true -> {
@@ -513,7 +528,7 @@ class Simulation(options : String?) {
             }
         }
         println("Loan Finalised: ${quantity} shares in ${CODES[stockIndex]} at ${sharePrice} each loaned to borrower '" +
-                "${me.nodeIdentity().legalIdentity}' by lender '${randomLender.nodeIdentity().legalIdentity}' at a margin of ${margin}")
+                "${me.nodeInfo().legalIdentities.first()}' by lender '${randomLender.nodeInfo().legalIdentities.first()}' at a margin of ${margin}")
         return stockOnLoan
     }
 
@@ -577,11 +592,11 @@ class Simulation(options : String?) {
         val length = 30
         val stockOnLoan : UniqueIdentifier
         //Pick a random party to be the borrower
-        val randomBorrower = parties.filter { it.first != me.nodeIdentity().legalIdentity }[rand.nextInt(parties.size - 1)].second
+        val randomBorrower = parties.filter { it.first != me.nodeInfo().legalIdentities.first() }[rand.nextInt(parties.size - 1)].second
         //Storage container for loan terms
         val loanTerms = LoanTerms(CODES[1], quantity, sharePrice,
-                me.nodeIdentity().legalIdentity,
-                randomBorrower.nodeIdentity().legalIdentity,
+                me.nodeInfo().legalIdentities.first(),
+                randomBorrower.nodeInfo().legalIdentities.first(),
                 margin, rebate, length, "Cash", LocalDateTime.now())
         println("Syn issue loan test")
         val linearID = me.startFlow(::SynIssueLoan, loanTerms).returnValue.getOrThrow()
