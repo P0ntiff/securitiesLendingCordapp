@@ -217,6 +217,7 @@ class Simulation(options : String?) {
         //TEST SYN INTRGRATION - > Generates a random loan on the ledger and outputs an example.dat file to be loaded into Syn
         val synID = synIntegrationTest(parties[0].second, true)
         synIntegrationExit(parties[0].second,synID, 100)
+        //TESTING BRANCH FOR VERSION 1 UPGRADE
         //Test Loan with cash collateral
         //Loan CBA to demonstrate loan netting
         //val id5 = LoanSecuritySpecific(parties[0].second, true, parties[1].second, "Cash", "CBA")
