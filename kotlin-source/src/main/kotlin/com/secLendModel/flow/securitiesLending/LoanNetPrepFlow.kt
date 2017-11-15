@@ -34,7 +34,7 @@ class LoanNetPrepFlow(val otherParty: Party, val code: String, val collateralTyp
         val criteria = QueryCriteria.VaultQueryCriteria(status = Vault.StateStatus.UNCONSUMED)
 
         //Search for securityLoan states
-        val loanStates = serviceHub.vaultQueryService.queryBy<SecurityLoan.State>(criteria)
+        val loanStates = serviceHub.vaultService.queryBy<SecurityLoan.State>(criteria)
 
         //Get states that are between these two parties and are a loan of the security code specified, and use the correct collateral type
         val secLoans = loanStates.states.filter {

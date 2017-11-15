@@ -8,7 +8,6 @@ import com.secLendModel.STOCKS
 import com.secLendModel.contract.SecurityLoan
 import net.corda.core.contracts.StateAndRef
 import net.corda.core.contracts.UniqueIdentifier
-import net.corda.core.crypto.location
 import net.corda.core.flows.FlowLogic
 import net.corda.core.flows.InitiatingFlow
 import net.corda.core.flows.StartableByRPC
@@ -41,7 +40,7 @@ object SynIntegrationFlow {
         @Suspendable
         override fun call(): UniqueIdentifier {
             //STEP 1: Generate the file to indicate loan issuance
-            val myIdentity = serviceHub.myInfo.legalIdentity
+            val myIdentity = serviceHub.myInfo.legalIdentities.first()
             /** Unique ID is simply generated as part of the secLoan contract, could move it out of the flow and provide a unique ID within loanIssuanceFlow (perhaps as an optional flow?)
              * problem arises here in trying to override the linearID state - doesnt allow the uniqueID to be supplied. Best option is to try generate the loan, if syn says no immediately exit
              * the loan (at this point no fee is charged so not an issue, once there is a fee will need an exit without fee flow).
@@ -68,7 +67,7 @@ object SynIntegrationFlow {
             //First get the actual loan incase some fields of its current state are needed in the getMessageExot
             val secLoan = subFlow(LoanRetrievalFlow(LoanID))
             val loanTerms = LoanChecks.stateToLoanTerms(secLoan.state.data)
-            val myIdentity = serviceHub.myInfo.legalIdentity
+            val myIdentity = serviceHub.myInfo.legalIdentities.first()
             SynIntegrationFlow.messageProcessor().getSynMessageExit(secLoan, myIdentity, LoanID, loanTerms, amountToTerminate)
 
             //STEP 2: Wait for Syn to respond, on yes continue the process
@@ -318,11 +317,11 @@ object SynIntegrationFlow {
             writer.append(""+seperator) //crest concentration limit
             /** Not Required End*/
             writer.append("0"+seperator) //crest dbv consideration
-            writer.append(LoanChecks.getCounterParty(loanTerms, myIdentity).name.location+seperator) //counterparty security clearer address line 1 //TODO:  Check what to do here for these 4
-            writer.append(LoanChecks.getCounterParty(loanTerms, myIdentity).name.location+seperator) //counterparty security clearer address line 2
+            writer.append(LoanChecks.getCounterParty(loanTerms, myIdentity).name.organisation+seperator) //counterparty security clearer address line 1 //TODO:  Check what to do here for these 4
+            writer.append(LoanChecks.getCounterParty(loanTerms, myIdentity).name.organisation+seperator) //counterparty security clearer address line 2
             /** Not Required Start*/
-            writer.append(LoanChecks.getCounterParty(loanTerms, myIdentity).name.location+seperator) //counterparty cash clearer address line 1
-            writer.append(LoanChecks.getCounterParty(loanTerms, myIdentity).name.location+seperator) //counterparty cash clearer address line 2
+            writer.append(LoanChecks.getCounterParty(loanTerms, myIdentity).name.organisation+seperator) //counterparty cash clearer address line 1
+            writer.append(LoanChecks.getCounterParty(loanTerms, myIdentity).name.organisation+seperator) //counterparty cash clearer address line 2
             writer.append(""+seperator) //From repo trade ref
             writer.append(""+seperator) //to repo trade ref
             /** Not Required End*/
@@ -615,11 +614,11 @@ object SynIntegrationFlow {
             writer.append(""+seperator) //crest concentration limit
             /** Not Required End*/
             writer.append("0"+seperator) //crest dbv consideration
-            writer.append(LoanChecks.getCounterParty(loanTerms, myIdentity).name.location+seperator) //counterparty security clearer address line 1 //TODO:  Check what to do here for these 4
-            writer.append(LoanChecks.getCounterParty(loanTerms, myIdentity).name.location+seperator) //counterparty security clearer address line 2
+            writer.append(LoanChecks.getCounterParty(loanTerms, myIdentity).name.organisation+seperator) //counterparty security clearer address line 1 //TODO:  Check what to do here for these 4
+            writer.append(LoanChecks.getCounterParty(loanTerms, myIdentity).name.organisation+seperator) //counterparty security clearer address line 2
             /** Not Required Start*/
-            writer.append(LoanChecks.getCounterParty(loanTerms, myIdentity).name.location+seperator) //counterparty cash clearer address line 1
-            writer.append(LoanChecks.getCounterParty(loanTerms, myIdentity).name.location+seperator) //counterparty cash clearer address line 2
+            writer.append(LoanChecks.getCounterParty(loanTerms, myIdentity).name.organisation+seperator) //counterparty cash clearer address line 1
+            writer.append(LoanChecks.getCounterParty(loanTerms, myIdentity).name.organisation+seperator) //counterparty cash clearer address line 2
             writer.append(""+seperator) //From repo trade ref
             writer.append(""+seperator) //to repo trade ref
             /** Not Required End*/
