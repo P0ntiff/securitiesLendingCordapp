@@ -7,16 +7,14 @@ import com.secLendModel.flow.CollateralPreparationFlow
 import com.secLendModel.flow.SecuritiesPreparationFlow
 import com.secLendModel.flow.securitiesLending.LoanChecks.getCounterParty
 import com.secLendModel.flow.securitiesLending.LoanChecks.isLender
-import net.corda.contracts.asset.Cash
 import net.corda.core.contracts.*
 import net.corda.core.flows.*
 import net.corda.core.identity.Party
+import net.corda.core.internal.ResolveTransactionsFlow
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.transactions.TransactionBuilder
 import net.corda.core.transactions.WireTransaction
 import net.corda.core.utilities.unwrap
-import net.corda.flows.FinalityFlow
-import net.corda.flows.ResolveTransactionsFlow
 
 /**
  *  Flow to create a TXN between lender and borrower with the following structure:
@@ -35,20 +33,22 @@ object LoanIssuanceFlow {
         @Suspendable
         override fun call(): UniqueIdentifier {
             //TODO: Have an optional field for uniqueID -> if used then we need to have another flow for generating a loan provided with a unique ID. If its null we generate one and pass it to the generateIssue function
-            val notary = serviceHub.networkMapCache.notaryNodes.single().notaryIdentity
-            val counterParty = getCounterParty(loanTerms, serviceHub.myInfo.legalIdentity)
-
+            //val notary = serviceHub.networkMapCache.notaryNodes.single().notaryIdentity
+            val notary = serviceHub.networkMapCache.notaryIdentities.single()
+            val counterParty = getCounterParty(loanTerms, serviceHub.myInfo.legalIdentities.first())
+            val flowSession = initiateFlow(counterParty)
             //STEP 1: Negotiation: Negotiate the borrower's desired terms of the loan with the lender
             val agreedTerms = subFlow(LoanAgreementFlow.Borrower(loanTerms))
-            send(counterParty, agreedTerms)
+            //send(counterParty, agreedTerms)
+            flowSession.send(agreedTerms)
             //Now that the two parties have come to agreement on terms to use, begin to build the transaction
-            val builder = TransactionType.General.Builder(notary = notary)
-
+            //val builder = TransactionType.General.Builder(notary = notary)
+            val builder = TransactionBuilder(notary = notary)
             //STEP 2: Put in either cash or securities, depending on which party we are in the deal.
-            val myKey = serviceHub.myInfo.legalIdentity.owningKey
+            val myKey = serviceHub.myInfo.legalIdentities.first().owningKey
             val ptx: TransactionBuilder
             //If we are lender
-            if (isLender(loanTerms,serviceHub.myInfo.legalIdentity)){
+            if (isLender(loanTerms,serviceHub.myInfo.legalIdentities.first())){
                  ptx = try {
                     subFlow(SecuritiesPreparationFlow(builder, agreedTerms.code, agreedTerms.quantity, agreedTerms.borrower)).first
                 } catch (e: InsufficientBalanceException) {
@@ -60,37 +60,34 @@ object LoanIssuanceFlow {
                 ptx = subFlow(CollateralPreparationFlow(builder, loanTerms.collateralType,
                         ((agreedTerms.stockPrice.quantity * agreedTerms.quantity) * (1.0 + agreedTerms.margin)).toLong(), agreedTerms.lender))
             }
-            val stx = sendAndReceive<SignedTransaction>(counterParty, ptx).unwrap {
-                val wtx: WireTransaction = it.verifySignatures(serviceHub.myInfo.legalIdentity.owningKey, notary.owningKey)
-                //Check txn dependency chain ("resolution")
-                subFlow(ResolveTransactionsFlow(wtx, counterParty))
-
-                it
-            }
+            //val stx = sendAndReceive<SignedTransaction>(counterParty, ptx).unwrap {
+            val stx = flowSession.sendAndReceive<SignedTransaction>(ptx).unwrap { it }
+            subFlow(ResolveTransactionsFlow(stx, flowSession))
 
             //Sign and finalize this transaction.
-            val unnotarisedTX = serviceHub.addSignature(stx, serviceHub.myInfo.legalIdentity.owningKey)
-            val finishedTX = subFlow(FinalityFlow(unnotarisedTX, setOf(counterParty))).single()
+            val unnotarisedTX = serviceHub.addSignature(stx, serviceHub.myInfo.legalIdentities.first().owningKey)
+            val finishedTX = subFlow(FinalityFlow(unnotarisedTX, setOf(counterParty)))
             return finishedTX.tx.outputs.map { it.data }.filterIsInstance<SecurityLoan.State>().single().linearId
             //return subFlow(signTransactionFlow).tx.outputs.map { it.data }.filterIsInstance<SecurityLoan.State>().single().linearId
         }
     }
 
     @InitiatedBy(Initiator::class)
-    open class Acceptor(val counterParty : Party) : FlowLogic<SignedTransaction>() {
+    open class Acceptor(val counterPartySession : FlowSession) : FlowLogic<SignedTransaction>() {
         @Suspendable
         override fun call() : SignedTransaction {
-            val notary = serviceHub.networkMapCache.notaryNodes.single().notaryIdentity
+            val notary = serviceHub.networkMapCache.notaryIdentities.single()
 
             //STEP 3: Connect to borrower / initiator
             //TODO: Make this stronger, check these agreed terms really are the agreed terms (i.e from LoanAgreementFlow)
-            val agreedTerms = receive<LoanTerms>(counterParty).unwrap { it }
-            val builder = receive<TransactionBuilder>(counterParty).unwrap { it }
+            //val agreedTerms = receive<LoanTerms>(counterParty).unwrap { it }
+            val agreedTerms = counterPartySession.receive<LoanTerms>().unwrap { it }
+            val builder = counterPartySession.receive<TransactionBuilder>().unwrap { it }
 
             //STEP 4: Put in security states/collateral as inputs and securityLoan as output
             //Check which party in the deal we are
             val tx : TransactionBuilder
-            if (isLender(agreedTerms, serviceHub.myInfo.legalIdentity)) {
+            if (isLender(agreedTerms, serviceHub.myInfo.legalIdentities.first())) {
                 //We are lender -> should have recieved cash, adding in stock
                 tx = try {
                     subFlow(SecuritiesPreparationFlow(builder, agreedTerms.code, agreedTerms.quantity, agreedTerms.borrower)).first
@@ -119,9 +116,9 @@ object LoanIssuanceFlow {
             //STEP 5: Generate securityLoan state as output state and send back to borrower
             val ptx = SecurityLoan().generateIssue(tx, agreedTerms, notary)
             println("Collateral amount of ${collateralQuantity}")
-            val stx = serviceHub.signInitialTransaction(ptx, serviceHub.myInfo.legalIdentity.owningKey)
+            val stx = serviceHub.signInitialTransaction(ptx, serviceHub.myInfo.legalIdentities.first().owningKey)
             //subFlow(ResolveTransactionsFlow(stx, counterParty))
-            send(counterParty, stx)
+            counterPartySession.send(stx)
             //Wait until this txn is commited to the ledger - note this function suspends this flow till this happens.
             return waitForLedgerCommit(stx.id)
 

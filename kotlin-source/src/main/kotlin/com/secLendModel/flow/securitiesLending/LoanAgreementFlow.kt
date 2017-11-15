@@ -25,8 +25,8 @@ object LoanAgreementFlow {
     class Borrower(val loanTerms : LoanTerms) : FlowLogic<LoanTerms>() {
         @Suspendable
         override fun call() : LoanTerms {
-            val myKey = serviceHub.myInfo.legalIdentity.owningKey
-            if(isLender(loanTerms, serviceHub.myInfo.legalIdentity)){
+            val myKey = serviceHub.myInfo.legalIdentities.first().owningKey
+            if(isLender(loanTerms, serviceHub.myInfo.legalIdentities.first())){
                 val counterProposal : LoanTerms = sendAndReceive<LoanTerms>(loanTerms.borrower, loanTerms).unwrap { it }
                 //Accept counter proposal for now
                 //TODO: negotiate terms of loan here
