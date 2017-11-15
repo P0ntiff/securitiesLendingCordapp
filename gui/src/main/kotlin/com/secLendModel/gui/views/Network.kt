@@ -1,5 +1,6 @@
 package com.secLendModel.gui.views
 
+import com.secLendModel.gui.model.CordaView
 import de.jensd.fx.glyphs.fontawesome.FontAwesomeIcon
 import de.jensd.fx.glyphs.fontawesome.FontAwesomeIconView
 import javafx.animation.FadeTransition
@@ -9,6 +10,7 @@ import javafx.beans.property.SimpleObjectProperty
 import javafx.beans.value.ObservableValue
 import javafx.collections.FXCollections
 import javafx.geometry.Bounds
+import javafx.geometry.Insets
 import javafx.geometry.Point2D
 import javafx.scene.Parent
 import javafx.scene.control.Button
@@ -28,20 +30,27 @@ import net.corda.client.jfx.model.*
 import net.corda.client.jfx.utils.*
 import net.corda.core.contracts.ContractState
 import net.corda.core.identity.Party
-import net.corda.core.crypto.toBase58String
 import net.corda.core.node.NodeInfo
+import net.corda.core.utilities.toBase58String
+//import net.corda.explorer.formatters.PartyNameFormatter
 import com.secLendModel.gui.formatters.PartyNameFormatter
-import com.secLendModel.gui.model.CordaView
+import net.corda.core.internal.x500Name
+//import net.corda.explorer.model.CordaView
+import net.corda.finance.utils.CityDatabase
+import net.corda.finance.utils.ScreenCoordinate
+import net.corda.finance.utils.WorldMapLocation
+import net.corda.nodeapi.internal.ServiceType
 import tornadofx.*
+import net.corda
 
 class Network : CordaView() {
     override val root by fxml<Parent>()
     override val icon = FontAwesomeIcon.GLOBE
     // Inject data.
-    val myIdentity by observableValue(NetworkIdentityModel::myIdentity)
-    val notaries by observableList(NetworkIdentityModel::notaries)
-    val peers by observableList(NetworkIdentityModel::parties)
-    val transactions by observableList(TransactionDataModel::partiallyResolvedTransactions)
+    private val myIdentity by observableValue(NetworkIdentityModel::myIdentity)
+    private val notaries by observableList(NetworkIdentityModel::notaryNodes)
+    private val peers by observableList(NetworkIdentityModel::parties)
+    private val transactions by observableList(TransactionDataModel::partiallyResolvedTransactions)
     var centralPeer: String? = null
     private var centralLabel: ObservableValue<Label?>
 
@@ -62,9 +71,8 @@ class Network : CordaView() {
     private val notaryComponents = notaries.map { it.render() }
     private val notaryButtons = notaryComponents.map { it.button }
     private val peerComponents = peers.map { it.render() }
-    private val peerButtons = peerComponents.filtered { it.nodeInfo != myIdentity.value }.map { it.button }
+    private val peerButtons = peerComponents.filtered { myIdentity.value !in it.nodeInfo.legalIdentitiesAndCerts.map { it.party } }.map { it.button }
     private val allComponents = FXCollections.observableArrayList(notaryComponents, peerComponents).concatenate()
-    private val allComponentMap = allComponents.associateBy { it.nodeInfo.legalIdentity }
     private val mapLabels = allComponents.map { it.label }
 
     private data class MapViewComponents(val nodeInfo: NodeInfo, val button: Button, val label: Label)
@@ -77,8 +85,8 @@ class Network : CordaView() {
                     .map { it as? PartiallyResolvedTransaction.InputResolution.Resolved }
                     .filterNotNull()
                     .map { it.stateAndRef.state.data }.getParties()
-            val outputParties = it.transaction.tx.outputs.map { it.data }.observable().getParties()
-            val signingParties = it.transaction.sigs.map { getModel<NetworkIdentityModel>().lookup(it.by) }
+            val outputParties = it.transaction.tx.outputStates.observable().getParties()
+            val signingParties = it.transaction.sigs.map { it.by.toKnowParty() }
             // Input parties fire a bullets to all output parties, and to the signing parties. !! This is a rough guess of how the message moves in the network.
             // TODO : Expose artemis queue to get real message information.
             inputParties.cross(outputParties) + inputParties.cross(signingParties)
@@ -87,18 +95,24 @@ class Network : CordaView() {
 
     private fun NodeInfo.renderButton(mapLabel: Label): Button {
         val node = this
+        val identities = node.legalIdentitiesAndCerts.sortedBy { it.owningKey.toBase58String() }
         return button {
+            minWidth = 300.0
+            padding = Insets(10.0)
             useMaxWidth = true
             graphic = vbox {
-                label(PartyNameFormatter.short.format(node.legalIdentity.name)) { font = Font.font(font.family, FontWeight.BOLD, 15.0) }
+                label(PartyNameFormatter.short.format(identities[0].name.x500Name)) { font = Font.font(font.family, FontWeight.BOLD, 15.0) }
                 gridpane {
+                    // TODO We lose node's main identity for display.
                     hgap = 5.0
                     vgap = 5.0
-                    row("Pub Key :") {
-                        copyableLabel(SimpleObjectProperty(node.legalIdentity.owningKey.toBase58String())).apply { minWidth = 400.0 }
+                    for (identity in identities) {
+                        val isNotary = identity.name.commonName?.let { ServiceType.parse(it).isNotary() } ?: false
+                        row("${if (isNotary) "Notary " else ""}Public Key :") {
+                            copyableLabel(SimpleObjectProperty(identity.owningKey.toBase58String()))
+                        }
                     }
-                    row("Services :") { label(node.advertisedServices.map { it.info }.joinToString(", ")) }
-                    node.physicalLocation?.apply { row("Location :") { label(this@apply.description) } }
+                    node.getWorldMapLocation()?.apply { row("Location :") { label(this@apply.description) } }
                 }
             }
             setOnMouseClicked {
@@ -109,7 +123,8 @@ class Network : CordaView() {
 
     private fun NodeInfo.render(): MapViewComponents {
         val node = this
-        val mapLabel = label(PartyNameFormatter.short.format(node.legalIdentity.name))
+        val identities = node.legalIdentitiesAndCerts.sortedBy { it.owningKey.toBase58String() }
+        val mapLabel = label(PartyNameFormatter.short.format(identities.first().name.x500Name)) // We choose the first one for the name of the node on the map.
         mapPane.add(mapLabel)
         // applyCss: This method does not normally need to be invoked directly but may be used in conjunction with Parent.layout()
         // to size a Node before the next pulse, or if the Scene is not in a Stage.
@@ -122,15 +137,15 @@ class Network : CordaView() {
             contentDisplay = ContentDisplay.TOP
             val coordinate = Bindings.createObjectBinding({
                 // These coordinates are obtained when we generate the map using TileMill.
-                node.physicalLocation?.coordinate?.project(mapPane.width, mapPane.height, 85.0511, -85.0511, -180.0, 180.0) ?: Pair(0.0, 0.0)
+                node.getWorldMapLocation()?.coordinate?.project(mapPane.width, mapPane.height, 85.0511, -85.0511, -180.0, 180.0) ?: ScreenCoordinate(0.0, 0.0)
             }, arrayOf(mapPane.widthProperty(), mapPane.heightProperty()))
             // Center point of the label.
-            layoutXProperty().bind(coordinate.map { it.first - width / 2 })
-            layoutYProperty().bind(coordinate.map { it.second - height / 4 })
+            layoutXProperty().bind(coordinate.map { it.screenX - width / 2 })
+            layoutYProperty().bind(coordinate.map { it.screenY - height / 4 })
         }
 
         val button = node.renderButton(mapLabel)
-        if (node == myIdentity.value) {
+        if (myIdentity.value in node.legalIdentitiesAndCerts.map { it.party }) {
             // It has to be a copy if we want to have notary both in notaries list and in identity (if we are looking at that particular notary node).
             myIdentityPane.apply { center = node.renderButton(mapLabel) }
             myLabel = mapLabel
@@ -169,10 +184,10 @@ class Network : CordaView() {
         zoomOutButton.setOnAction { zoom(0.8) }
 
         lastTransactions.addListener { _, _, new ->
-            new?.forEach {
-                it.first.value?.let { a ->
-                    it.second.value?.let { b ->
-                        fireBulletBetweenNodes(a.legalIdentity, b.legalIdentity, "bank", "bank")
+            new?.forEach { (partyA, partyB) ->
+                partyA.value?.let { a ->
+                    partyB.value?.let { b ->
+                        fireBulletBetweenNodes(a, b, "bank", "bank")
                     }
                 }
             }
@@ -208,48 +223,50 @@ class Network : CordaView() {
         return Point2D(x, y)
     }
 
-    private fun List<ContractState>.getParties() = map { it.participants.map { getModel<NetworkIdentityModel>().lookup(it.owningKey) } }.flatten()
+    private fun List<ContractState>.getParties() = map { it.participants.map { it.owningKey.toKnownParty() } }.flatten()
 
-    private fun fireBulletBetweenNodes(senderNode: Party, destNode: Party, startType: String, endType: String) {
-        allComponentMap[senderNode]?.let { senderNode ->
-            allComponentMap[destNode]?.let { destNode ->
-                val sender = senderNode.label.boundsInParentProperty().map { Point2D(it.width / 2 + it.minX, it.height / 4 - 2.5 + it.minY) }
-                val receiver = destNode.label.boundsInParentProperty().map { Point2D(it.width / 2 + it.minX, it.height / 4 - 2.5 + it.minY) }
-                val bullet = Circle(3.0)
-                bullet.styleClass += "bullet"
-                bullet.styleClass += "connection-$startType-to-$endType"
-                with(TranslateTransition(stepDuration, bullet)) {
-                    fromXProperty().bind(sender.map { it.x })
-                    fromYProperty().bind(sender.map { it.y })
-                    toXProperty().bind(receiver.map { it.x })
-                    toYProperty().bind(receiver.map { it.y })
-                    setOnFinished { mapPane.children.remove(bullet) }
+    private fun fireBulletBetweenNodes(senderParty: Party, destParty: Party, startType: String, endType: String) {
+        val senderNode = allComponents.firstOrNull { it.nodeInfo.isLegalIdentity(senderParty) } ?: return
+        val destNode = allComponents.firstOrNull { it.nodeInfo.isLegalIdentity(destParty) } ?: return
+        val sender = senderNode.label.boundsInParentProperty().map { Point2D(it.width / 2 + it.minX, it.height / 4 - 2.5 + it.minY) }
+        val receiver = destNode.label.boundsInParentProperty().map { Point2D(it.width / 2 + it.minX, it.height / 4 - 2.5 + it.minY) }
+        val bullet = Circle(3.0)
+        bullet.styleClass += "bullet"
+        bullet.styleClass += "connection-$startType-to-$endType"
+        with(TranslateTransition(stepDuration, bullet)) {
+            fromXProperty().bind(sender.map { it.x })
+            fromYProperty().bind(sender.map { it.y })
+            toXProperty().bind(receiver.map { it.x })
+            toYProperty().bind(receiver.map { it.y })
+            setOnFinished { mapPane.children.remove(bullet) }
+            play()
+        }
+        val line = Line().apply {
+            styleClass += "message-line"
+            startXProperty().bind(sender.map { it.x })
+            startYProperty().bind(sender.map { it.y })
+            endXProperty().bind(receiver.map { it.x })
+            endYProperty().bind(receiver.map { it.y })
+        }
+        // Fade in quick, then fade out slow.
+        with(FadeTransition(stepDuration.divide(5.0), line)) {
+            fromValue = 0.0
+            toValue = 1.0
+            play()
+            setOnFinished {
+                with(FadeTransition(stepDuration.multiply(6.0), line)) {
+                    fromValue = 1.0
+                    toValue = 0.0
                     play()
+                    setOnFinished { mapPane.children.remove(line) }
                 }
-                val line = Line().apply {
-                    styleClass += "message-line"
-                    startXProperty().bind(sender.map { it.x })
-                    startYProperty().bind(sender.map { it.y })
-                    endXProperty().bind(receiver.map { it.x })
-                    endYProperty().bind(receiver.map { it.y })
-                }
-                // Fade in quick, then fade out slow.
-                with(FadeTransition(stepDuration.divide(5.0), line)) {
-                    fromValue = 0.0
-                    toValue = 1.0
-                    play()
-                    setOnFinished {
-                        with(FadeTransition(stepDuration.multiply(6.0), line)) {
-                            fromValue = 1.0
-                            toValue = 0.0
-                            play()
-                            setOnFinished { mapPane.children.remove(line) }
-                        }
-                    }
-                }
-                mapPane.children.add(1, line)
-                mapPane.children.add(bullet)
             }
         }
+        mapPane.children.add(1, line)
+        mapPane.children.add(bullet)
+    }
+
+    private fun NodeInfo.getWorldMapLocation(): WorldMapLocation? {
+        return CityDatabase[legalIdentitiesAndCerts[0].name.locality]
     }
 }

@@ -19,13 +19,15 @@ import javafx.scene.control.*
 import javafx.scene.text.Font
 import javafx.scene.text.FontWeight
 import javafx.stage.Window
+import net.corda.client.jackson.JacksonSupport
 import net.corda.client.jfx.model.*
 import net.corda.client.jfx.utils.isNotNull
 import net.corda.client.jfx.utils.map
 import net.corda.core.contracts.StateAndRef
 import net.corda.core.flows.FlowException
+import net.corda.core.internal.x500Name
 import net.corda.core.messaging.startFlow
-import net.corda.core.serialization.OpaqueBytes
+import net.corda.core.utilities.OpaqueBytes
 import org.controlsfx.dialog.ExceptionDialog
 import tornadofx.*
 
@@ -115,7 +117,7 @@ class NetLoanView : Fragment() {
             //When the user has selected terminate and a loan, we can begin the termination flow
                 executeButton -> when (transactionTypeCB.value) {
                     LoanTransactions.Net -> {
-                        val otherParty = otherPartyCB.value.legalIdentity
+                        val otherParty = otherPartyCB.value.legalIdentities.first()
                         rpcProxy.value?.startFlow(LoanNetFlow::NetInitiator, otherParty, securityTypeCB.value,
                                 collateralTypeCB.value)
 
@@ -141,14 +143,14 @@ class NetLoanView : Fragment() {
         otherPartyLabel.text = "Opposing Party"
         val newParties = arrayListOf<net.corda.core.node.NodeInfo>()
         parties.forEach {
-            if (it != myIdentity.value) {
+            if (it.legalIdentities.first() != myIdentity.value) {
                 newParties.add(it)
             }
         }
         otherPartyCB.apply {
             items = newParties.observable()
-            converter = stringConverter { it?.legalIdentity?.let {
-                PartyNameFormatter.short.format(it.name) } ?: "" }
+            converter = stringConverter { it?.legalIdentities!!.first()?.let {
+                PartyNameFormatter.short.format(it.name.x500Name) } ?: "" }
         }
         securityTypeLabel.text = "Security"
         securityTypeCB.apply {

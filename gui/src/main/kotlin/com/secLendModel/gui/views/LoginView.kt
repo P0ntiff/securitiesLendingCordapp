@@ -6,6 +6,7 @@ import javafx.scene.control.*
 import net.corda.client.jfx.model.NodeMonitorModel
 import net.corda.client.jfx.model.objectProperty
 import com.secLendModel.gui.model.SettingsModel
+import net.corda.core.utilities.NetworkHostAndPort
 import org.controlsfx.dialog.ExceptionDialog
 import tornadofx.*
 import kotlin.system.exitProcess
@@ -28,7 +29,7 @@ class LoginView : View() {
     private val fullscreen by objectProperty(SettingsModel::fullscreenProperty)
 
     fun login(host: String?, port: Int, username: String, password: String) {
-        getModel<NodeMonitorModel>().register(HostAndPort.fromParts(host, port), username, password)
+        getModel<NodeMonitorModel>().register(NetworkHostAndPort(host.orEmpty(), port), username, password)
     }
 
     fun login() {

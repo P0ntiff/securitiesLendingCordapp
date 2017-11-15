@@ -23,9 +23,10 @@ import net.corda.client.jfx.utils.isNotNull
 import net.corda.client.jfx.utils.map
 import net.corda.core.contracts.StateAndRef
 import net.corda.core.flows.FlowException
+import net.corda.core.internal.x500Name
 import net.corda.core.messaging.FlowHandle
 import net.corda.core.messaging.startFlow
-import net.corda.core.serialization.OpaqueBytes
+import net.corda.core.utilities.OpaqueBytes
 import org.controlsfx.dialog.ExceptionDialog
 import tornadofx.*
 
@@ -148,8 +149,8 @@ class TerminateLoanView : Fragment() {
             items = loanStates
             converter = stringConverter { "Instrument: " + it.state.data.code.toString() +
                     "\n Shares: "+ it.state.data.quantity +
-                    "\n Lender: " + PartyNameFormatter.short.format(it.state.data.lender.name) +
-                    "\n Borrower: " + PartyNameFormatter.short.format(it.state.data.borrower.name) +
+                    "\n Lender: " + PartyNameFormatter.short.format(it.state.data.lender.name.x500Name) +
+                    "\n Borrower: " + PartyNameFormatter.short.format(it.state.data.borrower.name.x500Name) +
                     "\n Margin: " + it.state.data.terms.margin +
                     "\n Current SP: " + it.state.data.currentStockPrice.quantity}
         }

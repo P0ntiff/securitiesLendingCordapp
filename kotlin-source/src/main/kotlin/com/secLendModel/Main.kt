@@ -17,10 +17,8 @@ import com.secLendModel.flow.securitiesLending.LoanUpdateFlow.UpdateAcceptor
 import com.secLendModel.flow.securitiesLending.LoanTerminationFlow.Terminator
 import com.secLendModel.flow.securitiesLending.LoanTerminationFlow.TerminationAcceptor
 import com.secLendModel.flow.securitiesLending.LoanPartialTerminationFlowTerminationFlow.PartTerminator
-import com.secLendModel.flow.securitiesLending.LoanPartialTerminationFlowTerminationFlow.PartTerminationAcceptor
 import com.secLendModel.flow.securitiesLending.SynIntegrationFlow.SynIssueLoan
 import com.secLendModel.flow.securitiesLending.SynIntegrationFlow.SynExitLoan
-
 import net.corda.core.contracts.Amount
 import net.corda.core.contracts.UniqueIdentifier
 import net.corda.core.contracts.*
@@ -142,13 +140,12 @@ class Simulation(options : String?) {
     val parties = ArrayList<Pair<Party, CordaRPCOps>>()
     val stockMarkets = ArrayList<Pair<Party, CordaRPCOps>>()
     val cashIssuers = ArrayList<Pair<Party, CordaRPCOps>>()
-
     init {
         runSimulation()
     }
 
     fun runSimulation() {
-        driver(portAllocation = PortAllocation.Incremental(20000), isDebug = false, startNodesInProcess = true, extraCordappPackagesToScan = listOf("net.corda.finance.contracts.asset")) {
+        driver(portAllocation = PortAllocation.Incremental(20000), isDebug = false, startNodesInProcess = true, extraCordappPackagesToScan = listOf("com.secLendModel")) {
             //Normal Users
             val arnoldParams = NodeParameters(providedName = ARNOLD, rpcUsers = arrayListOf(stdUser))
             val barryParams = NodeParameters(providedName = BARRY, rpcUsers = arrayListOf(stdUser))

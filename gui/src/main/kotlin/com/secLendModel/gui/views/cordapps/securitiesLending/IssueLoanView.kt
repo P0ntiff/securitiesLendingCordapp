@@ -29,13 +29,16 @@ import net.corda.core.contracts.Amount
 import net.corda.core.contracts.StateAndRef
 import net.corda.core.flows.FlowException
 import net.corda.core.identity.Party
+import net.corda.core.internal.x500Name
 import net.corda.core.messaging.FlowHandle
 import net.corda.core.messaging.startFlow
 import net.corda.core.node.ServiceEntry
+import net.corda.core.node.services.NetworkMapCache
 import net.corda.core.node.services.ServiceInfo
 import net.corda.core.node.services.ServiceType
 import net.corda.core.serialization.OpaqueBytes
 import net.corda.core.transactions.TransactionBuilder
+import net.corda.core.utilities.OpaqueBytes
 import org.controlsfx.dialog.ExceptionDialog
 import tornadofx.*
 import java.time.LocalDateTime
@@ -75,7 +78,7 @@ class IssueLoanView : Fragment() {
     private val issueRef = SimpleObjectProperty<Byte>()
     // Inject data
     private val parties by observableList(NetworkIdentityModel::parties)
-    private val allNodes by observableList(NetworkIdentityModel::networkIdentities)
+    private val allNodes by observableList(NetworkIdentityModel::parties)
     private val loanStates by observableList(SecuritiesLendingModel::loanStates)
     private val issuers by observableList(IssuerModel::issuers)
     private val rpcProxy by observableValue(NodeMonitorModel::proxyObservable)
@@ -153,14 +156,14 @@ class IssueLoanView : Fragment() {
                             val lender: Party; val borrower: Party;
                             if (typeCB.value == "Lend") {
                                 //I am lending to someone else
-                                 lender = rpcProxy.value!!.nodeIdentity().legalIdentity
-                                 borrower = opposingPartyCB.value.legalIdentity
+                                 lender = rpcProxy.value!!.nodeInfo().legalIdentities.first()
+                                 borrower = opposingPartyCB.value.legalIdentities.first()
                             } else {
-                                 lender = opposingPartyCB.value.legalIdentity
-                                 borrower = rpcProxy.value!!.nodeIdentity().legalIdentity
+                                 lender = opposingPartyCB.value.legalIdentities.first()
+                                 borrower = rpcProxy.value!!.nodeInfo().legalIdentities.first()
                             }
                             //Get stock price from the oracle
-                            val oracle = allNodes.filtered { it.advertisedServices.any { it.info.type.equals(PriceType.type) } }
+                            val oracle = allNodes.filtered { it.advertisedServices.map { it.info.type.equals(PriceType.type) } }
                             val priceTx = TransactionBuilder()
                             val priceQuery = rpcProxy.value?.startFlow(PriceRequestFlow::PriceQueryFlow, codeCB.value )
                             val loanTerms = LoanTerms(codeCB.value, amountTextField.text.toInt(), priceQuery!!.returnValue.get(), lender, borrower,
@@ -199,7 +202,7 @@ class IssueLoanView : Fragment() {
         //Setup avaialble opposing parties
         val newParties = arrayListOf<net.corda.core.node.NodeInfo>()
         parties.forEach {
-            if (it != myIdentity.value) {
+            if (it.legalIdentities.first() != myIdentity.value) {
                 newParties.add(it)
             }
         }
@@ -207,7 +210,7 @@ class IssueLoanView : Fragment() {
             //parties.remove(myIdentity.value)
             items = newParties.observable()
             //items.remove(myIdentity.value)
-            converter = stringConverter { it?.legalIdentity?.let { PartyNameFormatter.short.format(it.name) } ?: "" }
+            converter = stringConverter { it?.legalIdentities!!.first()?.let { PartyNameFormatter.short.format(it.name.x500Name) } ?: "" }
         }
         collateralTypeCB.items = CODES.plus("Cash").observable()
 

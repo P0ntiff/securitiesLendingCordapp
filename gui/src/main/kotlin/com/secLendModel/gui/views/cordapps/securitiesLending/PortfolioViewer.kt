@@ -27,11 +27,9 @@ import javafx.scene.layout.Priority
 import javafx.scene.layout.VBox
 import net.corda.client.jfx.model.*
 import net.corda.client.jfx.utils.*
-import net.corda.contracts.asset.Cash
 import net.corda.core.contracts.Amount
 import net.corda.core.contracts.StateAndRef
 import net.corda.core.contracts.withoutIssuer
-import net.corda.core.crypto.commonName
 import net.corda.core.identity.AbstractParty
 import com.secLendModel.gui.formatters.AmountFormatter
 import com.secLendModel.gui.formatters.PartyNameFormatter
@@ -54,13 +52,13 @@ import java.time.Instant
 import java.time.LocalDateTime
 import java.util.*
 import net.corda.core.flows.FlowLogic.*
-import net.corda.core.node.services.ServiceType
+import net.corda.core.internal.x500Name
 import kotlin.reflect.KFunction1
 
 class PortfolioViewer : CordaView("Equities Portfolio") {
     //RPC Proxy
     private val rpcProxy by observableValue(NodeMonitorModel::proxyObservable)
-    private val networkIdentities by observableList(NetworkIdentityModel::networkIdentities)
+    private val networkIdentities by observableList(NetworkIdentityModel::parties)
     // Inject UI elements.
     override val root: BorderPane by fxml()
     override val icon: FontAwesomeIcon = FontAwesomeIcon.ADDRESS_CARD
@@ -134,9 +132,9 @@ class PortfolioViewer : CordaView("Equities Portfolio") {
             }
             instrumentValueLabel.text = STOCKS[CODES.indexOf(stateRow.stateAndRef.state.data.code)]
             exchangeValueLabel.textProperty().bind(SimpleStringProperty(resolvedIssuer.nameOrNull()?.let {
-                PartyNameFormatter.short.format(it)
+                PartyNameFormatter.short.format(it.x500Name)
             } ?: "Anonymous"))
-            exchangeValueLabel.apply { tooltip(resolvedIssuer.nameOrNull()?.let { PartyNameFormatter.full.format(it) } ?: "Anonymous") }
+            exchangeValueLabel.apply { tooltip(resolvedIssuer.nameOrNull()?.let { PartyNameFormatter.full.format(it.x500Name) } ?: "Anonymous") }
             originatedValueLabel.text = stateRow.originated.toString()
             quantityValueLabel.text = AmountFormatter.formatStock(quantity)
         }
@@ -231,7 +229,7 @@ class PortfolioViewer : CordaView("Equities Portfolio") {
             val node = it.value.value
             when (node) {
             // TODO: Anonymous should probably be italicised or similar
-                is ViewerNode.ExchangeNode -> SimpleStringProperty(node.exchange .let { PartyNameFormatter.short.format(it.nameOrNull()!!) } ?: "Anonymous")
+                is ViewerNode.ExchangeNode -> SimpleStringProperty(node.exchange .let { PartyNameFormatter.short.format(it.nameOrNull()!!.x500Name) } ?: "Anonymous")
                 is ViewerNode.QuantityNode -> node.states.map { it.state.data.code }.first()
             }
         }

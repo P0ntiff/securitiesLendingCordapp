@@ -18,17 +18,13 @@ import net.corda.client.jfx.utils.isNotNull
 import net.corda.client.jfx.utils.map
 import net.corda.client.jfx.utils.unique
 import net.corda.core.contracts.Amount
-import net.corda.core.contracts.sumOrNull
 import net.corda.core.contracts.withoutIssuer
 import net.corda.core.identity.AbstractParty
 import net.corda.core.identity.Party
-import net.corda.core.crypto.commonName
 import net.corda.core.flows.FlowException
-import net.corda.core.getOrThrow
+import net.corda.core.utilities.getOrThrow
 import net.corda.core.messaging.startFlow
 import net.corda.core.node.NodeInfo
-import net.corda.core.serialization.OpaqueBytes
-import net.corda.core.then
 import com.secLendModel.gui.formatters.PartyNameFormatter
 import com.secLendModel.gui.model.CashTransaction
 import com.secLendModel.gui.model.IssuerModel
@@ -36,8 +32,7 @@ import com.secLendModel.gui.model.ReportingCurrencyModel
 import com.secLendModel.gui.views.bigDecimalFormatter
 import com.secLendModel.gui.views.byteFormatter
 import com.secLendModel.gui.views.stringConverter
-import net.corda.flows.CashFlowCommand
-import net.corda.flows.IssuerFlow.IssuanceRequester
+import net.corda.finance.contracts.asset.Cash
 import org.controlsfx.dialog.ExceptionDialog
 import tornadofx.*
 import java.math.BigDecimal
@@ -93,12 +88,12 @@ class NewTransaction : Fragment() {
                 initOwner(window)
                 show()
             }
-            val handle = if (command is CashFlowCommand.IssueCash) {
-                rpcProxy.value!!.startFlow(::IssuanceRequester,
+            val handle = if (command is Cash.Commands.Issue) {
+                rpcProxy.value!!.startFlow(Cash::generateIssue,
                         command.amount,
                         command.recipient,
                         command.issueRef,
-                        myIdentity.value!!.legalIdentity)
+                        myIdentity.value!!.name)
             } else {
                 command.startFlow(rpcProxy.value!!)
             }
@@ -106,9 +101,9 @@ class NewTransaction : Fragment() {
                 handle.returnValue.then { dialog.dialogPane.isDisable = false }.getOrThrow()
             }.ui {
                 val type = when (command) {
-                    is CashFlowCommand.IssueCash -> "Cash Issued"
-                    is CashFlowCommand.ExitCash -> "Cash Exited"
-                    is CashFlowCommand.PayCash -> "Cash Paid"
+                    is Cash.Commands.Issue -> "Cash Issued"
+                    is Cash.Commands.Exit -> "Cash Exited"
+                    is Cash.Commands.Move -> "Cash Paid"
                 }
                 dialog.alertType = Alert.AlertType.INFORMATION
                 dialog.dialogPane.content = gridpane {

@@ -20,25 +20,17 @@ import net.corda.client.jfx.utils.map
 import com.secLendModel.gui.formatters.PartyNameFormatter
 import com.secLendModel.gui.model.CordaViewModel
 import tornadofx.*
-import com.secLendModel.Simulation
-import com.secLendModel.flow.oracle.PriceRequestFlow
-import com.secLendModel.flow.oracle.PriceType
 import com.secLendModel.flow.securitiesLending.LoanAgreementFlow
 import com.secLendModel.flow.securitiesLending.LoanChecks
 import com.secLendModel.flow.securitiesLending.LoanIssuanceFlow
 import com.secLendModel.flow.securitiesLending.LoanTerms
-import javafx.concurrent.Task
 import javafx.scene.control.*
 import net.corda.client.jfx.model.*
 import net.corda.core.contracts.Amount
-import net.corda.core.crypto.commonName
-import net.corda.core.getOrThrow
-import net.corda.core.messaging.FlowHandle
+import net.corda.core.internal.x500Name
+import net.corda.core.utilities.getOrThrow
 import net.corda.core.messaging.startFlow
-import net.corda.core.transactions.TransactionBuilder
-import org.omg.PortableServer.THREAD_POLICY_ID
 import java.time.LocalDateTime
-import java.util.concurrent.Delayed
 
 /**
  * The root view embeds the [Shell] and provides support for the status bar, and modal dialogs.
@@ -60,7 +52,7 @@ class MainView : View() {
     private val selectedView by objectProperty(CordaViewModel::selectedView)
     private val registeredViews by observableList(CordaViewModel::registeredViews)
     private val rpcProxy by observableValue(NodeMonitorModel::proxyObservable)
-    private val allNodes by observableList(NetworkIdentityModel::networkIdentities)
+    private val allNodes by observableList(NetworkIdentityModel::parties) //todo not sure if parties actually gets all nodes or not
 
 
     private val menuItemCSS = "sidebar-menu-item"
@@ -80,8 +72,8 @@ class MainView : View() {
         agreementButton.setOnMouseClicked {
             //Do txns in a new thread as to avoid UI freezing/locking
             val newThread = kotlin.concurrent.thread {
-                val myInfo = rpcProxy.value!!.nodeIdentity().legalIdentity
-                val otherParty = parties.filter { it.advertisedServices.isEmpty() && it.legalIdentity != myInfo  && it.legalIdentity.name.commonName == "Commbank" }.single().legalIdentity
+                val myInfo = rpcProxy.value!!.nodeInfo().legalIdentities.first()
+                val otherParty = parties.filter { it.advertisedServices.isEmpty() && it.legalIdentities.first() != myInfo  && it.legalIdentities.first().name.commonName == "Commbank" }.single().legalIdentities.first()
                 val loanTerms = LoanTerms("CBA", 1200, Amount(2535, CURRENCY), otherParty, myInfo,
                         0.05, 0.05, 100, "Cash", LocalDateTime.now())
                 val loanTermsReturned = rpcProxy.value?.startFlow(LoanAgreementFlow::Borrower, loanTerms)!!.returnValue.getOrThrow()
@@ -101,7 +93,7 @@ class MainView : View() {
             }
         }
 
-        userButton.textProperty().bind(myIdentity.map { it?.legalIdentity?.let { PartyNameFormatter.short.format(it.name) } })
+        userButton.textProperty().bind(myIdentity.map { it?.name?.let { PartyNameFormatter.short.format(it.x500Name) } })
         exit.setOnAction {
             (root.scene.window as Stage).fireEvent(WindowEvent(root.scene.window, WindowEvent.WINDOW_CLOSE_REQUEST))
         }
@@ -148,8 +140,8 @@ class MainView : View() {
 
     fun runTxns() {
         //The following simulates specific trades and is accessed by clicking the txns button in the main view of the cordapp.
-        val myInfo = rpcProxy.value!!.nodeIdentity().legalIdentity
-        val otherParty = parties.filter { it.advertisedServices.isEmpty() && it.legalIdentity != myInfo  && it.legalIdentity.name.commonName == "Commbank" }.single().legalIdentity
+        val myInfo = rpcProxy.value!!.nodeInfo().legalIdentities.first()
+        val otherParty = parties.filter { it.advertisedServices.isEmpty() && it.legalIdentities.first() != myInfo  && it.legalIdentities.first().name.commonName == "Commbank" }.single().legalIdentities.first()
         println(otherParty)
         //Loan borrow 1200 CBA w/cash collateral
         val loanTerms = LoanTerms("CBA", 1200, Amount(2535, CURRENCY), otherParty, myInfo,

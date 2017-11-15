@@ -19,11 +19,9 @@ import javafx.scene.layout.Priority
 import javafx.scene.layout.VBox
 import net.corda.client.jfx.model.*
 import net.corda.client.jfx.utils.*
-import net.corda.contracts.asset.Cash
 import net.corda.core.contracts.Amount
 import net.corda.core.contracts.StateAndRef
 import net.corda.core.contracts.withoutIssuer
-import net.corda.core.crypto.commonName
 import net.corda.core.identity.AbstractParty
 import com.secLendModel.gui.formatters.AmountFormatter
 import com.secLendModel.gui.formatters.PartyNameFormatter
@@ -36,6 +34,8 @@ import com.secLendModel.gui.model.SettingsModel
 import com.secLendModel.gui.ui.*
 import com.secLendModel.gui.views.*
 import com.secLendModel.gui.views.resolveIssuer
+import net.corda.core.internal.x500Name
+import net.corda.finance.contracts.asset.Cash
 import org.fxmisc.easybind.EasyBind
 import tornadofx.*
 import java.time.Instant
@@ -130,9 +130,9 @@ class CashViewer : CordaView("Cash") {
             equivLabel.textProperty().bind(equivAmount.map { it.token.currencyCode.toString() })
             // TODO: Anonymous should probably be italicised or similar
             issuerValueLabel.textProperty().bind(SimpleStringProperty(resolvedIssuer.nameOrNull()?.let {
-                PartyNameFormatter.short.format(it)
+                PartyNameFormatter.short.format(it.x500Name)
             } ?: "Anonymous"))
-            issuerValueLabel.apply { tooltip(resolvedIssuer.nameOrNull()?.let { PartyNameFormatter.full.format(it) } ?: "Anonymous") }
+            issuerValueLabel.apply { tooltip(resolvedIssuer.nameOrNull()?.let { PartyNameFormatter.full.format(it.x500Name) } ?: "Anonymous") }
             originatedValueLabel.text = stateRow.originated.toString()
             amountValueLabel.text = amountFormatter.format(amountNoIssuer)
             equivValueLabel.textProperty().bind(equivAmount.map { equivFormatter.format(it) })
@@ -236,7 +236,7 @@ class CashViewer : CordaView("Cash") {
             val node = it.value.value
             when (node) {
             // TODO: Anonymous should probably be italicised or similar
-                is ViewerNode.IssuerNode -> SimpleStringProperty(node.issuer.nameOrNull()?.let { PartyNameFormatter.short.format(it) } ?: "Anonymous")
+                is ViewerNode.IssuerNode -> SimpleStringProperty(node.issuer.nameOrNull()?.let { PartyNameFormatter.short.format(it.x500Name) } ?: "Anonymous")
                 is ViewerNode.CurrencyNode -> node.amount.map { it.token.toString() }
             }
         }

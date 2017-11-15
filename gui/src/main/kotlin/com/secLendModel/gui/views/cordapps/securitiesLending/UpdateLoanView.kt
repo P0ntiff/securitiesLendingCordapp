@@ -20,31 +20,15 @@ import javafx.scene.layout.GridPane
 import javafx.scene.text.Font
 import javafx.scene.text.FontWeight
 import javafx.stage.Window
-import kotlinx.html.attributes.booleanEncode
 import net.corda.client.jfx.model.*
-import net.corda.client.jfx.utils.ChosenList
 import net.corda.client.jfx.utils.isNotNull
 import net.corda.client.jfx.utils.map
-import net.corda.client.jfx.utils.unique
 import net.corda.core.contracts.*
 import net.corda.core.flows.FlowException
-import net.corda.core.flows.FlowLogic
-import net.corda.core.getOrThrow
-import net.corda.core.identity.AbstractParty
-import net.corda.core.identity.Party
+import net.corda.core.internal.x500Name
 import net.corda.core.messaging.startFlow
-import net.corda.core.node.NodeInfo
-import net.corda.core.node.ServiceHub
-import net.corda.core.serialization.OpaqueBytes
-import net.corda.core.then
-import net.corda.flows.CashFlowCommand
-import net.corda.flows.IssuerFlow
-import net.corda.node.services.startFlowPermission
 import org.controlsfx.dialog.ExceptionDialog
 import tornadofx.*
-import java.math.BigDecimal
-import java.util.*
-import net.corda.core.messaging.CordaRPCOps
 import net.corda.core.messaging.FlowHandle
 
 /**
@@ -177,8 +161,8 @@ class UpdateLoanView : Fragment() {
             items = loanStates
             converter = stringConverter { "Instrument: " + it.state.data.code.toString() +
                  "\n Shares: "+ it.state.data.quantity +
-                        "\n Lender: " + PartyNameFormatter.short.format(it.state.data.lender.name) +
-                        "\n Borrower: " + PartyNameFormatter.short.format(it.state.data.borrower.name) +
+                        "\n Lender: " + PartyNameFormatter.short.format(it.state.data.lender.name.x500Name) +
+                        "\n Borrower: " + PartyNameFormatter.short.format(it.state.data.borrower.name.x500Name) +
                         "\n Margin: " + it.state.data.terms.margin +
                         "\n Current SP: " + it.state.data.currentStockPrice.quantity}
         }

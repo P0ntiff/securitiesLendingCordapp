@@ -12,39 +12,20 @@ import javafx.collections.FXCollections
 import javafx.geometry.Insets
 import javafx.geometry.VPos
 import javafx.scene.control.*
-import javafx.scene.layout.GridPane
 import javafx.scene.text.Font
 import javafx.scene.text.FontWeight
 import javafx.stage.Window
 import net.corda.client.jfx.model.*
-import net.corda.client.jfx.utils.ChosenList
 import net.corda.client.jfx.utils.isNotNull
-import net.corda.client.jfx.utils.map
-import net.corda.client.jfx.utils.unique
 import net.corda.core.contracts.Amount
-import net.corda.core.contracts.sumOrNull
-import net.corda.core.contracts.withoutIssuer
-import net.corda.core.identity.AbstractParty
-import net.corda.core.identity.Party
-import net.corda.core.crypto.commonName
 import net.corda.core.flows.FlowException
-import net.corda.core.getOrThrow
 import net.corda.core.messaging.startFlow
-import net.corda.core.node.NodeInfo
-import net.corda.core.serialization.OpaqueBytes
-import net.corda.core.then
 import com.secLendModel.gui.formatters.PartyNameFormatter
 import com.secLendModel.gui.model.*
-import com.secLendModel.gui.views.bigDecimalFormatter
-import com.secLendModel.gui.views.byteFormatter
 import com.secLendModel.gui.views.stringConverter
-import net.corda.contracts.asset.Cash
-import net.corda.flows.CashFlowCommand
-import net.corda.flows.IssuerFlow.IssuanceRequester
+import net.corda.core.internal.x500Name
 import org.controlsfx.dialog.ExceptionDialog
 import tornadofx.*
-import java.math.BigDecimal
-import java.util.*
 
 class UpdatePortfolio : Fragment() {
     override val root by fxml<DialogPane>()
@@ -122,11 +103,11 @@ class UpdatePortfolio : Fragment() {
                     EquitiesTransaction.Buy -> {
                         //TODO: Create a buy flow for equities, currently only sell exists.
                         rpcProxy.value?.startFlow(BuyFlow::Buyer, securityTypeCB.value, quantityTextField.text.toInt(),
-                                Amount(priceTextField.text.toLong() * quantityTextField.text.toLong(), CURRENCY), otherPartyCB.value.legalIdentity)
+                                Amount(priceTextField.text.toLong() * quantityTextField.text.toLong(), CURRENCY), otherPartyCB.value.legalIdentities.first())
                     }
                     EquitiesTransaction.Sell -> {
                         rpcProxy.value?.startFlow(TradeFlow::Seller, securityTypeCB.value, quantityTextField.text.toInt(),
-                                Amount(priceTextField.text.toLong() * quantityTextField.text.toLong(), CURRENCY), otherPartyCB.value.legalIdentity)
+                                Amount(priceTextField.text.toLong() * quantityTextField.text.toLong(), CURRENCY), otherPartyCB.value.legalIdentities.first())
                     }
                     else -> null
                 }
@@ -148,14 +129,14 @@ class UpdatePortfolio : Fragment() {
         otherPartyLabel.text = "Opposing Party"
         val newParties = arrayListOf<net.corda.core.node.NodeInfo>()
         parties.forEach {
-            if (it != myIdentity.value) {
+            if (it.legalIdentities.first() != myIdentity.value) {
                 newParties.add(it)
             }
         }
         otherPartyCB.apply {
             items = newParties.observable()
-            converter = stringConverter { it?.legalIdentity?.let {
-                PartyNameFormatter.short.format(it.name) } ?: "" }
+            converter = stringConverter { it?.legalIdentities!!.first()?.let {
+                PartyNameFormatter.short.format(it.name.x500Name) } ?: "" }
         }
         // Security Type
         securityTypeLabel.text = "Security"

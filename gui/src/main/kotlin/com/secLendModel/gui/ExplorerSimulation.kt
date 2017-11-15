@@ -14,23 +14,15 @@ import net.corda.core.failure
 import net.corda.core.identity.Party
 import net.corda.core.messaging.CordaRPCOps
 import net.corda.core.messaging.FlowHandle
-import net.corda.core.node.services.ServiceInfo
-import net.corda.core.node.services.ServiceType
-import net.corda.core.serialization.OpaqueBytes
-import net.corda.core.success
 import net.corda.core.transactions.SignedTransaction
-import net.corda.core.utilities.ALICE
-import net.corda.core.utilities.BOB
-import net.corda.core.utilities.DUMMY_NOTARY
-import net.corda.flows.CashExitFlow
-import net.corda.flows.CashFlowCommand
-import net.corda.flows.CashIssueFlow
-import net.corda.flows.CashPaymentFlow
-import net.corda.flows.IssuerFlow
+import net.corda.finance.flows.CashExitFlow
+import net.corda.finance.flows.CashIssueAndPaymentFlow
+import net.corda.finance.flows.CashIssueFlow
+import net.corda.finance.flows.CashPaymentFlow
 import net.corda.testing.driver.NodeHandle
 import net.corda.testing.driver.PortAllocation
 import net.corda.testing.driver.driver
-import net.corda.node.services.startFlowPermission
+import net.corda.node.services.FlowPermissions.Companion.startFlowPermission
 import net.corda.node.services.transactions.SimpleNotaryService
 import net.corda.nodeapi.User
 import org.bouncycastle.asn1.x500.X500Name
@@ -45,7 +37,8 @@ class ExplorerSimulation(val options: OptionSet) {
             startFlowPermission<CashIssueFlow>(),
             startFlowPermission<CashPaymentFlow>(),
             startFlowPermission<CashExitFlow>(),
-            startFlowPermission<IssuerFlow.IssuanceRequester>())
+            startFlowPermission<CashIssueAndPaymentFlow>()
+            //startFlowPermission<IssuerFlow.IssuanceRequester>())
     )
 
     lateinit var notaryNode: NodeHandle
