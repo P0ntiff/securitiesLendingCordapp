@@ -3,14 +3,14 @@ package com.secLendModel.flow.securities
 import co.paralleluniverse.fibers.Suspendable
 import com.secLendModel.contract.SecurityClaim
 import net.corda.core.contracts.*
+import net.corda.core.flows.FinalityFlow
 import net.corda.core.identity.Party
 import net.corda.core.flows.FlowLogic
 import net.corda.core.flows.StartableByRPC
-import net.corda.core.serialization.OpaqueBytes
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.transactions.TransactionBuilder
+import net.corda.core.utilities.OpaqueBytes
 import net.corda.core.utilities.ProgressTracker
-import net.corda.flows.FinalityFlow
 
 /** Issues securities from the caller of this flow to the recipient.
  *  @param code = stock code (String) to be traded on the ledger
@@ -38,8 +38,8 @@ class SecuritiesIssueFlow(val code: String,
 
         proTracker.currentStep = GENERATING_TX
         val issueRef = OpaqueBytes.of(1)
-        val builder: TransactionBuilder = TransactionType.General.Builder(notary = null)
-        val issuer = serviceHub.myInfo.legalIdentity.ref(issueRef)
+        val builder: TransactionBuilder = TransactionBuilder(notary = null)
+        val issuer = serviceHub.myInfo.legalIdentities.first().ref(issueRef)
         SecurityClaim().generateIssue(builder, issuer, code, quantity, recipient, notary)
 
         proTracker.currentStep = SIGNING_TX

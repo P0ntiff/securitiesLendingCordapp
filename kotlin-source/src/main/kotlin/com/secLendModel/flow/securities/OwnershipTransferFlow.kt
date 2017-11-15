@@ -3,15 +3,14 @@ package com.secLendModel.flow.securities
 import co.paralleluniverse.fibers.Suspendable
 import com.secLendModel.flow.SecuritiesPreparationFlow
 import net.corda.core.contracts.InsufficientBalanceException
-import net.corda.core.contracts.TransactionType
+import net.corda.core.flows.CollectSignaturesFlow
+import net.corda.core.flows.FinalityFlow
 import net.corda.core.identity.Party
 import net.corda.core.flows.FlowLogic
 import net.corda.core.flows.StartableByRPC
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.transactions.TransactionBuilder
 import net.corda.core.utilities.ProgressTracker
-import net.corda.flows.CollectSignaturesFlow
-import net.corda.flows.FinalityFlow
 
 
 /** A flow for transferring ownership of a securityClaim to another owner (recipient)
@@ -41,8 +40,8 @@ class OwnershipTransferFlow(val code : String,
     @Suspendable
     override fun call() : SignedTransaction {
         progressTracker.currentStep = PREPARING
-        val notary = serviceHub.networkMapCache.notaryNodes.single().notaryIdentity
-        val builder : TransactionBuilder = TransactionType.General.Builder(notary)
+        val notary = serviceHub.networkMapCache.notaryIdentities.single()
+        val builder : TransactionBuilder = TransactionBuilder(notary)
 
         //Input states from vault into the transaction, and create outputs with a) recipient as the new owner of the states,
         // b) with change sent back to the old owner
