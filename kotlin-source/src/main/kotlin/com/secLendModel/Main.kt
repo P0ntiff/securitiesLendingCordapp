@@ -60,17 +60,17 @@ import org.bouncycastle.asn1.x500.X500Name
 import java.math.BigDecimal
 import java.time.LocalDateTime
 import java.util.*
-import net.corda.finance.DOLLARS
+import net.corda.testing.driver.driver
 
 
 //CONSTANTS:
 //Legal identities of parties in the network
 val EXCHANGE = CordaX500Name("ASX","ASX Ltd","Sydney","AU")
-val CENTRALBANK = CordaX500Name("CRBA","ReserveBankOfAustralia","Canberra","AU")
-val NOTARY = CordaX500Name("Notary Service","R3","corda","Zurich","CH","corda.notary.validating")
+val CENTRALBANK = CordaX500Name("RBA","ReserveBankOfAustralia","Canberra","AU")
+val NOTARY = CordaX500Name("Notary Service","Corda Notary Service","Zurich","CH")
 val ARNOLD = CordaX500Name("Commbank","Commonwealth Bank of Australia","Madrid","ES")
 val BARRY = CordaX500Name("ANZ","Australia and New Zealand Banking Group LTD","Rome","IT")
-val COLIN = CordaX500Name("NAB" ,"National Australia Bank","Paris","C=FR")
+val COLIN = CordaX500Name("NAB" ,"National Australia Bank","Paris","FR")
 //val ORACLE = X500Name("CN=Oracle SP,O=Oracle SP,L=Brisbane,C=AU")
 
 //Shares to be on issue by exchange
@@ -148,7 +148,7 @@ class Simulation(options : String?) {
     }
 
     fun runSimulation() {
-        driver(portAllocation = PortAllocation.Incremental(20000), isDebug = false) {
+        driver(portAllocation = PortAllocation.Incremental(20000), isDebug = false, startNodesInProcess = true, extraCordappPackagesToScan = listOf("net.corda.finance.contracts.asset")) {
             //Normal Users
             val arnoldParams = NodeParameters(providedName = ARNOLD, rpcUsers = arrayListOf(stdUser))
             val barryParams = NodeParameters(providedName = BARRY, rpcUsers = arrayListOf(stdUser))
@@ -177,6 +177,7 @@ class Simulation(options : String?) {
             exchangeNode = exchange.get()
             centralNode = centralBank.get()
 //            oracleNode = oracle.get()
+            startWebserver(arnoldNode)
 
             setUpNodes()
             simulateTransactions()
