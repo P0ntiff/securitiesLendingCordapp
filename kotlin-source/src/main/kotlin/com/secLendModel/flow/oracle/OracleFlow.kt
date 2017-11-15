@@ -21,23 +21,23 @@ object OracleFlow {
 
     /** Flow that handles a query from a specific party. Code is sent from the PriceUpdateFlow.PriceQueryFlow and
      * recieved here. A response is sent back to the requestor
-     * @param requestor the party who requested this update
+     * @param requester the party who requested this update
      * @returns FlowLogic (this flow is continued in PriceRequestFlow.PriceQueryFlow)
      */
     @InitiatedBy(PriceRequestFlow.PriceQueryFlow::class)
     class QueryHandler(val requester: Party): FlowLogic<Unit>() {
         @Suspendable
         override fun call() {
-
+            val flowSession = initiateFlow(requester)
             //Receive the name of the security requested for a price update (from PriceUpdateFlow.PriceQueryFlow)
-            val code = receive<String>(requester).unwrap {
+            val code = flowSession.receive<String>().unwrap {
                 //TODO: Check we offer a price query service on this security
                 it
             }
             //Query the oracle and get the data we need
             val response = serviceHub.cordaService(Oracle::class.java)
             //Send the price information back to the party who requested it
-            send(requester, response.query(code))
+            flowSession.send(response.query(code))
 
         }
     }
@@ -52,7 +52,8 @@ object OracleFlow {
         @Suspendable
         override fun call() {
             //Recieve the sign request
-            val request = receive<FilteredTransaction>(otherParty).unwrap { it }
+            val flowSession = initiateFlow(otherParty)
+            val request = flowSession.receive<FilteredTransaction>().unwrap { it }
             val oracle = serviceHub.cordaService(Oracle::class.java)
 
             //These calls are no longer used, can change to this method if there was multiple oracles within the network
@@ -61,7 +62,7 @@ object OracleFlow {
             //val oracleService = oracle2.serviceIdentities(PriceType.type).single()
             //Sign the tx and send it back
 
-            send(otherParty, oracle.sign(request))
+            flowSession.send(oracle.sign(request))
             //send(otherParty, ora)
 
         }

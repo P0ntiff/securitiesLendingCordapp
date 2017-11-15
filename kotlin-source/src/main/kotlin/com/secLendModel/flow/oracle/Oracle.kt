@@ -6,8 +6,8 @@ import net.corda.core.contracts.Amount
 import net.corda.core.contracts.Command
 import net.corda.core.crypto.DigitalSignature
 import net.corda.core.crypto.MerkleTreeException
+import net.corda.core.crypto.TransactionSignature
 import net.corda.core.identity.Party
-import net.corda.core.node.PluginServiceHub
 import net.corda.core.node.ServiceHub
 import net.corda.core.node.services.CordaService
 import net.corda.core.serialization.SingletonSerializeAsToken
@@ -29,7 +29,7 @@ import javax.annotation.concurrent.ThreadSafe
 @CordaService
 class Oracle(val identity: Party, val services: ServiceHub) : SingletonSerializeAsToken() {
     //Instantiate this oracle and register if with the serviceHubs services list
-    constructor(services: PluginServiceHub) : this(services.myInfo.legalIdentity, services)
+    constructor(services: ServiceHub) : this(services.myInfo.legalIdentities.first(), services)
     //Add prices from txt file
     val priceList = addDefaultPrices()
 
@@ -68,12 +68,10 @@ class Oracle(val identity: Party, val services: ServiceHub) : SingletonSerialize
         throw IllegalArgumentException("No prices found for security $code")
     }
 
-    fun sign(ftx: FilteredTransaction): DigitalSignature.LegallyIdentifiable {
-        if (!ftx.verify()) {
-            throw MerkleTreeException("Rate Fix Oracle: Couldn't verify partial Merkle tree.")
-        }
+    fun sign(ftx: FilteredTransaction): TransactionSignature {
+        ftx.verify()
         // Performing validation of obtained FilteredLeaves.
-        fun commandValidator(elem: Command): Boolean {
+        fun commandValidator(elem: Command<*>): Boolean {
             if (!(identity.owningKey in elem.signers))
                 throw IllegalArgumentException("Our signature was not present in the comamnd")
             //Get the price sent with the transaction
@@ -92,13 +90,13 @@ class Oracle(val identity: Party, val services: ServiceHub) : SingletonSerialize
 
         fun check(elem: Any): Boolean {
             return when (elem) {
-                is Command -> commandValidator(elem)
+                is Command<*> -> commandValidator(elem)
                 //else -> throw IllegalArgumentException("Oracle received data of different type than expected.")
-                else -> commandValidator(elem as Command);
+                else -> commandValidator(elem as Command<*>);
             }
         }
 
-        val leaves = ftx.filteredLeaves
+        //val leaves = ftx.filteredLeaves
         //TODO: Check why I commented this out -> was it throwing an error or something
         //if (!leaves.checkWithFun(::check))
           //  throw IllegalArgumentException()
@@ -108,7 +106,9 @@ class Oracle(val identity: Party, val services: ServiceHub) : SingletonSerialize
         // Note that we will happily sign an invalid transaction, as we are only being presented with a filtered
         // version so we can't resolve or check it ourselves. However, that doesn't matter much, as if we sign
         // an invalid transaction the signature is worthless.
-        val signature = services.keyManagementService.sign(ftx.rootHash.bytes, services.myInfo.legalIdentity.owningKey)
-        return DigitalSignature.LegallyIdentifiable(identity, signature.bytes)
+//        val signature = services.keyManagementService.sign(ftx.rootHash.bytes, services.myInfo.legalIdentity.owningKey)
+//        return DigitalSignature.LegallyIdentifiable(identity, signature.bytes)
+        require(ftx.checkWithFun(::check))
+        return services.createSignature(ftx, services.myInfo.legalIdentities.first().owningKey)
     }
 }

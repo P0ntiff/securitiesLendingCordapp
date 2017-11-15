@@ -3,6 +3,7 @@ package com.secLendModel.flow.oracle
 import co.paralleluniverse.fibers.Suspendable
 import net.corda.core.contracts.Amount
 import net.corda.core.crypto.DigitalSignature
+import net.corda.core.crypto.TransactionSignature
 import net.corda.core.flows.FlowLogic
 import net.corda.core.flows.InitiatingFlow
 import net.corda.core.flows.StartableByRPC
@@ -34,9 +35,10 @@ open class PriceRequestFlow(val code : String,
         tx.addCommand(stockPrice, oracle.identity.owningKey)
 
         //Sign and confirm signatures for the tx
-        val mtx = tx.toWireTransaction().buildFilteredTransaction(filtering = Predicate{true})
+        val mtx = tx.toWireTransaction(serviceHub).buildFilteredTransaction(filtering = Predicate{true})
         val signature = subFlow(PriceSignFlow(oracle.identity, mtx, tx))
-        tx.addSignatureUnchecked(signature)
+        serviceHub.signInitialTransaction(tx)
+        //tx.addSignatureUnchecked(signature)
         return Pair(price, tx)
     }
 
@@ -67,16 +69,17 @@ open class PriceRequestFlow(val code : String,
      * @returns the digital signature of the oracle
      */
     @InitiatingFlow
-    class PriceSignFlow(val oracle : Party, val partialMerkleTx: FilteredTransaction, val tx: TransactionBuilder) : FlowLogic<DigitalSignature.LegallyIdentifiable>() {
+    class PriceSignFlow(val oracle : Party, val partialMerkleTx: FilteredTransaction, val tx: TransactionBuilder) : FlowLogic<TransactionSignature>() {
         @Suspendable
-        override fun call() : DigitalSignature.LegallyIdentifiable {
+        override fun call() : TransactionSignature {
             //Send the partially signed tx
-            val response = sendAndReceive<DigitalSignature.LegallyIdentifiable>(oracle, partialMerkleTx)
+            val flowSession = initiateFlow(oracle)
+            val response = flowSession.sendAndReceive<TransactionSignature>(partialMerkleTx)
 
             return response.unwrap { sig ->
                 //Validate that the oracle did sign this txn.
-                check(sig.signer.owningKey == oracle.owningKey)
-                tx.checkSignature(sig)
+                check(sig.by == oracle.owningKey)
+                //tx.checkSignature(sig) todo is this needed? for now removed because it is incompatiable with v1
                 sig
             }
 
