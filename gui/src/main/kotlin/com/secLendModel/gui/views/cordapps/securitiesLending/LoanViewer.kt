@@ -128,8 +128,8 @@ class LoanViewer : CordaView("Loan Portfolio") {
                 tooltip = identiconToolTip(stateRow.stateAndRef.ref.txhash)
             }
             instrumentValueLabel.text = STOCKS[CODES.indexOf(stateRow.stateAndRef.state.data.code)]
-            LenderLabel.text = PartyNameFormatter.short.format(lender.name.x500Name)
-            BorrowerLabel.text = PartyNameFormatter.short.format(borrower.name.x500Name)
+            LenderLabel.text = PartyNameFormatter.short.format(lender.name)
+            BorrowerLabel.text = PartyNameFormatter.short.format(borrower.name)
             ValueLabel.text = AmountFormatter.formatStock(value.toInt())
             quantityValueLabel.text = AmountFormatter.formatStock(quantity)
             MarginLabel.text = margin.toString() + "%"
@@ -207,7 +207,7 @@ class LoanViewer : CordaView("Loan Portfolio") {
                     /**
                      * Assemble the Exchange node.
                      */
-                    val treeItem = TreeItem(ViewerNode.ExchangeNode(PartyNameFormatter.short.format(lender.name.x500Name), memberStates))
+                    val treeItem = TreeItem(ViewerNode.ExchangeNode(PartyNameFormatter.short.format(lender.name), memberStates))
 
                     /**
                      * Bind the children in the TreeTable structure.

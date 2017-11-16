@@ -59,6 +59,7 @@ class PortfolioViewer : CordaView("Equities Portfolio") {
     //RPC Proxy
     private val rpcProxy by observableValue(NodeMonitorModel::proxyObservable)
     private val networkIdentities by observableList(NetworkIdentityModel::parties)
+    private val allNodes by observableList(NetworkIdentityModel::parties)
     // Inject UI elements.
     override val root: BorderPane by fxml()
     override val icon: FontAwesomeIcon = FontAwesomeIcon.ADDRESS_CARD
@@ -132,9 +133,9 @@ class PortfolioViewer : CordaView("Equities Portfolio") {
             }
             instrumentValueLabel.text = STOCKS[CODES.indexOf(stateRow.stateAndRef.state.data.code)]
             exchangeValueLabel.textProperty().bind(SimpleStringProperty(resolvedIssuer.nameOrNull()?.let {
-                PartyNameFormatter.short.format(it.x500Name)
+                PartyNameFormatter.short.format(it)
             } ?: "Anonymous"))
-            exchangeValueLabel.apply { tooltip(resolvedIssuer.nameOrNull()?.let { PartyNameFormatter.full.format(it.x500Name) } ?: "Anonymous") }
+            exchangeValueLabel.apply { tooltip(resolvedIssuer.nameOrNull()?.let { PartyNameFormatter.full.format(it) } ?: "Anonymous") }
             originatedValueLabel.text = stateRow.originated.toString()
             quantityValueLabel.text = AmountFormatter.formatStock(quantity)
         }
@@ -180,7 +181,8 @@ class PortfolioViewer : CordaView("Equities Portfolio") {
                         val sumAmount = amounts.foldObservable(0, Int::plus)
                         //TODO: Get the total worth for this sumAmount and add it next to the sumAmount in the quantity colum
                         //val price: Pair<Amount<Currency>, TransactionBuilder> = net.corda.core.flows.FlowLogic(PriceRequestFlow(stock, tx))
-                        val oracle = networkIdentities.filtered { it.advertisedServices.any { it.info.type.equals(PriceType.type) } }
+                        //val oracle = networkIdentities.filtered { it.advertisedServices.any { it.info.type.equals(PriceType.type) } }
+                        val oracle = allNodes.filter { it.legalIdentities.first().name.commonName == "ASX" } //this is a bit hacky, but will do until they bring back advertisedServices
                         var totalValue = 0.0;
                         memberStates.forEach {
                             //val price = rpcProxy.value?.startFlow(PriceRequestFlow::PriceQueryFlow, oracle.first().value!!.legalIdentity, it.state.data.code)!!.returnValue//, oracle, it.state.data.code)
@@ -229,7 +231,7 @@ class PortfolioViewer : CordaView("Equities Portfolio") {
             val node = it.value.value
             when (node) {
             // TODO: Anonymous should probably be italicised or similar
-                is ViewerNode.ExchangeNode -> SimpleStringProperty(node.exchange .let { PartyNameFormatter.short.format(it.nameOrNull()!!.x500Name) } ?: "Anonymous")
+                is ViewerNode.ExchangeNode -> SimpleStringProperty(node.exchange .let { PartyNameFormatter.short.format(it.nameOrNull()!!) } ?: "Anonymous")
                 is ViewerNode.QuantityNode -> node.states.map { it.state.data.code }.first()
             }
         }

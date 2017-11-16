@@ -41,7 +41,6 @@ import net.corda.finance.utils.ScreenCoordinate
 import net.corda.finance.utils.WorldMapLocation
 import net.corda.nodeapi.internal.ServiceType
 import tornadofx.*
-import net.corda
 
 class Network : CordaView() {
     override val root by fxml<Parent>()
@@ -86,7 +85,7 @@ class Network : CordaView() {
                     .filterNotNull()
                     .map { it.stateAndRef.state.data }.getParties()
             val outputParties = it.transaction.tx.outputStates.observable().getParties()
-            val signingParties = it.transaction.sigs.map { it.by.toKnowParty() }
+            val signingParties = it.transaction.sigs.map { it.by.toKnownParty() }
             // Input parties fire a bullets to all output parties, and to the signing parties. !! This is a rough guess of how the message moves in the network.
             // TODO : Expose artemis queue to get real message information.
             inputParties.cross(outputParties) + inputParties.cross(signingParties)
@@ -101,7 +100,7 @@ class Network : CordaView() {
             padding = Insets(10.0)
             useMaxWidth = true
             graphic = vbox {
-                label(PartyNameFormatter.short.format(identities[0].name.x500Name)) { font = Font.font(font.family, FontWeight.BOLD, 15.0) }
+                label(PartyNameFormatter.short.format(identities[0].name)) { font = Font.font(font.family, FontWeight.BOLD, 15.0) }
                 gridpane {
                     // TODO We lose node's main identity for display.
                     hgap = 5.0
@@ -124,7 +123,7 @@ class Network : CordaView() {
     private fun NodeInfo.render(): MapViewComponents {
         val node = this
         val identities = node.legalIdentitiesAndCerts.sortedBy { it.owningKey.toBase58String() }
-        val mapLabel = label(PartyNameFormatter.short.format(identities.first().name.x500Name)) // We choose the first one for the name of the node on the map.
+        val mapLabel = label(PartyNameFormatter.short.format(identities.first().name)) // We choose the first one for the name of the node on the map.
         mapPane.add(mapLabel)
         // applyCss: This method does not normally need to be invoked directly but may be used in conjunction with Parent.layout()
         // to size a Node before the next pulse, or if the Scene is not in a Stage.

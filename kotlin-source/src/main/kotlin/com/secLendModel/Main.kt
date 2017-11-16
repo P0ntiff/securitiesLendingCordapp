@@ -21,45 +21,29 @@ import com.secLendModel.flow.securitiesLending.SynIntegrationFlow.SynIssueLoan
 import com.secLendModel.flow.securitiesLending.SynIntegrationFlow.SynExitLoan
 import net.corda.core.contracts.Amount
 import net.corda.core.contracts.UniqueIdentifier
-import net.corda.core.contracts.*
 import net.corda.core.utilities.getOrThrow
 import net.corda.core.identity.Party
 import net.corda.core.messaging.CordaRPCOps
 import net.corda.core.messaging.startFlow
 import net.corda.core.messaging.startTrackedFlow
-//import net.corda.core.node.services.ServiceInfo
 import net.corda.nodeapi.internal.ServiceInfo
-//import net.corda.core.serialization.OpaqueBytes
 import net.corda.core.utilities.OpaqueBytes
-//import net.corda.flows.CashExitFlow
 import net.corda.finance.flows.CashExitFlow
-//import net.corda.flows.CashIssueFlow
 import net.corda.finance.flows.CashIssueFlow
-//import net.corda.flows.CashPaymentFlow
 import net.corda.finance.flows.CashPaymentFlow
-import net.corda.node.internal.AbstractNode
-import net.corda.node.internal.Node
-//import net.corda.node.services.startFlowPermission
 import net.corda.node.services.FlowPermissions.Companion.startFlowPermission
-import net.corda.node.services.RPCUserService
-import net.corda.client.mock.generateCurrency
 import net.corda.core.identity.CordaX500Name
 import net.corda.finance.flows.CashIssueAndPaymentFlow
 import net.corda.node.services.transactions.ValidatingNotaryService
 import net.corda.nodeapi.User
-//import net.corda.node.services.transactions.ValidatingNotaryService
 import net.corda.nodeapi.internal.ServiceType
-//import net.corda.core.node.services.ServiceType
-import net.corda.testing.driver.NodeHandle
-import net.corda.testing.driver.NodeParameters
-import net.corda.testing.driver.PortAllocation
-import net.corda.testing.driver.driver
-import org.bouncycastle.asn1.x500.X500Name
+import net.corda.testing.ALICE
+import net.corda.testing.BOB
 import java.math.BigDecimal
 import java.time.LocalDateTime
 import java.util.*
-import net.corda.testing.driver.driver
-
+import net.corda.testing.aliceBobAndNotary
+import net.corda.testing.driver.*
 
 //CONSTANTS:
 //Legal identities of parties in the network
@@ -136,7 +120,7 @@ class Simulation(options : String?) {
     lateinit var colinNode : NodeHandle
     lateinit var exchangeNode : NodeHandle
     lateinit var centralNode : NodeHandle
-//    lateinit var oracleNode : NodeHandle
+    lateinit var oracleNode : NodeHandle
     val parties = ArrayList<Pair<Party, CordaRPCOps>>()
     val stockMarkets = ArrayList<Pair<Party, CordaRPCOps>>()
     val cashIssuers = ArrayList<Pair<Party, CordaRPCOps>>()
@@ -180,6 +164,12 @@ class Simulation(options : String?) {
             simulateTransactions()
             waitForAllNodesToFinish()
         }
+//        driver {
+////            val arnoldParams = NodeParameters(providedName = ARNOLD, rpcUsers = arrayListOf(stdUser))
+////            val arnold = startNode(defaultParameters = arnoldParams)
+////            arnoldNode = arnold.get()
+//        }
+
     }
 
     fun simulateTransactions() {
@@ -189,9 +179,9 @@ class Simulation(options : String?) {
         //Test cash and equities asset issue
         parties.forEach {
             //Note changed from notaryNode.nodeInfo.notaryIdentity to this legalIdentitiesFirst
-            issueCash(centralBank, it.second, notaryNode.nodeInfo.legalIdentities.first())
-            issueEquity(stockMarket, it.second, notaryNode.nodeInfo.legalIdentities.first())
-            issueEquity(stockMarket, it.second, notaryNode.nodeInfo.legalIdentities.first())
+//            issueCash(centralBank, it.second, notaryNode.nodeInfo.legalIdentities.first())
+//            issueEquity(stockMarket, it.second, notaryNode.nodeInfo.legalIdentities.first())
+//            issueEquity(stockMarket, it.second, notaryNode.nodeInfo.legalIdentities.first())
         }
 
         //Test they can move stock and cash to another owner
@@ -247,33 +237,33 @@ class Simulation(options : String?) {
     }
 
     private fun setUpNodes() {
-        val aClient = arnoldNode.rpcClientToNode()
-        val aRPC = aClient.start(stdUser.username, stdUser.password).proxy
-
-        val bClient = barryNode.rpcClientToNode()
-        val bRPC = bClient.start(stdUser.username, stdUser.password).proxy
-
-        //val cClient = colinNode.rpcClientToNode()
-        //val cRPC = cClient.start(stdUser.username, stdUser.password).proxy
-
-        val eClient = exchangeNode.rpcClientToNode()
-        val eRPC = eClient.start(specialUser.username, specialUser.password).proxy
-
-        val cbClient = centralNode.rpcClientToNode()
-        val cbRPC = cbClient.start(specialUser.username, specialUser.password).proxy
-
-        parties.addAll(listOf(
-                //changed from nodeIdentity().legalIdentity
-                aRPC.nodeInfo().legalIdentities.first() to aRPC,
-                bRPC.nodeInfo().legalIdentities.first() to bRPC)
-                //cRPC.nodeIdentity().legalIdentity to cRPC)
-        )
-        stockMarkets.add((eRPC.nodeInfo().legalIdentities.first() to eRPC))
-        cashIssuers.add((cbRPC.nodeInfo().legalIdentities.first() to cbRPC))
-
-        arrayOf(notaryNode, arnoldNode, barryNode, exchangeNode, centralNode).forEach {
-            println("${it.nodeInfo.legalIdentities.first()} started on ${it.configuration.rpcAddress}")
-        }
+//        val aClient = arnoldNode.rpcClientToNode()
+//        val aRPC = aClient.start(stdUser.username, stdUser.password).proxy
+//
+//        val bClient = barryNode.rpcClientToNode()
+//        val bRPC = bClient.start(stdUser.username, stdUser.password).proxy
+//
+//        //val cClient = colinNode.rpcClientToNode()
+//        //val cRPC = cClient.start(stdUser.username, stdUser.password).proxy
+//
+//        val eClient = exchangeNode.rpcClientToNode()
+//        val eRPC = eClient.start(specialUser.username, specialUser.password).proxy
+//
+//        val cbClient = centralNode.rpcClientToNode()
+//        val cbRPC = cbClient.start(specialUser.username, specialUser.password).proxy
+//
+//        parties.addAll(listOf(
+//                //changed from nodeIdentity().legalIdentity
+//                aRPC.nodeInfo().legalIdentities.first() to aRPC,
+//                bRPC.nodeInfo().legalIdentities.first() to bRPC)
+//                //cRPC.nodeIdentity().legalIdentity to cRPC)
+//        )
+//        stockMarkets.add((eRPC.nodeInfo().legalIdentities.first() to eRPC))
+//        cashIssuers.add((cbRPC.nodeInfo().legalIdentities.first() to cbRPC))
+//
+//        arrayOf(notaryNode, arnoldNode, barryNode, exchangeNode, centralNode).forEach {
+//            println("${it.nodeInfo.legalIdentities.first()} started on ${it.configuration.rpcAddress}")
+//        }
     }
 
     private fun allocateCashPermissions() : Set<String> = setOf(

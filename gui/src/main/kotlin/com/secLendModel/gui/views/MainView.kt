@@ -73,7 +73,8 @@ class MainView : View() {
             //Do txns in a new thread as to avoid UI freezing/locking
             val newThread = kotlin.concurrent.thread {
                 val myInfo = rpcProxy.value!!.nodeInfo().legalIdentities.first()
-                val otherParty = parties.filter { it.advertisedServices.isEmpty() && it.legalIdentities.first() != myInfo  && it.legalIdentities.first().name.commonName == "Commbank" }.single().legalIdentities.first()
+                //Had to remove filtering by no advertising services as that was removed - dirty fix by hardcoding in commbank
+                val otherParty = parties.filter { it.legalIdentities.first() != myInfo  && it.legalIdentities.first().name.commonName == "Commbank" }.single().legalIdentities.first()
                 val loanTerms = LoanTerms("CBA", 1200, Amount(2535, CURRENCY), otherParty, myInfo,
                         0.05, 0.05, 100, "Cash", LocalDateTime.now())
                 val loanTermsReturned = rpcProxy.value?.startFlow(LoanAgreementFlow::Borrower, loanTerms)!!.returnValue.getOrThrow()
@@ -93,7 +94,7 @@ class MainView : View() {
             }
         }
 
-        userButton.textProperty().bind(myIdentity.map { it?.name?.let { PartyNameFormatter.short.format(it.x500Name) } })
+        userButton.textProperty().bind(myIdentity.map { it?.name?.let { PartyNameFormatter.short.format(it) } })
         exit.setOnAction {
             (root.scene.window as Stage).fireEvent(WindowEvent(root.scene.window, WindowEvent.WINDOW_CLOSE_REQUEST))
         }
@@ -141,7 +142,8 @@ class MainView : View() {
     fun runTxns() {
         //The following simulates specific trades and is accessed by clicking the txns button in the main view of the cordapp.
         val myInfo = rpcProxy.value!!.nodeInfo().legalIdentities.first()
-        val otherParty = parties.filter { it.advertisedServices.isEmpty() && it.legalIdentities.first() != myInfo  && it.legalIdentities.first().name.commonName == "Commbank" }.single().legalIdentities.first()
+        //val otherParty = parties.filter { it.advertisedServices.isEmpty() && it.legalIdentities.first() != myInfo  && it.legalIdentities.first().name.commonName == "Commbank" }.single().legalIdentities.first()
+        val otherParty = parties.filter { it.legalIdentities.first() != myInfo  && it.legalIdentities.first().name.commonName == "Commbank" }.single().legalIdentities.first()
         println(otherParty)
         //Loan borrow 1200 CBA w/cash collateral
         val loanTerms = LoanTerms("CBA", 1200, Amount(2535, CURRENCY), otherParty, myInfo,

@@ -5,6 +5,7 @@ apply plugin: 'net.corda.plugins.publish-utils'
 apply plugin: 'net.corda.plugins.cordformation'
 apply plugin: 'maven-publish'
 apply plugin: 'application'
+apply plugin: 'net.corda.plugins.quasar-utils'
 
 repositories {
     mavenLocal()
@@ -31,6 +32,7 @@ dependencies {
     compile "org.jetbrains.kotlin:kotlin-stdlib-jre8:$kotlin_version"
     compile "org.jetbrains.kotlin:kotlin-stdlib-js:$kotlin_version"
     compileOnly "co.paralleluniverse:capsule:1.0.1"
+    compile 'net.sourceforge.plantuml:plantuml:8039'
 
     testCompile "org.jetbrains.kotlin:kotlin-test:$kotlin_version"
     testCompile "junit:junit:$junit_version"
@@ -48,7 +50,7 @@ dependencies {
     cordaRuntime "net.corda:corda:$corda_release_version"
     cordaRuntime "net.corda:corda-webserver:$corda_release_version"
     cordaCompile "net.corda:corda-node-driver:$corda_release_version"
-    testCompile "net.corda:corda-node-driver:$corda_release_version"
+    //testCompile "net.corda:corda-node-driver:$corda_release_version"
     cordapp "net.corda:corda-finance:$corda_release_version"
 
 //    cordaCompile "net.corda:corda-core:$corda_release_version"
@@ -84,7 +86,7 @@ task deployNodes(type: net.corda.plugins.Cordform, dependsOn: ['jar']) {
         advertisedServices = ["corda.notary.validating"]
         p2pPort 10002
         rpcPort 10003
-        cordapps = []
+        cordapps = ["secLendModel"]
     }
     node {
         name "CN=NodeA,O=NodeA,L=London,C=UK"
@@ -92,7 +94,7 @@ task deployNodes(type: net.corda.plugins.Cordform, dependsOn: ['jar']) {
         p2pPort 10005
         rpcPort 10006
         webPort 10007
-        cordapps = []
+        cordapps = ["secLendModel"]
         rpcUsers = [[ user: "user1", "password": "test", "permissions": []]]
     }
     node {
@@ -101,7 +103,7 @@ task deployNodes(type: net.corda.plugins.Cordform, dependsOn: ['jar']) {
         p2pPort 10008
         rpcPort 10009
         webPort 10010
-        cordapps = []
+        cordapps = ["secLendModel"]
         rpcUsers = [[ user: "user1", "password": "test", "permissions": []]]
     }
     node {
@@ -110,7 +112,7 @@ task deployNodes(type: net.corda.plugins.Cordform, dependsOn: ['jar']) {
         p2pPort 10011
         rpcPort 10012
         webPort 10013
-        cordapps = []
+        cordapps = ["secLendModel"]
         rpcUsers = [[ user: "user1", "password": "test", "permissions": []]]
     }
 }

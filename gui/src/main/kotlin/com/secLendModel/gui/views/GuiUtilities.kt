@@ -18,6 +18,7 @@ import net.corda.core.identity.AbstractParty
 import net.corda.core.identity.Party
 import net.corda.finance.contracts.asset.Cash
 import tornadofx.*
+import java.security.PublicKey
 
 /**
  *  Helper method to reduce boiler plate code
@@ -91,4 +92,6 @@ fun <A, B> Collection<A>.cross(other: Collection<B>) = this.flatMap { a -> other
 // TODO: This is a temporary fix for the UI to show the correct issuer identity, this will break when we start randomizing keys. More work is needed here when the identity work is done.
 fun StateAndRef<Cash.State>.resolveIssuer(): ObservableValue<Party?> = state.data.amount.token.issuer.party.resolveIssuer()
 
-fun AbstractParty.resolveIssuer(): ObservableValue<Party?> = Models.get(NetworkIdentityModel::class, javaClass.kotlin).lookup(owningKey).map { it?.legalIdentity }
+//fun AbstractParty.resolveIssuer(): ObservableValue<Party?> = Models.get(NetworkIdentityModel::class, javaClass.kotlin).lookup(owningKey).map { it?.legalIdentity }
+fun AbstractParty.resolveIssuer(): ObservableValue<Party?> = Models.get(NetworkIdentityModel::class, javaClass.kotlin).myIdentity //todo not to sure about this
+fun PublicKey.toKnownParty() = Models.get(NetworkIdentityModel::class, javaClass.kotlin).partyFromPublicKey(this).map { it?.legalIdentitiesAndCerts?.first()?.party }

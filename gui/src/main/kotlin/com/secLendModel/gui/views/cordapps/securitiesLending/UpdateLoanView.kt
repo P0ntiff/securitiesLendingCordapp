@@ -58,7 +58,7 @@ class UpdateLoanView : Fragment() {
     // Inject data
     private val parties by observableList(NetworkIdentityModel::parties)
     private val loanStates by observableList(SecuritiesLendingModel::loanStates)
-    private val issuers by observableList(IssuerModel::issuers)
+   // private val issuers by observableList(IssuerModel::issuers)
     private val rpcProxy by observableValue(NodeMonitorModel::proxyObservable)
     private val myIdentity by observableValue(NetworkIdentityModel::myIdentity)
     private val notaries by observableList(NetworkIdentityModel::notaries)
@@ -161,8 +161,8 @@ class UpdateLoanView : Fragment() {
             items = loanStates
             converter = stringConverter { "Instrument: " + it.state.data.code.toString() +
                  "\n Shares: "+ it.state.data.quantity +
-                        "\n Lender: " + PartyNameFormatter.short.format(it.state.data.lender.name.x500Name) +
-                        "\n Borrower: " + PartyNameFormatter.short.format(it.state.data.borrower.name.x500Name) +
+                        "\n Lender: " + PartyNameFormatter.short.format(it.state.data.lender.name) +
+                        "\n Borrower: " + PartyNameFormatter.short.format(it.state.data.borrower.name) +
                         "\n Margin: " + it.state.data.terms.margin +
                         "\n Current SP: " + it.state.data.currentStockPrice.quantity}
         }

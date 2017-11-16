@@ -41,7 +41,7 @@ class UpdatePortfolio : Fragment() {
     private val quantityLabel by fxid<Label>()
     // Inject data
     private val parties by observableList(NetworkIdentityModel::parties)
-    private val issuers by observableList(IssuerModel::issuers)
+    //private val issuers by observableList(IssuerModel::issuers)
     private val rpcProxy by observableValue(NodeMonitorModel::proxyObservable)
     private val myIdentity by observableValue(NetworkIdentityModel::myIdentity)
     private val notaries by observableList(NetworkIdentityModel::notaries)
@@ -136,7 +136,7 @@ class UpdatePortfolio : Fragment() {
         otherPartyCB.apply {
             items = newParties.observable()
             converter = stringConverter { it?.legalIdentities!!.first()?.let {
-                PartyNameFormatter.short.format(it.name.x500Name) } ?: "" }
+                PartyNameFormatter.short.format(it.name) } ?: "" }
         }
         // Security Type
         securityTypeLabel.text = "Security"

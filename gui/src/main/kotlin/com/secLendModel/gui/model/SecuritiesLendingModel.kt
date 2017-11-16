@@ -9,10 +9,10 @@ import net.corda.client.jfx.model.NodeMonitorModel
 import net.corda.client.jfx.model.observable
 import net.corda.client.jfx.utils.fold
 import net.corda.client.jfx.utils.map
-import net.corda.contracts.asset.Cash
 import net.corda.core.contracts.ContractState
 import net.corda.core.contracts.StateAndRef
 import net.corda.core.node.services.Vault
+import net.corda.finance.contracts.asset.Cash
 import rx.Observable
 
 /**This model is based on ContractStateModel.kt, under corda source code /client/jfx/.../model/
@@ -21,7 +21,7 @@ import rx.Observable
  */
 
 class SecuritiesLendingModel {
-    private val vaultUpdates: Observable<Vault.Update> by observable(NodeMonitorModel::vaultUpdates)
+    private val vaultUpdates: Observable<Vault.Update<ContractState>> by observable(NodeMonitorModel::vaultUpdates)
 
     private val contractStatesDiff: Observable<Diff<ContractState>> = vaultUpdates.map {
         Diff(it.produced, it.consumed)

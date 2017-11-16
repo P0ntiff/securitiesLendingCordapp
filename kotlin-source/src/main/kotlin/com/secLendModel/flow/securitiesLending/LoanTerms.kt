@@ -39,7 +39,7 @@ object LoanChecks {
 
     //Function for getting the counterParty to a deal
     @Suspendable
-    fun getCounterParty(loanTerms: LoanTerms, me: Party): Party {
+    fun getCounterParty(loanTerms: LoanTerms, me: Party?): Party {
         if (me == loanTerms.lender) {
             return loanTerms.borrower
         } else {

@@ -53,7 +53,7 @@ class NetLoanView : Fragment() {
     // Inject data
     private val parties by observableList(NetworkIdentityModel::parties)
     private val loanStates by observableList(SecuritiesLendingModel::loanStates)
-    private val issuers by observableList(IssuerModel::issuers)
+    //private val issuers by observableList(IssuerModel::issuers)
     private val rpcProxy by observableValue(NodeMonitorModel::proxyObservable)
     private val myIdentity by observableValue(NetworkIdentityModel::myIdentity)
     private val notaries by observableList(NetworkIdentityModel::notaries)
@@ -150,7 +150,7 @@ class NetLoanView : Fragment() {
         otherPartyCB.apply {
             items = newParties.observable()
             converter = stringConverter { it?.legalIdentities!!.first()?.let {
-                PartyNameFormatter.short.format(it.name.x500Name) } ?: "" }
+                PartyNameFormatter.short.format(it.name) } ?: "" }
         }
         securityTypeLabel.text = "Security"
         securityTypeCB.apply {
