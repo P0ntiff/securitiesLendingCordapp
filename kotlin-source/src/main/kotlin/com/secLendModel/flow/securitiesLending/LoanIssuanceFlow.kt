@@ -4,16 +4,15 @@ import co.paralleluniverse.fibers.Suspendable
 import com.secLendModel.contract.SecurityClaim
 import com.secLendModel.contract.SecurityLoan
 import com.secLendModel.flow.CollateralPreparationFlow
+import com.secLendModel.flow.InsufficientHoldingException
 import com.secLendModel.flow.SecuritiesPreparationFlow
-import com.secLendModel.flow.securitiesLending.LoanChecks.getCounterParty
-import com.secLendModel.flow.securitiesLending.LoanChecks.isLender
-import net.corda.core.contracts.*
+import net.corda.core.contracts.UniqueIdentifier
+import net.corda.core.transactions.TransactionBuilder
+import com.secLendModel.flow.securitiesLending.LoanChecks
+import net.corda.core.contracts.InsufficientBalanceException
 import net.corda.core.flows.*
-import net.corda.core.identity.Party
 import net.corda.core.internal.ResolveTransactionsFlow
 import net.corda.core.transactions.SignedTransaction
-import net.corda.core.transactions.TransactionBuilder
-import net.corda.core.transactions.WireTransaction
 import net.corda.core.utilities.unwrap
 
 /**
@@ -35,7 +34,7 @@ object LoanIssuanceFlow {
             //TODO: Have an optional field for uniqueID -> if used then we need to have another flow for generating a loan provided with a unique ID. If its null we generate one and pass it to the generateIssue function
             //val notary = serviceHub.networkMapCache.notaryNodes.single().notaryIdentity
             val notary = serviceHub.networkMapCache.notaryIdentities.single()
-            val counterParty = getCounterParty(loanTerms, serviceHub.myInfo.legalIdentities.first())
+            val counterParty = LoanChecks.getCounterParty(loanTerms, serviceHub.myInfo.legalIdentities.first())
             val flowSession = initiateFlow(counterParty)
             //STEP 1: Negotiation: Negotiate the borrower's desired terms of the loan with the lender
             val agreedTerms = subFlow(LoanAgreementFlow.Borrower(loanTerms))
@@ -48,10 +47,10 @@ object LoanIssuanceFlow {
             val myKey = serviceHub.myInfo.legalIdentities.first().owningKey
             val ptx: TransactionBuilder
             //If we are lender
-            if (isLender(loanTerms,serviceHub.myInfo.legalIdentities.first())){
-                 ptx = try {
+            if (LoanChecks.isLender(loanTerms,serviceHub.myInfo.legalIdentities.first())){
+                ptx = try {
                     subFlow(SecuritiesPreparationFlow(builder, agreedTerms.code, agreedTerms.quantity, agreedTerms.borrower)).first
-                } catch (e: InsufficientBalanceException) {
+                } catch (e: InsufficientHoldingException) {
                     throw SecurityException("Insufficient holding: ${e.message}", e)
                 }
             }
@@ -87,7 +86,7 @@ object LoanIssuanceFlow {
             //STEP 4: Put in security states/collateral as inputs and securityLoan as output
             //Check which party in the deal we are
             val tx : TransactionBuilder
-            if (isLender(agreedTerms, serviceHub.myInfo.legalIdentities.first())) {
+            if (LoanChecks.isLender(agreedTerms, serviceHub.myInfo.legalIdentities.first())) {
                 //We are lender -> should have recieved cash, adding in stock
                 tx = try {
                     subFlow(SecuritiesPreparationFlow(builder, agreedTerms.code, agreedTerms.quantity, agreedTerms.borrower)).first
@@ -97,7 +96,7 @@ object LoanIssuanceFlow {
             }
             else { //We are the borrower -> should have received stock, so adding in collateral (cash or securities)
                 tx = subFlow(CollateralPreparationFlow(builder, agreedTerms.collateralType,
-                            ((agreedTerms.stockPrice.quantity * agreedTerms.quantity) * (1.0 + agreedTerms.margin)).toLong(), agreedTerms.lender))
+                        ((agreedTerms.stockPrice.quantity * agreedTerms.quantity) * (1.0 + agreedTerms.margin)).toLong(), agreedTerms.lender))
 
             }
 

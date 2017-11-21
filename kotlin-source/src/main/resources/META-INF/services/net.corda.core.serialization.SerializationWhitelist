@@ -1,2 +1,2 @@
 # Register a ServiceLoader service extending from net.corda.node.CordaPluginRegistry
-com.secLendModel.plugin.Plugin
+com.secLendModel.plugin.SerializationPlugin

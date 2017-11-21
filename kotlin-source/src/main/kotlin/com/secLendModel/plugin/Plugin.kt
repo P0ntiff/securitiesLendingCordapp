@@ -6,8 +6,9 @@ import com.secLendModel.flow.oracle.Oracle
 import com.secLendModel.flow.securities.TradeFlow.MarketOffer
 import net.corda.core.serialization.SerializationWhitelist
 import net.corda.core.transactions.TransactionBuilder
+import net.corda.webserver.services.WebServerPluginRegistry
 
-class Plugin : SerializationWhitelist {
+class SerializationPlugin : SerializationWhitelist {
 
     /**
      * Whitelisting the required types for serialisation by the Corda node.
@@ -20,13 +21,17 @@ class Plugin : SerializationWhitelist {
             MarketOffer::class.java,
             Oracle::class.java
     )
-//    override fun whitelist(custom: SerializationCustomization): List<Class<*>> {
-//        custom.addToWhitelist(SecurityClaim::class.java)
-//        custom.addToWhitelist(SecurityLoan::class.java)
-//        custom.addToWhitelist(TransactionType.General.Builder::class.java)
-//        custom.addToWhitelist(Boolean::class.java)
-//        custom.addToWhitelist(MarketOffer::class.java)
-//        custom.addToWhitelist(Oracle::class.java)
-//        return true
-//    }
+}
+
+class WebPlugin : WebServerPluginRegistry {
+
+//    override val webApis = listOf(
+//            Function(::MiscAPI))
+
+    override val staticServeDirs: Map<String, String> = mapOf(
+            // URL is /web/index
+            "index" to javaClass.classLoader.getResource("index").toExternalForm(),
+            // URL is /web/testcase
+            "testcase" to javaClass.classLoader.getResource("testcase").toExternalForm()
+    )
 }
