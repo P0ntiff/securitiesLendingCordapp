@@ -1,0 +1,2 @@
+# Register a ServiceLoader service extending from net.corda.node.WebServerPluginRegistery
+com.secLendModel.plugin.WebPlugin
