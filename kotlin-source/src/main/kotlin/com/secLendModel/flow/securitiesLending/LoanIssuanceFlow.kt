@@ -120,7 +120,6 @@ object LoanIssuanceFlow {
             counterPartySession.send(stx)
             //Wait until this txn is commited to the ledger - note this function suspends this flow till this happens.
             return waitForLedgerCommit(stx.id)
-
             //For implementation with CollectSignaturesFlow see old commit: #1f680fb
             //val fullySignedTX = subFlow(CollectSignaturesFlow(stx))
             //return subFlow(FinalityFlow(fullySignedTX)).single()

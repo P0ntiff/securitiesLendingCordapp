@@ -6,6 +6,7 @@ apply plugin: 'net.corda.plugins.cordformation'
 apply plugin: 'maven-publish'
 apply plugin: 'application'
 apply plugin: 'net.corda.plugins.quasar-utils'
+mainClassName = 'com.secLendModel.Main'
 
 repositories {
     mavenLocal()
