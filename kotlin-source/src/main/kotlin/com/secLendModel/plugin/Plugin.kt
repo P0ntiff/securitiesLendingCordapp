@@ -7,6 +7,8 @@ import com.secLendModel.flow.securities.TradeFlow.MarketOffer
 import net.corda.core.serialization.SerializationWhitelist
 import net.corda.core.transactions.TransactionBuilder
 import net.corda.webserver.services.WebServerPluginRegistry
+import com.secLendModel.api.HttpApi
+import java.util.function.Function
 
 class SerializationPlugin : SerializationWhitelist {
 
@@ -25,13 +27,13 @@ class SerializationPlugin : SerializationWhitelist {
 
 class WebPlugin : WebServerPluginRegistry {
 
-//    override val webApis = listOf(
-//            Function(::MiscAPI))
+    override val webApis = listOf(
+            Function(::HttpApi))
 
-    override val staticServeDirs: Map<String, String> = mapOf(
-            // URL is /web/index
-            "index" to javaClass.classLoader.getResource("index").toExternalForm(),
-            // URL is /web/testcase
-            "testcase" to javaClass.classLoader.getResource("testcase").toExternalForm()
-    )
+//    override val staticServeDirs: Map<String, String> = mapOf(
+//            // URL is /web/index
+//            "index" to javaClass.classLoader.getResource("index").toExternalForm(),
+//            // URL is /web/testcase
+//            "testcase" to javaClass.classLoader.getResource("testcase").toExternalForm()
+//    )
 }

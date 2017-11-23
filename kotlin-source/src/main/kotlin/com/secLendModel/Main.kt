@@ -50,13 +50,19 @@ import java.util.*
 
 //CONSTANTS:
 //Legal identities of parties in the network
-val EXCHANGE = CordaX500Name("ASX","ASX Ltd","Sydney","AU")
+/*val EXCHANGE = CordaX500Name("ASX","ASX Ltd","Sydney","AU")
 val CENTRALBANK = CordaX500Name("RBA","ReserveBankOfAustralia","Canberra","AU")
-val NOTARY = CordaX500Name("Notary Service","Corda Notary Service","Zurich","CH")
-val ARNOLD = CordaX500Name("Commbank","Commonwealth Bank of Australia","Madrid","ES")
+val NOTARY = CordaX500Name("Notary Service","Corda Notary Service","Zurich","CH")*/
+/*val ARNOLD = CordaX500Name("Commbank","Commonwealth Bank of Australia","Madrid","ES")
 val BARRY = CordaX500Name("ANZ","Australia and New Zealand Banking Group LTD","Rome","IT")
-val COLIN = CordaX500Name("NAB" ,"National Australia Bank","Paris","FR")
+val COLIN = CordaX500Name("NAB" ,"National Australia Bank","Paris","FR")*/
 //val ORACLE = X500Name("CN=Oracle SP,O=Oracle SP,L=Brisbane,C=AU")
+val EXCHANGE = CordaX500Name("ASX Ltd","Sydney","AU")
+val CENTRALBANK = CordaX500Name("ReserveBankOfAustralia","Canberra","AU")
+val NOTARY = CordaX500Name("Corda Notary Service","Zurich","CH")
+val ARNOLD = CordaX500Name("Commonwealth Bank of Australia","Madrid","ES")
+val BARRY = CordaX500Name("Australia and New Zealand Banking Group LTD","Rome","IT")
+val COLIN = CordaX500Name("National Australia Bank","Paris","FR")
 
 //Shares to be on issue by exchange
 val CODES = listOf(

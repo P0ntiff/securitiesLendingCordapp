@@ -33,16 +33,11 @@ private class ClientRPC {
         val client = CordaRPCClient(nodeAddress)
 //        // Can be amended in the com.secLendModel.MainKt file.
 //        val proxy = client.start("user1", "test").proxy
-//
-//        // Grab all signed transactions and all future signed transactions.
-//        val (transactions: List<SignedTransaction>, futureTransactions: Observable<SignedTransaction>) =
-//                proxy.verifiedTransactions()
 
         //TODO: This is copied from the exampleCordapp which only seems to deal with IOUStates - this may need to be ported to deal with more than just secLoan states
         // Can be amended in the com.example.MainKt file.
         val proxy = client.start("user1", "test").proxy
 
-        // Grab all signed transactions and all future signed transactions.
         val (snapshot, updates) = proxy.vaultTrack(SecurityLoan.State::class.java)
 
         // Log the 'placed' IOU states and listen for new ones.
