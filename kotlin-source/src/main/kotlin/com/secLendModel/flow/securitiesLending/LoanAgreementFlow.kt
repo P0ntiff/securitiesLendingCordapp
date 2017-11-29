@@ -27,7 +27,8 @@ object LoanAgreementFlow {
         override fun call() : LoanTerms {
             val myKey = serviceHub.myInfo.legalIdentities.first().owningKey
             if(isLender(loanTerms, serviceHub.myInfo.legalIdentities.first())){
-                val counterProposal : LoanTerms = sendAndReceive<LoanTerms>(loanTerms.borrower, loanTerms).unwrap { it }
+                val session = initiateFlow(loanTerms.borrower)
+                val counterProposal : LoanTerms = session.sendAndReceive<LoanTerms>(loanTerms).unwrap { it }
                 //Accept counter proposal for now
                 //TODO: negotiate terms of loan here
                 if (counterProposal == loanTerms) {
@@ -37,7 +38,8 @@ object LoanAgreementFlow {
                 }
             }
             else{
-                val counterProposal : LoanTerms = sendAndReceive<LoanTerms>(loanTerms.lender, loanTerms).unwrap { it }
+                val session = initiateFlow(loanTerms.lender)
+                val counterProposal : LoanTerms = session.sendAndReceive<LoanTerms>(loanTerms).unwrap { it }
                 //Accept counter proposal for now
                 //TODO: negotiate terms of loan here
                 if (counterProposal == loanTerms) {
@@ -52,14 +54,14 @@ object LoanAgreementFlow {
     }
 
     @InitiatedBy(Borrower::class)
-    class Lender(val borrower : Party) : FlowLogic<Unit>() {
+    class Lender(val borrowerSession: FlowSession) : FlowLogic<Unit>() {
         @Suspendable
         override fun call() : Unit {
-            val offer = receive<LoanTerms>(borrower).unwrap { it }
+            val offer = borrowerSession.receive<LoanTerms>().unwrap { it }
             //accept terms of agreement for now
             val offerIsAcceptable = true
             if (offerIsAcceptable) {
-                send(borrower, offer)
+                borrowerSession.send(offer)
             } else {
                 //TODO: provide a counter proposal here
             }

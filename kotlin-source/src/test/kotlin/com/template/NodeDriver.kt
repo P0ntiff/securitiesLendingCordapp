@@ -15,9 +15,7 @@ import net.corda.core.messaging.CordaRPCOps
 import net.corda.finance.flows.CashExitFlow
 import net.corda.finance.flows.CashIssueFlow
 import net.corda.finance.flows.CashPaymentFlow
-import net.corda.node.services.transactions.ValidatingNotaryService
 import net.corda.nodeapi.User
-import net.corda.nodeapi.internal.ServiceInfo
 import net.corda.testing.driver.NodeHandle
 import net.corda.testing.driver.NodeParameters
 import net.corda.testing.driver.PortAllocation
@@ -35,6 +33,7 @@ import com.secLendModel.flow.securitiesLending.LoanTerminationFlow.TerminationAc
 import com.secLendModel.flow.securitiesLending.LoanPartialTerminationFlowTerminationFlow.PartTerminator
 import com.secLendModel.flow.securitiesLending.SynIntegrationFlow.SynIssueLoan
 import com.secLendModel.flow.securitiesLending.SynIntegrationFlow.SynExitLoan
+import net.corda.confidential.IdentitySyncFlow
 import net.corda.core.contracts.Amount
 import net.corda.core.utilities.getOrThrow
 import net.corda.core.messaging.startFlow
@@ -46,6 +45,12 @@ import net.corda.node.services.transactions.SimpleNotaryService
 import java.math.BigDecimal
 import java.time.LocalDateTime
 import java.util.*
+import net.corda.node.services.transactions.ValidatingNotaryService
+import net.corda.nodeapi.internal.ServiceInfo
+import net.corda.core.identity.CordaX500Name
+import net.corda.core.node.services.NetworkMapCache
+
+
 //import net.corda.testing.aliceBobAndNotary
 //import net.corda.testing.driver.NodeHandle
 //import net.corda.testing.driver.NodeParameters
@@ -92,7 +97,8 @@ class Simulation(options : String?) {
 
     fun runSimulation() {
         driver(portAllocation = PortAllocation.Incremental(20000), isDebug = false,
-                extraCordappPackagesToScan = listOf("com.secLendModel", "net.corda.finance")) {
+                extraCordappPackagesToScan = listOf("com.secLendModel.contract","securitiesLendingCordapp.com.secLendModel.contract", "net.corda.finance",
+                        "secLendModel.contract", "com.secLendModel", "securitiesLendingCordapp.com.secLendModel", "secLendModel"), startNodesInProcess = false) {
             //Normal Users
             val arnoldParams = NodeParameters(providedName = ARNOLD, rpcUsers = arrayListOf(stdUser))
             val barryParams = NodeParameters(providedName = BARRY, rpcUsers = arrayListOf(stdUser))
@@ -102,8 +108,10 @@ class Simulation(options : String?) {
             val colin = startNode(defaultParameters = colinParams)
 
             //Special Users (i.e asset issuers and oracles)
-            val notaryParams = NodeParameters(providedName = NOTARY, rpcUsers = arrayListOf(specialUser), advertisedServices = setOf(ServiceInfo(ValidatingNotaryService.type)))
-            val notary = startNode(defaultParameters = notaryParams)
+            //val notaryParams = NodeParameters(providedName = NOTARY, rpcUsers = arrayListOf(specialUser), advertisedServices = setOf(ServiceInfo(ValidatingNotaryService.type)))
+            //val notary = startNode(defaultParameters = notaryParams)
+            val notary = startNode(providedName = CordaX500Name("Controller", "London", "GB"),
+                    advertisedServices = setOf(ServiceInfo(ValidatingNotaryService.type)))
             //Stock issuer AND stock price oracle
             val exchangeParams = NodeParameters(providedName = EXCHANGE, rpcUsers = arrayListOf(specialUser),
                     advertisedServices = MARKET.plus(ServiceInfo(PriceType.type)))
@@ -121,12 +129,12 @@ class Simulation(options : String?) {
             exchangeNode = exchange.get()
             centralNode = centralBank.get()
 //            oracleNode = oracle.get()
-            startWebserver(arnoldNode)
-            startWebserver(barryNode)
-            //startWebserver(colinNode)
-            startWebserver(exchangeNode)
-            startWebserver(centralNode)
-            startWebserver(notaryNode)
+//            startWebserver(arnoldNode)
+//            startWebserver(barryNode)
+//            startWebserver(colinNode)
+//            startWebserver(exchangeNode)
+//            startWebserver(centralNode)
+//            startWebserver(notaryNode)
 
             setUpNodes()
             simulateTransactions()
@@ -142,15 +150,16 @@ class Simulation(options : String?) {
         //Test cash and equities asset issue
         parties.forEach {
             //Note changed from notaryNode.nodeInfo.notaryIdentity to this legalIdentitiesFirst
-            issueCash(centralBank, it.second, notaryNode.nodeInfo.legalIdentities.first())
-            //issueEquity(stockMarket, it.second, notaryNode.nodeInfo.legalIdentities.first())
-            //issueEquity(stockMarket, it.second, notaryNode.nodeInfo.legalIdentities.first())
+            //issueCash(centralBank, it.second, notaryNode.nodeInfo.legalIdentities.first())
+            issueCash(centralBank, it.second, it.second.notaryIdentities().first())
+            issueEquity(stockMarket, it.second, it.second.notaryIdentities().first())
+            issueEquity(stockMarket, it.second, it.second.notaryIdentities().first())
         }
 
         //Test they can move stock and cash to another owner
         parties.forEach {
-            //moveCash(it.second)
-            //moveEquity(it.second)
+            moveCash(it.second)
+            moveEquity(it.second)
         }
         //Test they can DVP trade stock
         parties.forEach {
@@ -167,7 +176,7 @@ class Simulation(options : String?) {
         //Test stock borrows and stock loans
         parties.forEach {
             //Loan out stock to a random counter party, where they initiate the deal
-            //val id = loanSecurities(it.second, true)
+            val id = loanSecurities(it.second, true)
             //Loan out stock to a random counter party, where we initiate the deal
             //val id2 = loanSecurities(it.second, false)
             //Borrow stock from a random counter party, where we initiate the deal
@@ -216,8 +225,8 @@ class Simulation(options : String?) {
         val cbClient = centralNode.rpcClientToNode()
         val cbRPC = cbClient.start(specialUser.username, specialUser.password).proxy
 
-        val nClient = notaryNode.rpcClientToNode()
-        val nRPC = nClient.start(specialUser.username, specialUser.password).proxy
+       // val nClient = notaryNode.rpcClientToNode()
+                //val nRPC = nClient.start(specialUser.username, specialUser.password).proxy
 
         parties.addAll(listOf(
                 //changed from nodeIdentity().legalIdentity
@@ -263,8 +272,11 @@ class Simulation(options : String?) {
             FlowPermissions.startFlowPermission<LoanPartialTerminationFlowTerminationFlow.PartTerminationAcceptor>(),
             FlowPermissions.startFlowPermission<LoanRetrievalFlow>(),
             FlowPermissions.startFlowPermission<SynIntegrationFlow.SynIssueLoan>(),
-            FlowPermissions.startFlowPermission<SynIntegrationFlow.SynExitLoan>()
+            FlowPermissions.startFlowPermission<SynIntegrationFlow.SynExitLoan>(),
+            FlowPermissions.startFlowPermission<IdentitySyncFlow.Receive>(),
+            FlowPermissions.startFlowPermission<IdentitySyncFlow.Send>()
     )
+
     private fun allocateOracleRequestPermissions() : Set<String> = setOf(
             FlowPermissions.startFlowPermission<PriceRequestFlow>(),
             FlowPermissions.startFlowPermission<PriceRequestFlow.PriceQueryFlow>(),
@@ -305,8 +317,8 @@ class Simulation(options : String?) {
         val dollaryDoos = BigDecimal((rand.nextInt(100 + 1 - 1) + 1) * 10000)   //$10,000 to $1,000,000
         val amount = Amount.fromDecimal(dollaryDoos, CURRENCY)
         val randomRecipient = parties.filter { it.first != sender.nodeInfo().legalIdentities.first() }[rand.nextInt(parties.size - 1)].first
-
-        sender.startTrackedFlow(::CashPaymentFlow, amount, randomRecipient).returnValue.getOrThrow()
+        println("Move cash recipient $randomRecipient.owningKey")
+        sender.startTrackedFlow(::CashPaymentFlow, amount, randomRecipient, false).returnValue.getOrThrow()
         println("Cash Payment: ${dollaryDoos} units of $CURRENCY sent to ${randomRecipient} from ${sender.nodeInfo().legalIdentities.first()}")
     }
 
@@ -358,7 +370,6 @@ class Simulation(options : String?) {
         val dollaryDoos : BigDecimal = BigDecimal((rand.nextDouble() + 0.1) * (rand.nextInt(110 + 1 - 50) + 50))
         val sharePrice = Amount.fromDecimal(dollaryDoos, CURRENCY)
         val randomBuyer = parties.filter { it.first != seller.nodeInfo().legalIdentities.first()}[rand.nextInt(parties.size - 1)].first
-
         seller.startFlow(::Seller, CODES[stockIndex], quantity, sharePrice, randomBuyer).returnValue.getOrThrow()
         println("Trade Finalised: ${quantity} shares in ${CODES[stockIndex]} at ${sharePrice} each sold to buyer '" +
                 "${randomBuyer}' by seller '${seller.nodeInfo().legalIdentities.first()}'")

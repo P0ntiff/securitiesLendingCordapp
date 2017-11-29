@@ -103,7 +103,7 @@ object BuyFlow {
             } catch (e: InsufficientBalanceException) {
                 throw SecurityException("Insufficient holding: ${e.message}", e)
             }
-            val spendTX = sendAndReceive<SignedTransaction>(seller, tx)
+            val spendTX = flowSession.sendAndReceive<SignedTransaction>(tx)
 
             //Recieve back the transaction, resolve its dependencies.
             progressTracker.currentStep = RESOLVING

@@ -59,7 +59,7 @@ val COLIN = CordaX500Name("NAB" ,"National Australia Bank","Paris","FR")*/
 //val ORACLE = X500Name("CN=Oracle SP,O=Oracle SP,L=Brisbane,C=AU")
 val EXCHANGE = CordaX500Name("ASX Ltd","Sydney","AU")
 val CENTRALBANK = CordaX500Name("ReserveBankOfAustralia","Canberra","AU")
-val NOTARY = CordaX500Name("Corda Notary Service","Zurich","CH")
+val NOTARY = CordaX500Name("Controller", "London", "GB")
 val ARNOLD = CordaX500Name("Commonwealth Bank of Australia","Madrid","ES")
 val BARRY = CordaX500Name("Australia and New Zealand Banking Group LTD","Rome","IT")
 val COLIN = CordaX500Name("National Australia Bank","Paris","FR")

@@ -30,6 +30,12 @@ val SECURITY_PROGRAM_ID = SecurityClaim()
  */
 
 class SecurityClaim : Contract {
+
+    companion object {
+        @JvmStatic
+        val SECURITYCLAIM_CONTRACT_ID = "com.secLendModel.contract.SecurityClaim"
+    }
+
     val legalContractReference: SecureHash = SecureHash.sha256("https://www.big-book-of-banking-law.gov/Security-claims.html")
     //override fun verify(tx: TransactionForContract) = verifyClause(tx, Clauses.Group(), tx.commands.select<SecurityClaim.Commands>())
     //override fun verify(tx: LedgerTransaction) = net.corda.core.contracts.clauses.verifyClause(tx, Clauses.Group(), tx.commands.select<SecurityClaim.Commands>())
@@ -39,7 +45,8 @@ class SecurityClaim : Contract {
         tx.commands.forEach {
             if (it.value == SecurityClaim.Commands.Move()) {
                 //Use move verification
-                val owningPubKeys2 = tx.inputsOfType<OwnableState>().map {it.owner.owningKey }.toSet()
+                val owningPubKeys2 = tx.inputsOfType<SecurityClaim.State>().map {it.owner.owningKey }.toSet()
+                println("Owning key of state ${owningPubKeys2.first()}")
                 requireThat {
                     "the owning keys are a subset of the signing keys" using keysThatSigned.containsAll(owningPubKeys2)
                 }
@@ -165,7 +172,7 @@ class SecurityClaim : Contract {
                       owner: AbstractParty,
                       notary: Party) : TransactionBuilder {
         check(tx.inputStates().isEmpty())
-        val state = TransactionState(data = SecurityClaim.State(issuance, owner, code, quantity), notary = notary, contract = "SecurityClaim")
+        val state = TransactionState(data = SecurityClaim.State(issuance, owner, code, quantity), notary = notary, contract = SECURITYCLAIM_CONTRACT_ID)
         tx.addOutputState(state)
         tx.addCommand(Commands.Issue(), issuance.party.owningKey)
         return tx
@@ -173,7 +180,7 @@ class SecurityClaim : Contract {
 
     fun generateMove(tx: TransactionBuilder, stock: StateAndRef<State>, newOwner : AbstractParty) {
         tx.addInputState(stock)
-        tx.addOutputState(TransactionState(data = stock.state.data.copy(owner = newOwner), notary = stock.state.notary, contract = "SecurityClaim"))
+        tx.addOutputState(TransactionState(data = stock.state.data.copy(owner = newOwner), notary = stock.state.notary, contract = SECURITYCLAIM_CONTRACT_ID))
         tx.addCommand(Commands.Move(), stock.state.data.owner.owningKey)
     }
     fun generateMoveCommand() = Commands.Move()

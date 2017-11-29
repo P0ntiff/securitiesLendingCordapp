@@ -46,7 +46,7 @@ class SecuritiesIssueFlow(val code: String,
         val tx = serviceHub.signInitialTransaction(builder)
 
         proTracker.currentStep = FINALISING_TX
-        subFlow(FinalityFlow(tx))
+        subFlow(FinalityFlow(tx, setOf(recipient)))
         return tx
     }
 

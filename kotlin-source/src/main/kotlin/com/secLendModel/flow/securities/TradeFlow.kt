@@ -1,12 +1,18 @@
 package com.secLendModel.flow.securities
 
 import co.paralleluniverse.fibers.Suspendable
+import com.secLendModel.CODES
 import com.secLendModel.CURRENCY
 import com.secLendModel.flow.SecuritiesPreparationFlow
+import com.sun.org.apache.xalan.internal.lib.NodeInfo
+import net.corda.confidential.IdentitySyncFlow
+import net.corda.confidential.SwapIdentitiesFlow
 import net.corda.core.contracts.*
 import net.corda.core.flows.*
+import net.corda.core.identity.AbstractParty
 import net.corda.core.identity.AnonymousParty
 import net.corda.core.identity.Party
+import net.corda.core.identity.groupPublicKeysByWellKnownParty
 import net.corda.core.internal.ResolveTransactionsFlow
 import net.corda.core.serialization.CordaSerializable
 import net.corda.core.transactions.SignedTransaction
@@ -73,7 +79,11 @@ object TradeFlow {
         override fun call(): SignedTransaction {
             val notary = serviceHub.networkMapCache.notaryIdentities.single()
             val ownerKey = serviceHub.myInfo.legalIdentities.first().owningKey
+            val flowSession = initiateFlow(buyer)
 
+            //Altering this flow to be more inline with latest corda version. MarketOffer is not needed, other party
+            //simply accepts or rejects our offer now
+            println("Starting trade of ${quantity} in ${code}")
             /**********************************************************************************************************/
             progressTracker.currentStep = PREPARING
             val marketOffer = MarketOffer(
@@ -85,10 +95,12 @@ object TradeFlow {
 
             /**********************************************************************************************************/
             progressTracker.currentStep = PROPOSING
+
             //Check the other party is interested and ready to participate in this transaction
-            val flowSession = initiateFlow(buyer)
             val acceptance = flowSession.sendAndReceive<Boolean>(marketOffer)
             //TODO: Have a backup plan if confirmation doesn't return True
+
+
             //Input states from vault into transaction and create outputs with recipient as the new owner of the states, along with change sent back to the old owner
             val builder : TransactionBuilder = TransactionBuilder(notary)
             val (tx, keysForSigning) = try {
@@ -96,7 +108,12 @@ object TradeFlow {
             } catch (e: InsufficientBalanceException) {
                 throw SecurityException("Insufficient holding: ${e.message}", e)
             }
-            val spendTX = sendAndReceive<SignedTransaction>(buyer, tx)
+
+            //Send the txn for the counterparty to attach the required cash states
+            flowSession.send(tx)
+            //subFlow(IdentitySyncFlow.Receive(flowSession))
+            val spendTX = flowSession.receive<SignedTransaction>()
+            //Sign transaction and finialize signatures
 
             /**********************************************************************************************************/
             progressTracker.currentStep = RESOLVING
@@ -111,9 +128,19 @@ object TradeFlow {
             /**********************************************************************************************************/
             progressTracker.currentStep = FINALISING
             //Sign with our key
-            val ourSignature = serviceHub.createSignature(unwrappedSTX, ownerKey)
-            val unnotarisedSTX: SignedTransaction = unwrappedSTX + ourSignature
-            val finishedSTX = subFlow(FinalityFlow(unnotarisedSTX, setOf(buyer)))
+            //Collect other signatures
+            //subFlow(CollectSignaturesFlow(unwrappedSTX, setOf(flowSession)))
+            //val ourSignature = serviceHub.createSignature(unwrappedSTX, ownerKey)
+            //val unnotarisedSTX: SignedTransaction = unwrappedSTX + ourSignature
+            //keysForSigning.forEach { serviceHub.addSignature(unwrappedSTX, it) }
+
+            val unnotarisedSTX: SignedTransaction = serviceHub.addSignature(unwrappedSTX, serviceHub.myInfo.legalIdentities.first().owningKey)
+            //val finishedSTX = subFlow(FinalityFlow(unnotarisedSTX, setOf(flowSession.counterparty))) //TODO cant find anonymous counter party here
+            unnotarisedSTX.sigs.forEach { println("Sigs " + it) }
+            keysForSigning.forEach { println("KFS: "+ it) }
+            val pubkeys = setOf<Party>()
+            groupPublicKeysByWellKnownParty(serviceHub, keysForSigning).forEach { pubkeys.plus(it.key) }
+            val finishedSTX = subFlow(FinalityFlow(unnotarisedSTX, pubkeys))
             return finishedSTX
         }
     }
@@ -159,20 +186,23 @@ object TradeFlow {
 //                    totalCash,
 //                    AnonymousParty(sellerKey)
 //                    )
-            val (ptx, cashSigningPubKeys) = Cash.generateSpend(serviceHub,builder, totalCash, AnonymousParty(sellerKey))
-
+            //val (ptx, cashSigningPubKeys) = Cash.generateSpend(serviceHub,builder, totalCash, AnonymousParty(sellerKey))
+            val (ptx, cashSigningPubKeys) = Cash.generateSpend(serviceHub, builder, totalCash, sellerFlow.counterparty)
             /*********************************************************************************************************/
             progressTracker.currentStep = SIGNING_TX
             val currentTime = serviceHub.clock.instant()
             ptx.setTimeWindow(currentTime, 30.seconds)
-            val stx = serviceHub.signInitialTransaction(ptx, cashSigningPubKeys)
+            ptx.outputStates().forEach { println("Output participants for state ${it.contract} ${it.data.participants}") }
+            val stx = serviceHub.signInitialTransaction(ptx, cashSigningPubKeys) //This is now resolved in the collect signatures flow
 
             /*********************************************************************************************************/
             progressTracker.currentStep = SENDING_BACK
+            //subFlow(IdentitySyncFlow.Send(sellerFlow, ptx.toWireTransaction(serviceHub)))
             sellerFlow.send(stx)
 
             /*********************************************************************************************************/
             //Wait for ledger to arrive back in out transaction store
+
             return waitForLedgerCommit(stx.id)
         }
     }

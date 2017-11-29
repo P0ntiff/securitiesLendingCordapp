@@ -60,8 +60,10 @@ object LoanIssuanceFlow {
                         ((agreedTerms.stockPrice.quantity * agreedTerms.quantity) * (1.0 + agreedTerms.margin)).toLong(), agreedTerms.lender))
             }
             //val stx = sendAndReceive<SignedTransaction>(counterParty, ptx).unwrap {
-            val stx = flowSession.sendAndReceive<SignedTransaction>(ptx).unwrap { it }
-            subFlow(ResolveTransactionsFlow(stx, flowSession))
+            //val stx = flowSession.sendAndReceive<SignedTransaction>(ptx).unwrap { it }
+            flowSession.send(ptx)
+            val stx = subFlow(ReceiveTransactionFlow(flowSession))
+            //subFlow(ResolveTransactionsFlow(stx, flowSession))
 
             //Sign and finalize this transaction.
             val unnotarisedTX = serviceHub.addSignature(stx, serviceHub.myInfo.legalIdentities.first().owningKey)
@@ -117,7 +119,8 @@ object LoanIssuanceFlow {
             println("Collateral amount of ${collateralQuantity}")
             val stx = serviceHub.signInitialTransaction(ptx, serviceHub.myInfo.legalIdentities.first().owningKey)
             //subFlow(ResolveTransactionsFlow(stx, counterParty))
-            counterPartySession.send(stx)
+            //counterPartySession.send(stx)
+            subFlow(SendTransactionFlow(counterPartySession, stx))
             //Wait until this txn is commited to the ledger - note this function suspends this flow till this happens.
             return waitForLedgerCommit(stx.id)
             //For implementation with CollectSignaturesFlow see old commit: #1f680fb

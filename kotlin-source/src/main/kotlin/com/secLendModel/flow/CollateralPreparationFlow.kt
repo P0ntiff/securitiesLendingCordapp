@@ -46,7 +46,7 @@ class CollateralPreparationFlow(val builder : TransactionBuilder,
     private fun prepareTransaction(tx: TransactionBuilder,
                                    collateralType: String,
                                    totalValue: Long,
-                                   to: AbstractParty) : TransactionBuilder {
+                                   to: Party) : TransactionBuilder {
 
         //Check that the collateral type is valid
         if (collateralType != SecurityLoan.collateralType.cash && !SecurityLoan.collateralType.securities.contains(collateralType)) {
@@ -62,7 +62,7 @@ class CollateralPreparationFlow(val builder : TransactionBuilder,
 //                    AnonymousParty(to.owningKey)).first
             Cash.generateSpend(serviceHub, tx,
                     Amount((totalValue).toLong(), CURRENCY),
-                    AnonymousParty(to.owningKey))
+                    to)
             newTx = tx
         }
         else {

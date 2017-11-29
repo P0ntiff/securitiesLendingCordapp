@@ -85,7 +85,7 @@ class SecuritiesPreparationFlow(val builder : TransactionBuilder,
             tx.addOutputState(state)
         }
         val keysList = keysUsed.toList()
-        tx.addCommand(SecurityClaim().generateMoveCommand(), keysList)
+        tx.addCommand(SecurityClaim().generateMoveCommand(), keysList) //changed from keys list as previous owners dont need to sign)
         return Pair(tx, keysList)
 
     }
