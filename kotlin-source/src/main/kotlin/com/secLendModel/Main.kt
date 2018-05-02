@@ -205,31 +205,31 @@ class Simulation(options : String?) {
         //Test stock borrows and stock loans
         parties.forEach {
             //Loan out stock to a random counter party, where they initiate the deal
-            //val id = loanSecurities(it.second, true)
+//            val id = loanSecurities(it.second, true)
             //Loan out stock to a random counter party, where we initiate the deal
-            //val id2 = loanSecurities(it.second, false)
+//            val id2 = loanSecurities(it.second, false)
             //Borrow stock from a random counter party, where we initiate the deal
-            //val id3 = borrowSecurities(it.second, true)
+//            val id3 = borrowSecurities(it.second, true)
             //Borrow stock from a random counter party, where they initiate the deal
-            //val id4 = borrowSecurities(it.second, false)
+//            val id4 = borrowSecurities(it.second, false)
 
         }
         //TEST SYN INTRGRATION - > Generates a random loan on the ledger and outputs an example.dat file to be loaded into Syn
-        val synID = synIntegrationTest(parties[0].second, true)
-        synIntegrationExit(parties[0].second,synID, 100)
+//        val synID = synIntegrationTest(parties[0].second, true)
+//        synIntegrationExit(parties[0].second,synID, 100)
         //Test Loan with cash collateral
         //Loan CBA to demonstrate loan netting
-        //val id5 = LoanSecuritySpecific(parties[0].second, true, parties[1].second, "Cash", "CBA")
-        //val id6 = LoanSecuritySpecific(parties[1].second, true, parties[0].second, "Cash", "CBA")
+        val id5 = LoanSecuritySpecific(parties[0].second, true, parties[1].second, "Cash", "CBA")
+        val id6 = LoanSecuritySpecific(parties[1].second, true, parties[0].second, "Cash", "CBA")
         //Loan RIO to demonstrate update
-        //val id7 = LoanSecuritySpecific(parties[1].second, true, parties[0].second, "Cash", "RIO")
+        val id7 = LoanSecuritySpecific(parties[1].second, true, parties[0].second, "Cash", "RIO")
         //Loan NAB to demonstrate partial terminate and terminate
-        //val id8 = LoanSecuritySpecific(parties[1].second, true, parties[0].second, "Cash", "NAB")
+        val id8 = LoanSecuritySpecific(parties[1].second, true, parties[0].second, "Cash", "NAB")
 
         //Loans with GBT as collateral
         //Loan CBA to demonstrate loan netting
-        //val id9 = LoanSecuritySpecific(parties[0].second, true, parties[1].second, "GBT", "CBA")
-        //val id10 = LoanSecuritySpecific(parties[1].second, true, parties[0].second, "GBT", "CBA")
+        val id9 = LoanSecuritySpecific(parties[0].second, true, parties[1].second, "GBT", "CBA")
+        val id10 = LoanSecuritySpecific(parties[1].second, true, parties[0].second, "GBT", "CBA")
         //Loan RIO to demonstrate update
         //val id11 = LoanSecuritySpecific(parties[1].second, true, parties[0].second, "GBT", "RIO")
         //Loan NAB to demonstrate partial terminate and terminate
