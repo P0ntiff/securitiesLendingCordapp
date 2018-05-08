@@ -60,7 +60,7 @@ object LoanNetFlow {
                 val updatedLoan = subFlow(LoanRetrievalFlow(updatedLoanID))
                 builder.addInputState(updatedLoan)
                 securityLoans.add(updatedLoan)
-                println("Secloan added for net ${updatedLoan.state.data.code} ${updatedLoan.state.data.quantity} price ${updatedLoan.state.data.currentStockPrice}")
+                println("Secloan added for net ${updatedLoan.state.data.code} ${updatedLoan.state.data.quantity} price ${updatedLoan.state.data.currentStockPrice} margin ${updatedLoan.state.data.terms.margin}")
             }
 
             //STEP3: Calculate the output state (i.e the netted loan)
@@ -96,12 +96,14 @@ object LoanNetFlow {
                     (it.state.data.quantity * it.state.data.stockPrice.quantity * it.state.data.terms.margin).toLong()
                 }
             }
+            securityLoans.forEach { println("Shares ${it.state.data.quantity} Price ${it.state.data.stockPrice.quantity} Margin ${it.state.data.terms.margin}") }
             var cashNetSum = 0.00
-            cashNet.forEach { cashNetSum += it }
+            cashNet.forEach { cashNetSum += it
+                println("Sum $it")}
             println("Cash net sum was ${cashNetSum.toLong()}")
             val ptx: TransactionBuilder
             //Calculate the total output cash amount -> cash net sum is the extra collateral owed on the original value
-            val totalOutputCash = cashNetSum.toLong() - (outputState.stockPrice.quantity * outputState.quantity * outputState.terms.margin).toLong()
+            val totalOutputCash = cashNetSum.toLong() + (outputState.stockPrice.quantity * outputState.quantity * outputState.terms.margin).toLong()
 
             //If cash net sum is negative, the borrower owed more collateral then the lender owed.
             if (serviceHub.myInfo.legalIdentity == outputBorrower) {
@@ -113,7 +115,7 @@ object LoanNetFlow {
 //                } else {
 //                    ptx = builder
 //                }
-                if (totalOutputCash < 0.toLong()) {
+                if (totalOutputCash > 0.toLong()) {
                     //Add the total value needed (borrower is paying this)
                     ptx = subFlow(CollateralPreparationFlow(builder, collateralType,
                             Math.abs(totalOutputCash), outputState.lender))
@@ -123,7 +125,7 @@ object LoanNetFlow {
             //We are lender, if cashNetSum > 0 we need to add some cash input
             } else if (serviceHub.myInfo.legalIdentity == outputLender) {
                 //Add collateral as the lender
-                if (totalOutputCash > 0.toLong()) {
+                if (totalOutputCash < 0.toLong()) {
                     ptx = subFlow(CollateralPreparationFlow(builder, collateralType,
                             Math.abs(totalOutputCash), outputState.borrower))
                 } else {
@@ -173,7 +175,7 @@ object LoanNetFlow {
                 //If we are borrower, add the required collateral
                 if (serviceHub.myInfo.legalIdentity == outputBorrower) {
                     //Add collateral as borrower if required
-                    if (it.second < 0.toLong()) {
+                    if (it.second > 0.toLong()) {
 //                        subFlow(CollateralPreparationFlow(it.first, outputState.terms.collateralType,
 //                                Math.abs(it.second).toLong()  - (outputState.stockPrice.quantity * outputState.quantity * outputState.terms.margin).toLong()
 //                                , outputState.lender))
@@ -184,7 +186,7 @@ object LoanNetFlow {
                     }
                 } else if (serviceHub.myInfo.legalIdentity == outputLender) {
                     //Add collateral as lender if requirec
-                    if (it.second > 0.toLong()) {
+                    if (it.second < 0.toLong()) {
 //                        subFlow(CollateralPreparationFlow(it.first, outputState.terms.collateralType,
 //                                Math.abs(it.second).toLong()  - (outputState.stockPrice.quantity * outputState.quantity * outputState.terms.margin).toLong()
 //                                , outputState.borrower))
