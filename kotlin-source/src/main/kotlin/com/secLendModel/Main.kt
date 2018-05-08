@@ -206,11 +206,11 @@ class Simulation(options : String?) {
         parties.forEach {
             //Loan out stock to a random counter party, where they initiate the deal
 //            val id = loanSecurities(it.second, true)
-            //Loan out stock to a random counter party, where we initiate the deal
+//            //Loan out stock to a random counter party, where we initiate the deal
 //            val id2 = loanSecurities(it.second, false)
-            //Borrow stock from a random counter party, where we initiate the deal
+//            //Borrow stock from a random counter party, where we initiate the deal
 //            val id3 = borrowSecurities(it.second, true)
-            //Borrow stock from a random counter party, where they initiate the deal
+//            //Borrow stock from a random counter party, where they initiate the deal
 //            val id4 = borrowSecurities(it.second, false)
 
         }
@@ -244,8 +244,8 @@ class Simulation(options : String?) {
         val bClient = barryNode.rpcClientToNode()
         val bRPC = bClient.start(stdUser.username, stdUser.password).proxy
 
-        //val cClient = colinNode.rpcClientToNode()
-        //val cRPC = cClient.start(stdUser.username, stdUser.password).proxy
+        val cClient = colinNode.rpcClientToNode()
+        val cRPC = cClient.start(stdUser.username, stdUser.password).proxy
 
         val eClient = exchangeNode.rpcClientToNode()
         val eRPC = eClient.start(specialUser.username, specialUser.password).proxy
@@ -255,8 +255,8 @@ class Simulation(options : String?) {
 
         parties.addAll(listOf(
                 aRPC.nodeIdentity().legalIdentity to aRPC,
-                bRPC.nodeIdentity().legalIdentity to bRPC)
-                //cRPC.nodeIdentity().legalIdentity to cRPC)
+                bRPC.nodeIdentity().legalIdentity to bRPC,
+                cRPC.nodeIdentity().legalIdentity to cRPC)
         )
         stockMarkets.add((eRPC.nodeIdentity().legalIdentity to eRPC))
         cashIssuers.add((cbRPC.nodeIdentity().legalIdentity to cbRPC))
